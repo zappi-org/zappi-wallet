@@ -25,7 +25,6 @@ import type {
   ValidatedLnurlPay,
   ValidatedCashuRequest,
   ValidatedMyWallet,
-  ValidatedNostrDirect,
 } from '@/core/domain/input-types'
 import { useRouting, PaymentRoute, ROUTE_LABELS } from '@/ui/hooks/use-routing'
 import type { RouteSelection, RouteContext, RouteExecutionResult } from '@/core/domain/routing'
@@ -42,8 +41,6 @@ function getAddressOrInvoice(data: SendableValidatedData): string | undefined {
       return data.address
     case 'lnurl-pay':
       return data.lnurl
-    case 'nostr-direct':
-      return data.address
     default:
       return undefined
   }
@@ -87,7 +84,6 @@ export type SendableValidatedData =
   | ValidatedLnurlPay
   | ValidatedCashuRequest
   | ValidatedMyWallet
-  | ValidatedNostrDirect
 
 export interface SendFlowState {
   step: SendStep
@@ -240,7 +236,7 @@ export function SendFlow({
 
   const isSendableData = (data?: ValidatedData): data is SendableValidatedData => {
     if (!data) return false
-    return ['bolt11', 'email-address', 'lnurl-pay', 'cashu-request', 'my-wallet', 'nostr-direct'].includes(data.type)
+    return ['bolt11', 'email-address', 'lnurl-pay', 'cashu-request', 'my-wallet'].includes(data.type)
   }
 
   // Skip destination when validated data is already provided (from address book / scanner).

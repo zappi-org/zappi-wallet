@@ -5,6 +5,7 @@ import { createPreUnlockServices } from '@/composition/pre-unlock'
 import { wipeAccountData } from '@/composition/logout'
 import { LIMITS } from '@/core/constants'
 import { sat, toNumber } from '@/core/domain/amount'
+import { resolveSendRoute, resolveCashuRoute, SEND_ROUTE_ERROR_I18N } from '@/core/domain/send-route-resolution'
 import { InsufficientBalanceError } from '@/core/errors/payment.errors'
 import { ServiceProvider } from '@/ui/hooks/service-context'
 import { useAppNavigation } from '@/ui/hooks/use-app-navigation'
@@ -287,32 +288,28 @@ export default function MainApp() {
         selectedMintUrl: defaultMint,
       })
 
-      if (resolution.status === 'ready') {
-        setActiveMintUrl(resolution.selectedMintUrl)
-        setValidatedScanData(resolution.validatedData)
-        setScannedAmount(0)
-        setContactInfo({ address: '', displayName: formatNpubShort(raw) })
-        setPreviousScreen(currentScreen)
-        setCurrentScreen('send')
-        return
-      }
+      const decision = resolveCashuRoute(resolution)
 
-      if (resolution.status === 'needs-mint-selection') {
-        setNpubMintSelection({
-          validatedData: resolution.validatedData,
-          rawAddress: raw,
-          commonMintUrls: resolution.commonMintUrls,
-        })
-        return
+      switch (decision.kind) {
+        case 'advance':
+          setActiveMintUrl(decision.mintUrl ?? null)
+          setValidatedScanData(decision.data)
+          setScannedAmount(0)
+          setContactInfo({ address: '', displayName: formatNpubShort(raw) })
+          setPreviousScreen(currentScreen)
+          setCurrentScreen('send')
+          return
+        case 'needs-mint-selection':
+          setNpubMintSelection({
+            validatedData: decision.data,
+            rawAddress: raw,
+            commonMintUrls: decision.commonMintUrls,
+          })
+          return
+        case 'error':
+          addToast({ type: 'error', message: t(SEND_ROUTE_ERROR_I18N[decision.error]), duration: 3000 })
+          return
       }
-
-      const message = resolution.status === 'no-common-mint'
-        ? t('send.destination.noCommonMint')
-        : resolution.status === 'no-relay'
-          ? t('send.destination.relayNotFound')
-          : t('send.destination.ecashInfoNotFound')
-      addToast({ type: 'error', message, duration: 3000 })
-      return
     }
 
     const detectedType = inputParser.detectAndClassify(raw)
@@ -339,32 +336,30 @@ export default function MainApp() {
         selectedMintUrl: defaultMint,
       })
 
-      if (resolution.status === 'ready') {
-        setActiveMintUrl(resolution.selectedMintUrl)
-        setValidatedScanData(resolution.validatedData)
-        setScannedAmount(0)
-        setContactInfo({ address: '', displayName: validated.address })
-        setPreviousScreen(currentScreen)
-        setCurrentScreen('send')
-        return
-      }
+      const decision = resolveSendRoute(validated, resolution)
 
-      if (resolution.status === 'needs-mint-selection') {
-        setNpubMintSelection({
-          validatedData: resolution.validatedData,
-          rawAddress: validated.address,
-          commonMintUrls: resolution.commonMintUrls,
-        })
-        return
+      switch (decision.kind) {
+        case 'advance':
+          setActiveMintUrl(decision.mintUrl ?? null)
+          setValidatedScanData(decision.data)
+          setScannedAmount(0)
+          setContactInfo({ address: '', displayName: validated.address })
+          setPreviousScreen(currentScreen)
+          setCurrentScreen('send')
+          return
+        case 'needs-mint-selection':
+          setNpubMintSelection({
+            validatedData: decision.data,
+            rawAddress: validated.address,
+            commonMintUrls: decision.commonMintUrls,
+          })
+          return
+        case 'lnurl-fallback':
+          break
+        case 'error':
+          addToast({ type: 'error', message: t(SEND_ROUTE_ERROR_I18N[decision.error]), duration: 3000 })
+          return
       }
-
-      const message = resolution.status === 'no-common-mint'
-        ? t('send.destination.noCommonMint')
-        : resolution.status === 'no-relay'
-          ? t('send.destination.relayNotFound')
-          : t('send.destination.ecashInfoNotFound')
-      addToast({ type: 'error', message, duration: 3000 })
-      return
     }
 
     // Route via the existing input router — handles sendable + non-sendable
