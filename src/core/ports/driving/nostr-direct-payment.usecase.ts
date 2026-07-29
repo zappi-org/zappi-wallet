@@ -1,20 +1,7 @@
-import type { ValidatedCashuRequest } from '@/core/domain/input-types'
+import type { DirectPaymentResolution } from '@/core/domain/send-route-resolution'
+import type { DirectTokenInfo } from './address-resolver.usecase'
 
-export type NostrDirectPaymentResolution =
-  | {
-      status: 'ready'
-      validatedData: ValidatedCashuRequest
-      commonMintUrls: string[]
-      selectedMintUrl: string
-    }
-  | {
-      status: 'needs-mint-selection'
-      validatedData: ValidatedCashuRequest
-      commonMintUrls: string[]
-    }
-  | { status: 'no-info' }
-  | { status: 'no-common-mint' }
-  | { status: 'no-relay' }
+export type NostrDirectPaymentResolution = DirectPaymentResolution
 
 export interface NostrDirectPaymentUseCase {
   resolve(params: {
@@ -22,4 +9,12 @@ export interface NostrDirectPaymentUseCase {
     ownMintUrls: string[]
     selectedMintUrl?: string | null
   }): Promise<NostrDirectPaymentResolution>
+
+  resolveWithInfo(params: {
+    address: string
+    pubkey: string
+    directToken: DirectTokenInfo
+    ownMintUrls: string[]
+    selectedMintUrl?: string | null
+  }): NostrDirectPaymentResolution
 }

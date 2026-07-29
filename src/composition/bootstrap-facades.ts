@@ -119,7 +119,7 @@ export function assembleFacadeServices(deps: {
   const cryptoGateway = new CryptoGatewayAdapter();
   const crypto = new CryptoService(cryptoGateway);
 
-  const inputParser = new InputParserService(tokenCodec, lnurlAdapter);
+  const inputParser = new InputParserService(tokenCodec, lnurlAdapter, addressResolver);
 
   const feeEstimator = new CashuFeeEstimatorAdapter(cashuBackend);
   const routing = new RoutingService(feeEstimator);

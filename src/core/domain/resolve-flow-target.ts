@@ -8,7 +8,7 @@ export function resolveFlowTarget(inputType: string): FlowTarget {
     case 'bolt11':
     case 'cashu-request':
     case 'lnurl-pay':
-    case 'lightning-address':
+    case 'email-address':
     default:
       return 'send'
   }

@@ -14,8 +14,8 @@ describe('resolveFlowTarget', () => {
     expect(resolveFlowTarget('lnurl-pay')).toBe('send')
   })
 
-  it('should return "send" for lightning-address', () => {
-    expect(resolveFlowTarget('lightning-address')).toBe('send')
+  it('should return "send" for email-address', () => {
+    expect(resolveFlowTarget('email-address')).toBe('send')
   })
 
   it('should return "receive" for cashu-token', () => {

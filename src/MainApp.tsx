@@ -5,6 +5,7 @@ import { createPreUnlockServices } from '@/composition/pre-unlock'
 import { wipeAccountData } from '@/composition/logout'
 import { LIMITS } from '@/core/constants'
 import { sat, toNumber } from '@/core/domain/amount'
+import { resolveSendRoute, SEND_ROUTE_ERROR_I18N } from '@/core/domain/send-route-resolution'
 import { InsufficientBalanceError } from '@/core/errors/payment.errors'
 import { ServiceProvider } from '@/ui/hooks/service-context'
 import { useAppNavigation } from '@/ui/hooks/use-app-navigation'
@@ -19,7 +20,6 @@ import { useSecurityHandlers } from '@/ui/hooks/use-security-handlers'
 import { useSupportNotifications } from '@/ui/hooks/use-support-notifications'
 import { useSwapHandlers } from '@/ui/hooks/use-swap-handlers'
 import { useTransactions } from '@/ui/hooks/use-transactions'
-import { isNostrDirectAddress } from '@/core/domain/nostr-address'
 import { setMintNameResolver, translateError } from '@/ui/utils/error-i18n'
 import { broadcastSync, notifyKdfMigrated } from '@/utils/cross-tab-sync'
 import { useAppStore } from '@/store'
@@ -80,6 +80,7 @@ import { TokenCreateFlow } from '@/ui/screens/TokenCreate/TokenCreateFlow'
 import { TokenRegisterFlow } from '@/ui/screens/TokenRegister/TokenRegisterFlow'
 import { routeValidatedInput } from '@/ui/utils/input-router'
 import { QrScannerModal } from '@/ui/components/common/QrScannerModal'
+import { HistorySheetOverlay } from '@/ui/components/common/HistorySheetOverlay'
 import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
 import { formatNpubShort } from '@/ui/screens/Send/sendDisplayHelpers'
 
@@ -185,6 +186,7 @@ export default function MainApp() {
 
   const [activeMintUrl, setActiveMintUrl] = useState<string | null>(null)
 
+  const [showHistoryOverlay, setShowHistoryOverlay] = useState(false)
   const [historyInitialMintUrls, setHistoryInitialMintUrls] = useState<string[] | undefined>(undefined)
 
   const [contactInfo, setContactInfo] = useState<{ address: string; displayName: string } | null>(null)
@@ -269,46 +271,45 @@ export default function MainApp() {
 
     const { inputParser, nostrDirectPayment } = serviceRegistry
 
+    const detected = inputParser.detectAndClassify(raw)
+
+
     // NIP-19 (npub / nprofile) — handle BEFORE the unknown check, because
     // detectAndClassify doesn't classify raw npubs (returns 'unknown').
     // Resolve via nostrDirectPayment (same flow as ContactsScreen).
-    if (isNostrDirectAddress(raw)) {
+    if (detected.type === 'nostr-direct') {
       const resolution = await nostrDirectPayment.resolve({
         address: raw,
         ownMintUrls: settings.mints,
         selectedMintUrl: defaultMint,
       })
 
-      if (resolution.status === 'ready') {
-        setActiveMintUrl(resolution.selectedMintUrl)
-        setValidatedScanData(resolution.validatedData)
-        setScannedAmount(0)
-        setContactInfo({ address: '', displayName: formatNpubShort(raw) })
-        setPreviousScreen(currentScreen)
-        setCurrentScreen('send')
-        return
-      }
+      const decision = resolveSendRoute(resolution)
 
-      if (resolution.status === 'needs-mint-selection') {
-        setNpubMintSelection({
-          validatedData: resolution.validatedData,
-          rawAddress: raw,
-          commonMintUrls: resolution.commonMintUrls,
-        })
-        return
+      switch (decision.kind) {
+        case 'advance':
+          setActiveMintUrl(decision.mintUrl ?? null)
+          setValidatedScanData(decision.data)
+          setScannedAmount(0)
+          setContactInfo({ address: '', displayName: formatNpubShort(raw) })
+          setPreviousScreen(currentScreen)
+          setCurrentScreen('send')
+          return
+        case 'needs-mint-selection':
+          setNpubMintSelection({
+            validatedData: decision.data,
+            rawAddress: raw,
+            commonMintUrls: decision.commonMintUrls,
+          })
+          return
+        case 'error':
+          addToast({ type: 'error', message: t(SEND_ROUTE_ERROR_I18N[decision.error]), duration: 3000 })
+          return
       }
-
-      const message = resolution.status === 'no-common-mint'
-        ? t('send.destination.noCommonMint')
-        : resolution.status === 'no-relay'
-          ? t('send.destination.relayNotFound')
-          : t('send.destination.ecashInfoNotFound')
-      addToast({ type: 'error', message, duration: 3000 })
-      return
     }
 
-    const detected = inputParser.detectAndClassify(raw)
-    if (detected.type === 'unknown') {
+    const detectedType = inputParser.detectAndClassify(raw)
+    if (detectedType.type === 'unknown') {
       addToast({ type: 'error', message: t('scanner.unrecognizedFormat'), duration: 3000 })
       return
     }
@@ -320,6 +321,41 @@ export default function MainApp() {
     } catch {
       addToast({ type: 'error', message: t('scanner.unrecognizedFormat'), duration: 3000 })
       return
+    }
+
+    if (validated.type === 'email-address' && validated.nutzapInfo) {
+      const resolution = nostrDirectPayment.resolveWithInfo({
+        address: validated.address,
+        pubkey: validated.nutzapInfo.pubkey,
+        directToken: validated.nutzapInfo,
+        ownMintUrls: settings.mints,
+        selectedMintUrl: defaultMint,
+      })
+
+      const decision = resolveSendRoute(resolution, validated)
+
+      switch (decision.kind) {
+        case 'advance':
+          setActiveMintUrl(decision.mintUrl ?? null)
+          setValidatedScanData(decision.data)
+          setScannedAmount(0)
+          setContactInfo({ address: '', displayName: validated.address })
+          setPreviousScreen(currentScreen)
+          setCurrentScreen('send')
+          return
+        case 'needs-mint-selection':
+          setNpubMintSelection({
+            validatedData: decision.data,
+            rawAddress: validated.address,
+            commonMintUrls: decision.commonMintUrls,
+          })
+          return
+        case 'lnurl-fallback':
+          break
+        case 'error':
+          addToast({ type: 'error', message: t(SEND_ROUTE_ERROR_I18N[decision.error]), duration: 3000 })
+          return
+      }
     }
 
     // Route via the existing input router — handles sendable + non-sendable
@@ -808,7 +844,7 @@ export default function MainApp() {
       <HomeScreen
         onTransactions={(mintUrl?: string) => {
           setHistoryInitialMintUrls(mintUrl ? [mintUrl] : undefined)
-          setCurrentScreen('history')
+          setShowHistoryOverlay(true)
         }}
         onNotifications={() => setCurrentScreen('notifications')}
         onAddMint={() => setCurrentScreen('add-mint')}
@@ -1310,36 +1346,46 @@ export default function MainApp() {
           </PageTransition>
         </AnimatePresence>
 
+        {/* History overlay — bottom-sheet style with backdrop */}
+        <HistorySheetOverlay
+          open={showHistoryOverlay}
+          onClose={() => setShowHistoryOverlay(false)}
+          transactions={transactions}
+          initialMintUrls={historyInitialMintUrls}
+        />
+
       </div>
 
       {/* Bottom Navigation — MainTabToolbar / TokenTabToolbar swap */}
-      <AnimatePresence mode="wait" initial={false}>
-        {isTabScreen && activeTab !== 'token' && (
-          <MainTabToolbar
-            key="main-tab-toolbar"
-            navItems={navItems}
-            activeTab={activeTab}
-            onTabSelect={handleTabSelect}
-          />
-        )}
-        {isTabScreen && activeTab === 'token' && (
-          <TokenTabToolbar
-            key="token-tab-toolbar"
-            navItems={navItems}
-            activeTab={activeTab}
-            scrollRef={tokenScrollRef}
-            onTabSelect={handleTabSelect}
-            onCreate={() => {
-              setPreviousScreen('token')
-              setCurrentScreen('token-create')
-            }}
-            onRegister={() => {
-              setPreviousScreen('token')
-              setCurrentScreen('token-register')
-            }}
-          />
-        )}
-      </AnimatePresence>
+      {!showHistoryOverlay && (
+        <AnimatePresence mode="wait" initial={false}>
+          {isTabScreen && activeTab !== 'token' && (
+            <MainTabToolbar
+              key="main-tab-toolbar"
+              navItems={navItems}
+              activeTab={activeTab}
+              onTabSelect={handleTabSelect}
+            />
+          )}
+          {isTabScreen && activeTab === 'token' && (
+            <TokenTabToolbar
+              key="token-tab-toolbar"
+              navItems={navItems}
+              activeTab={activeTab}
+              scrollRef={tokenScrollRef}
+              onTabSelect={handleTabSelect}
+              onCreate={() => {
+                setPreviousScreen('token')
+                setCurrentScreen('token-create')
+              }}
+              onRegister={() => {
+                setPreviousScreen('token')
+                setCurrentScreen('token-register')
+              }}
+            />
+          )}
+        </AnimatePresence>
+      )}
 
       {/* Home camera shortcut — top-right scan */}
       <QrScannerModal
