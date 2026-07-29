@@ -23,7 +23,7 @@ import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomS
 import { PaymentReceipt, type PaymentReceiptRow } from '@/ui/components/payment/PaymentReceipt'
 import sendSuccessImg from '@/assets/send-success.png'
 import { MemoSheet } from '../MemoSheet'
-import { getMintBalance } from '@/utils/url'
+import { getMintBalance, isSameMintUrl } from '@/utils/url'
 import {
   confirmAmountSizeClass,
   findContactName,
@@ -37,6 +37,7 @@ import {
 } from '../sendDisplayHelpers'
 import { useContacts } from '@/ui/hooks/use-contacts'
 import type { SendableValidatedData } from '../SendFlow'
+import type { MintInfo } from '@/core/types'
 import type { PaymentRoute } from '@/core/ports/driving/routing.usecase'
 import { SEND_RECIPIENT_LAYOUT_ID, recipientMorphTransition } from '../sendMorph'
 import { fadeTransition } from '@/ui/utils/motion'
@@ -178,6 +179,18 @@ export function SendAmountStep({
       setSendBusy(false)
     }
   }
+
+  // A my-wallet transfer's own destination can never be its source: the route is
+  // a Lightning round trip, so picking it would pay a real fee to move nothing.
+  // The sheet stays generic — the exclusion is composed here, by the caller that
+  // knows the target, and compared canonically so a notation variant is caught.
+  const transferTargetMintUrl = validatedData?.type === 'my-wallet' ? validatedData.targetMintUrl : null
+  const sourceMintFilter = useCallback(
+    (mint: MintInfo) =>
+      (mint.balance ?? 0) > 0 &&
+      !(transferTargetMintUrl && isSameMintUrl(mint.url, transferTargetMintUrl)),
+    [transferTargetMintUrl],
+  )
 
   // Amount is fixed when bolt11 or cashu-request carries an amount → hide keypad.
   const isAmountFixed =
@@ -657,7 +670,7 @@ export function SendAmountStep({
             setMintSheetOpen(false)
           }}
           selectedMintUrl={mintUrl}
-          filterFn={(m) => (m.balance ?? 0) > 0}
+          filterFn={sourceMintFilter}
         />
       )}
 

@@ -350,11 +350,19 @@ export function useSendInputValidation({
 
 
     if (inputType === 'unknown') {
-      // Check if input looks like a Cashu token but failed to parse
-      if (trimmed.startsWith('cashuA') || trimmed.startsWith('cashuB')) {
-        console.error('[SendInputStep] Invalid Cashu token format:', trimmed.slice(0, 50))
-        addToast({ type: 'error', message: t('send.destination.invalidCashuToken'), duration: 3000 })
-      }
+      // A replacement that fails must not leave the previous recipient armed —
+      // paste/scan call this bare, so returning before the reset would keep the
+      // old destination validated and sendable behind the new text.
+      applyDestinationState({
+        destination: initialDestination,
+        rawAddress: hasInitialDisplayName ? trimmed : null,
+        validatedData: null,
+        detectedTypes: [],
+      })
+      // The unrecognized / invalid-token voice stays with the debounce detector:
+      // paste and scan leave rawAddress null, so it re-runs on the new text and
+      // says it once. The callers that suppress the detector (contact row, deep
+      // link, submit) report `false` themselves.
       return false
     }
 
@@ -555,7 +563,7 @@ export function useSendInputValidation({
       return 'auto-advanced'
     }
     return true
-  }, [onNext, inputParser, onRouteValidated, applyDestinationState, onRequestMintSelection, addToast, settings.mints, mintUrl, nostrDirectPayment, getDisplayName, t, findContactDisplayName])
+  }, [onNext, inputParser, onRouteValidated, applyDestinationState, onRequestMintSelection, settings.mints, mintUrl, nostrDirectPayment, getDisplayName, t, findContactDisplayName])
 
   // Validating state for loading indicator on next button
   const [isValidating, setIsValidating] = useState(false)

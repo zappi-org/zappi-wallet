@@ -366,7 +366,16 @@ export function SendFlow({
         })
         const { route } = routeSelection
 
-        if (route === PaymentRoute.CANNOT_SEND) {
+        // Defense in depth behind the amount step's picker: a my-wallet transfer
+        // whose source is its own target would quote and settle a real Lightning
+        // round trip that moves nothing. Only my-wallet is checked — the same-mint
+        // routes legitimately carry targetMintUrl === sourceMintUrl.
+        const isSelfTransfer =
+          validated.type === 'my-wallet' &&
+          !!routeSelection.targetMintUrl &&
+          isSameMintUrl(routeSelection.sourceMintUrl, routeSelection.targetMintUrl)
+
+        if (route === PaymentRoute.CANNOT_SEND || isSelfTransfer) {
           addToast({
             type: 'error',
             message: t('payment.cannotSend'),
