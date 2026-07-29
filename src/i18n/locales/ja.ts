@@ -79,7 +79,7 @@ export default {
     addFirstMint: '最初のミントを追加',
     recentTransactions: '取引履歴',
     noTransactions: '取引履歴がありません',
-    seeAll: 'もっと見る',
+    seeAll: '取引履歴',
   },
 
   // Action Buttons

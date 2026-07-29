@@ -79,7 +79,7 @@ export default {
     addFirstMint: 'Agrega tu primer mint',
     recentTransactions: 'Historial',
     noTransactions: 'Sin transacciones aún',
-    seeAll: 'Ver más',
+    seeAll: 'Historial',
   },
 
   // Action Buttons

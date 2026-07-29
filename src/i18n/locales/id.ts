@@ -79,7 +79,7 @@ export default {
     addFirstMint: 'Tambahkan mint pertama Anda',
     recentTransactions: 'Riwayat',
     noTransactions: 'Belum ada transaksi',
-    seeAll: 'Selengkapnya',
+    seeAll: 'Riwayat',
   },
 
   // Action Buttons
