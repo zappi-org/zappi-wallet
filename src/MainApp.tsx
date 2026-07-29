@@ -5,7 +5,7 @@ import { createPreUnlockServices } from '@/composition/pre-unlock'
 import { wipeAccountData } from '@/composition/logout'
 import { LIMITS } from '@/core/constants'
 import { sat, toNumber } from '@/core/domain/amount'
-import { resolveSendRoute, resolveCashuRoute, resolveDirectPaymentOrLookupFailure, SEND_ROUTE_ERROR_I18N } from '@/core/domain/send-route-resolution'
+import { resolveSendRoute, resolveDirectPaymentOrLookupFailure, SEND_ROUTE_ERROR_I18N } from '@/core/domain/send-route-resolution'
 import { InsufficientBalanceError } from '@/core/errors/payment.errors'
 import { ServiceProvider } from '@/ui/hooks/service-context'
 import { useAppNavigation } from '@/ui/hooks/use-app-navigation'
@@ -293,7 +293,7 @@ export default function MainApp() {
         })
       )
 
-      const decision = resolveCashuRoute(resolution)
+      const decision = resolveSendRoute(resolution)
 
       switch (decision.kind) {
         case 'advance':
@@ -341,7 +341,7 @@ export default function MainApp() {
         selectedMintUrl: defaultMint,
       })
 
-      const decision = resolveSendRoute(validated, resolution)
+      const decision = resolveSendRoute(resolution, validated)
 
       switch (decision.kind) {
         case 'advance':

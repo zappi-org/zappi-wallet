@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
   resolveSendRoute,
-  resolveCashuRoute,
   resolveDirectPaymentOrLookupFailure,
   SEND_ROUTE_ERROR_I18N,
   type DirectPaymentResolution,
@@ -115,12 +114,12 @@ describe('resolveSendRoute', () => {
   ]
 
   it.each(testCases)('$name', ({ email, resolution, expected }) => {
-    const decision = resolveSendRoute(email, resolution as DirectPaymentResolution)
+    const decision = resolveSendRoute(resolution as DirectPaymentResolution, email)
     expect(decision).toEqual(expected)
   })
 })
 
-describe('resolveCashuRoute', () => {
+describe('resolveSendRoute (cashu-only, no lnurl fallback)', () => {
   const testAddress = 'npub1shared'
 
   const ecashData: ValidatedCashuRequest = {
@@ -183,7 +182,7 @@ describe('resolveCashuRoute', () => {
   ]
 
   it.each(testCases)('$name', ({ resolution, expected }) => {
-    const decision = resolveCashuRoute(resolution as DirectPaymentResolution)
+    const decision = resolveSendRoute(resolution as DirectPaymentResolution)
     expect(decision).toEqual(expected)
   })
 })
@@ -221,7 +220,7 @@ describe('resolveDirectPaymentOrLookupFailure', () => {
     })
 
     expect(resolution).toEqual({ status: 'lookup-failed' })
-    expect(resolveCashuRoute(resolution)).toEqual({ kind: 'error', error: 'lookup-failed' })
+    expect(resolveSendRoute(resolution)).toEqual({ kind: 'error', error: 'lookup-failed' })
     // A failed lookup must not read as "this recipient has no ecash info".
     expect(SEND_ROUTE_ERROR_I18N['lookup-failed']).toBe('send.destination.lookupFailed')
   })

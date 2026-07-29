@@ -37,11 +37,6 @@ export type SendRouteDecision =
   | { kind: 'lnurl-fallback'; data: ValidatedEmailAddress }
   | { kind: 'error'; error: SendRouteError }
 
-export type SendCashuRouteDecision =
-  | { kind: 'advance'; data: ValidatedCashuRequest; mintUrl?: string; commonMintUrls: string[] }
-  | { kind: 'needs-mint-selection'; data: ValidatedCashuRequest; commonMintUrls: string[] }
-  | { kind: 'error'; error: SendRouteError }
-
 export const SEND_ROUTE_ERROR_I18N = {
   'no-common-mint': 'send.destination.noCommonMint',
   'no-relay': 'send.destination.relayNotFound',
@@ -49,14 +44,9 @@ export const SEND_ROUTE_ERROR_I18N = {
   'lookup-failed': 'send.destination.lookupFailed',
 } as const satisfies Record<SendRouteError, string>
 
-/** The failure statuses are already the error vocabulary — no re-mapping needed. */
-function toRouteError(status: 'no-info' | 'no-common-mint' | 'no-relay' | 'lookup-failed'): SendRouteError {
-  return status
-}
-
 export function resolveSendRoute(
-  emailValidated: ValidatedEmailAddress,
   resolution: DirectPaymentResolution,
+  lnurlFallback?: ValidatedEmailAddress,
 ): SendRouteDecision {
   if (resolution.status === 'ready') {
     return {
@@ -75,23 +65,14 @@ export function resolveSendRoute(
     }
   }
 
-  // Direct-token resolution failed. Fall back to LNURL if available.
-  if (emailValidated.lnurlParams) {
-    return { kind: 'lnurl-fallback', data: emailValidated }
+  if (lnurlFallback?.lnurlParams) {
+    return { kind: 'lnurl-fallback', data: lnurlFallback }
   }
 
-  return { kind: 'error', error: toRouteError(resolution.status) }
+  // Every remaining status is itself an error code — no mapping to drift.
+  return { kind: 'error', error: resolution.status }
 }
 
-/**
- * Wraps a direct-payment lookup so a rejection becomes a domain status.
- *
- * Resolving a recipient hits the network and can throw (unreachable relay,
- * malformed npub past the bare prefix check). A throw tells the user nothing
- * more than a lookup that found nothing, so it collapses to `no-info` and every
- * caller keeps speaking through SEND_ROUTE_ERROR_I18N instead of leaking an
- * unhandled rejection. Takes a thunk so a synchronous throw is caught too.
- */
 /**
  * A rejection here means the lookup never completed — an unreachable relay, a
  * malformed npub that threw on decode. Reporting that as 'no-info' blames the
@@ -109,27 +90,4 @@ export async function resolveDirectPaymentOrLookupFailure(
     console.error('[sendRoute] direct payment lookup failed:', error)
     return { status: 'lookup-failed' }
   }
-}
-
-export function resolveCashuRoute(
-  resolution: DirectPaymentResolution,
-): SendCashuRouteDecision {
-  if (resolution.status === 'ready') {
-    return {
-      kind: 'advance',
-      data: resolution.validatedData,
-      mintUrl: resolution.selectedMintUrl,
-      commonMintUrls: resolution.commonMintUrls,
-    }
-  }
-
-  if (resolution.status === 'needs-mint-selection') {
-    return {
-      kind: 'needs-mint-selection',
-      data: resolution.validatedData,
-      commonMintUrls: resolution.commonMintUrls,
-    }
-  }
-
-  return { kind: 'error', error: toRouteError(resolution.status) }
 }
