@@ -82,6 +82,25 @@ export function resolveSendRoute(
   return { kind: 'error', error }
 }
 
+/**
+ * Wraps a direct-payment lookup so a rejection becomes a domain status.
+ *
+ * Resolving a recipient hits the network and can throw (unreachable relay,
+ * malformed npub past the bare prefix check). A throw tells the user nothing
+ * more than a lookup that found nothing, so it collapses to `no-info` and every
+ * caller keeps speaking through SEND_ROUTE_ERROR_I18N instead of leaking an
+ * unhandled rejection. Takes a thunk so a synchronous throw is caught too.
+ */
+export async function resolveDirectPaymentOrNoInfo(
+  resolve: () => Promise<DirectPaymentResolution>,
+): Promise<DirectPaymentResolution> {
+  try {
+    return await resolve()
+  } catch {
+    return { status: 'no-info' }
+  }
+}
+
 export function resolveCashuRoute(
   resolution: DirectPaymentResolution,
 ): SendCashuRouteDecision {

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   resolveSendRoute,
   resolveCashuRoute,
+  resolveDirectPaymentOrNoInfo,
   SEND_ROUTE_ERROR_I18N,
   type DirectPaymentResolution,
   type SendRouteError,
@@ -184,6 +185,54 @@ describe('resolveCashuRoute', () => {
   it.each(testCases)('$name', ({ resolution, expected }) => {
     const decision = resolveCashuRoute(resolution as DirectPaymentResolution)
     expect(decision).toEqual(expected)
+  })
+})
+
+describe('resolveDirectPaymentOrNoInfo', () => {
+  const ecashData: ValidatedCashuRequest = {
+    type: 'cashu-request',
+    request: 'npub1shared',
+    parsed: {
+      id: 'req-1',
+      unit: 'sat',
+      mints: ['https://shared-mint.example.com'],
+      transports: [{ type: 'nostr', target: 'npub1shared' }],
+      hasNostrTransport: true,
+      hasPostTransport: false,
+    },
+  }
+
+  it('passes a successful resolution through untouched', async () => {
+    const resolution: DirectPaymentResolution = {
+      status: 'ready',
+      validatedData: ecashData,
+      commonMintUrls: ['https://shared-mint.example.com'],
+      selectedMintUrl: 'https://shared-mint.example.com',
+    }
+
+    await expect(resolveDirectPaymentOrNoInfo(async () => resolution)).resolves.toBe(resolution)
+  })
+
+  // Unreachable relays reject inside the resolver; without this the rejection
+  // escapes into a caller that never awaits and the user sees nothing.
+  it('turns a rejected lookup into no-info', async () => {
+    const resolution = await resolveDirectPaymentOrNoInfo(async () => {
+      throw new Error('relay unreachable')
+    })
+
+    expect(resolution).toEqual({ status: 'no-info' })
+    expect(resolveCashuRoute(resolution)).toEqual({ kind: 'error', error: 'no-info' })
+    expect(SEND_ROUTE_ERROR_I18N['no-info']).toBe('send.destination.ecashInfoNotFound')
+  })
+
+  // A prefix-valid but malformed npub throws while decoding — before any promise
+  // exists — so the thunk must be invoked inside the guard.
+  it('turns a synchronous throw into no-info', async () => {
+    const resolution = await resolveDirectPaymentOrNoInfo(() => {
+      throw new Error('invalid bech32 checksum')
+    })
+
+    expect(resolution).toEqual({ status: 'no-info' })
   })
 })
 

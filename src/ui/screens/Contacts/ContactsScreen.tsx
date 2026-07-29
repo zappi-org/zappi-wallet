@@ -9,7 +9,7 @@ import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomS
 import { ContactFormModal } from './ContactFormModal'
 import { useInputParser } from '@/ui/hooks/use-input-parser'
 import type { ValidatedData } from '@/core/domain/input-types'
-import { resolveSendRoute, resolveCashuRoute, SEND_ROUTE_ERROR_I18N } from '@/core/domain/send-route-resolution'
+import { resolveSendRoute, resolveCashuRoute, resolveDirectPaymentOrNoInfo, SEND_ROUTE_ERROR_I18N } from '@/core/domain/send-route-resolution'
 import { useAppStore } from '@/store'
 import { isSameMintUrl } from '@/utils/url'
 import { useContacts } from '@/ui/hooks/use-contacts'
@@ -89,11 +89,16 @@ export function ContactsScreen({ onSendToContact }: ContactsScreenProps) {
     setSendingId(contact.id)
     try {
       if (contact.addressType === 'npub') {
-        const resolution = await nostrDirectPayment.resolve({
-          address: contact.address,
-          ownMintUrls: settings.mints,
-          selectedMintUrl: null,
-        })
+        // No catch guards this branch, so a rejected lookup (relay down,
+        // malformed npub) would only clear the spinner and leave the tap
+        // silent — route it through the same domain error instead.
+        const resolution = await resolveDirectPaymentOrNoInfo(() =>
+          nostrDirectPayment.resolve({
+            address: contact.address,
+            ownMintUrls: settings.mints,
+            selectedMintUrl: null,
+          })
+        )
 
         const decision = resolveCashuRoute(resolution)
 
@@ -146,6 +151,13 @@ export function ContactsScreen({ onSendToContact }: ContactsScreenProps) {
               addToast({ type: 'error', message: t(SEND_ROUTE_ERROR_I18N[decision.error]), duration: 3000 })
               return
           }
+        }
+
+        // An address with neither ecash info nor LNURL pay has no usable route —
+        // fail here instead of on the send screen at an unavailable fee.
+        if (validated.type === 'email-address' && !validated.lnurlParams) {
+          addToast({ type: 'error', message: t('send.destination.validationFailed'), duration: 3000 })
+          return
         }
 
         setPendingSend({ data: validated, name: contact.name })

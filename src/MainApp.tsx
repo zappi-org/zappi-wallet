@@ -5,7 +5,7 @@ import { createPreUnlockServices } from '@/composition/pre-unlock'
 import { wipeAccountData } from '@/composition/logout'
 import { LIMITS } from '@/core/constants'
 import { sat, toNumber } from '@/core/domain/amount'
-import { resolveSendRoute, resolveCashuRoute, SEND_ROUTE_ERROR_I18N } from '@/core/domain/send-route-resolution'
+import { resolveSendRoute, resolveCashuRoute, resolveDirectPaymentOrNoInfo, SEND_ROUTE_ERROR_I18N } from '@/core/domain/send-route-resolution'
 import { InsufficientBalanceError } from '@/core/errors/payment.errors'
 import { ServiceProvider } from '@/ui/hooks/service-context'
 import { useAppNavigation } from '@/ui/hooks/use-app-navigation'
@@ -282,11 +282,16 @@ export default function MainApp() {
     // detectAndClassify doesn't classify raw npubs (returns 'unknown').
     // Resolve via nostrDirectPayment (same flow as ContactsScreen).
     if (detected.type === 'nostr-direct') {
-      const resolution = await nostrDirectPayment.resolve({
-        address: raw,
-        ownMintUrls: settings.mints,
-        selectedMintUrl: defaultMint,
-      })
+      // onScan never awaits this handler, so a rejected lookup (relay down,
+      // malformed npub) would vanish as an unhandled promise with the scanner
+      // already closed — route it through the same domain error instead.
+      const resolution = await resolveDirectPaymentOrNoInfo(() =>
+        nostrDirectPayment.resolve({
+          address: raw,
+          ownMintUrls: settings.mints,
+          selectedMintUrl: defaultMint,
+        })
+      )
 
       const decision = resolveCashuRoute(resolution)
 
@@ -360,6 +365,13 @@ export default function MainApp() {
           addToast({ type: 'error', message: t(SEND_ROUTE_ERROR_I18N[decision.error]), duration: 3000 })
           return
       }
+    }
+
+    // An address with neither ecash info nor LNURL pay has no usable route —
+    // fail here instead of on the send screen at an unavailable fee.
+    if (validated.type === 'email-address' && !validated.lnurlParams) {
+      addToast({ type: 'error', message: t('send.destination.validationFailed'), duration: 3000 })
+      return
     }
 
     // Route via the existing input router — handles sendable + non-sendable
