@@ -36,7 +36,7 @@ import { getMintFilterLabel } from '@/ui/hooks/useAvailableMints'
 import { exportTransactionsCsv } from '@/ui/utils/exportTransactions'
 import { FilterChip } from '@/ui/components/common/FilterChip'
 import { Spinner } from '@/ui/components/common/Spinner'
-import { groupTransactionsForTimeline, type TimelineGroup, type TimelineKind } from '@/ui/hooks/use-transaction-history'
+import { groupTransactionsForTimeline, type TimelineGroup } from '@/ui/hooks/use-transaction-history'
 import { HistoryTimelineRow } from './components/HistoryTimelineRow'
 
 const TransactionDetailScreen = lazy(() => import('@/ui/screens/TransactionDetail/TransactionDetailScreen'))
@@ -654,7 +654,8 @@ export function HistoryScreen({
           </motion.div>
           )
         ) : (
-          <AnimatePresence mode="wait">
+          <>
+            <AnimatePresence mode="wait">
             <motion.div
               key={`${filter}-${dateFilter.preset}-${dateFilter.range?.from?.getTime()}-${searchQuery}-${selectedMintUrls.size}`}
               initial={{ opacity: 0 }}
@@ -702,10 +703,11 @@ export function HistoryScreen({
                 )
               })}
             </motion.div>
+          </AnimatePresence>
             <p className="text-caption text-foreground-muted text-center pt-5 pb-8">
               {t('history.endOfList')}
             </p>
-          </AnimatePresence>
+          </>
         )}
           </>
         )}
