@@ -169,6 +169,46 @@ describe('useFocusTrap', () => {
     expect(screen.getByText('background')).not.toHaveAttribute('inert')
   })
 
+  /**
+   * A hidden control still matches the focusable selector. If the dialog ends in
+   * one — a file input behind a visible button — it computes as the last item, so
+   * Tab from the real last control is not wrapped and focus leaves the dialog.
+   */
+  it('wraps from the last visible control, ignoring a hidden one after it', async () => {
+    const user = userEvent.setup()
+    render(
+      <>
+        <button>background</button>
+        <Dialog open name="sheet">
+          <button>first-action</button>
+          <button>last-visible</button>
+          <input data-testid="hidden-input" style={{ display: 'none' }} />
+        </Dialog>
+      </>,
+    )
+
+    screen.getByText('last-visible').focus()
+    await user.tab()
+
+    // Without the filter the hidden input computes as last, so this never wraps.
+    expect(screen.getByText('first-action')).toHaveFocus()
+  })
+
+  it('leaves a keep-live sibling interactive while a dialog is open', () => {
+    render(
+      <>
+        <div data-focus-trap-keep-live data-testid="toasts">
+          <button>update</button>
+        </div>
+        <button>background</button>
+        <Dialog open name="sheet" />
+      </>,
+    )
+
+    expect(screen.getByText('background')).toHaveAttribute('inert')
+    expect(screen.getByTestId('toasts')).not.toHaveAttribute('inert')
+  })
+
   it('keeps the background inert while a second dialog is still open', () => {
     // Siblings, so both stay mounted and their holds genuinely overlap — the
     // real overlap comes from AnimatePresence keeping a closing sheet mounted

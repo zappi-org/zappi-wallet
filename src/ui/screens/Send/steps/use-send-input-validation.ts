@@ -345,6 +345,11 @@ export function useSendInputValidation({
   const processExternalInput = useCallback(async (input: string, displayName?: string) => {
     const trimmed = input.trim()
     if (!trimmed) return false
+    // Disarm before the first await. The contact lookup is an IndexedDB round
+    // trip, and until it returns the previous recipient is still validated —
+    // Next during that window would send to whoever the paste was replacing.
+    setValidatedData(null)
+    validatedDataRef.current = null
     const initialContactName = displayName || await findContactDisplayName(getContactLookupCandidates(trimmed))
     const initialDestination = initialContactName || trimmed
     const hasInitialDisplayName = !!initialContactName

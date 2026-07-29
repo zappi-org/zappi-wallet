@@ -86,6 +86,9 @@ export function ToastContainer({ toasts, onDismiss }: ToastContainerProps) {
 
   return (
     <div
+      // Toasts render above every sheet, so the focus trap must not inert them —
+      // an update prompt you can see but can't tap is worse than none.
+      data-focus-trap-keep-live
       className="fixed left-0 right-0 z-[110] flex flex-col items-center gap-2 pointer-events-none"
       style={{ top: 'calc(1rem + env(safe-area-inset-top, 0px))' }}
     >

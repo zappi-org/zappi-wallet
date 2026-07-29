@@ -163,6 +163,34 @@ describe('SendInputStep failed replacement', () => {
     )
   })
 
+  /**
+   * The contact lookup is an IndexedDB round trip, so the replacement is in
+   * flight for a moment before anything is reset. Until this disarm the old
+   * recipient stayed validated across that window and Next still sent to them.
+   */
+  it('disarms the previous recipient before the contact lookup resolves', async () => {
+    let releaseLookup: (() => void) | undefined
+    mockFindByAddress.mockImplementationOnce(
+      () => new Promise<null>((resolve) => { releaseLookup = () => resolve(null) }),
+    )
+
+    renderWithValidatedRecipient()
+
+    await act(async () => { pasteIntoInput('definitely-not-an-address') })
+
+    // The lookup has not resolved, so nothing has been reset yet — the old
+    // recipient must already be unsendable.
+    await act(async () => {
+      screen.getByRole('button', { name: 'send.next' }).click()
+    })
+    expect(defaultProps.onNext).not.toHaveBeenCalled()
+
+    await act(async () => {
+      releaseLookup?.()
+      await vi.runAllTimersAsync()
+    })
+  })
+
   it('an unrecognized paste is never silent — the detector names it inline', async () => {
     renderWithValidatedRecipient()
 

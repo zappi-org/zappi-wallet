@@ -26,9 +26,22 @@ const FOCUSABLE_SELECTOR = [
   '[tabindex]',
 ].join(',')
 
+/**
+ * A control hidden by CSS is still matched by the selector, and a dialog that
+ * ends in one (a `hidden` file input behind a visible button, say) would compute
+ * that as its last focusable — so Tab from the real last control never wraps and
+ * focus leaves the dialog. Ancestor-level CSS hiding is not walked; the attribute
+ * form is covered by the `[hidden]` check.
+ */
+function isRendered(element: HTMLElement): boolean {
+  const style = getComputedStyle(element)
+  return style.display !== 'none' && style.visibility !== 'hidden'
+}
+
 function focusablesWithin(container: HTMLElement): HTMLElement[] {
   return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
-    (element) => element.tabIndex >= 0 && !element.closest('[inert],[hidden]'),
+    (element) =>
+      element.tabIndex >= 0 && !element.closest('[inert],[hidden]') && isRendered(element),
   )
 }
 
@@ -115,6 +128,9 @@ function hideOutside(container: HTMLElement, keepLive: HTMLElement | null): () =
     for (const sibling of Array.from(node.parentElement.children)) {
       if (!(sibling instanceof HTMLElement)) continue
       if (sibling === node || sibling === keepLive) continue
+      // Toast hosts sit outside every dialog but must stay actionable — an
+      // update prompt rendered above the sheet is useless if it can't be tapped.
+      if (sibling.hasAttribute('data-focus-trap-keep-live')) continue
 
       holdInert(sibling)
       held.push(sibling)
