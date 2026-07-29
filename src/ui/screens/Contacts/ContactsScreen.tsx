@@ -9,6 +9,7 @@ import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomS
 import { ContactFormModal } from './ContactFormModal'
 import { useInputParser } from '@/ui/hooks/use-input-parser'
 import type { ValidatedData } from '@/core/domain/input-types'
+import { resolveSendRoute, resolveCashuRoute, SEND_ROUTE_ERROR_I18N } from '@/core/domain/send-route-resolution'
 import { useAppStore } from '@/store'
 import { isSameMintUrl } from '@/utils/url'
 import { useContacts } from '@/ui/hooks/use-contacts'
@@ -99,22 +100,21 @@ export function ContactsScreen({ onSendToContact }: ContactsScreenProps) {
           selectedMintUrl: null,
         })
 
-        if (resolution.status === 'ready' || resolution.status === 'needs-mint-selection') {
-          setPendingSend({
-            data: resolution.validatedData,
-            name: contact.name,
-            commonMintUrls: resolution.commonMintUrls,
-          })
-          return
-        }
+        const decision = resolveCashuRoute(resolution)
 
-        const message = resolution.status === 'no-common-mint'
-          ? t('send.destination.noCommonMint')
-          : resolution.status === 'no-relay'
-            ? t('send.destination.relayNotFound')
-            : t('send.destination.ecashInfoNotFound')
-        addToast({ type: 'error', message, duration: 3000 })
-        return
+        switch (decision.kind) {
+          case 'advance':
+          case 'needs-mint-selection':
+            setPendingSend({
+              data: decision.data,
+              name: contact.name,
+              commonMintUrls: decision.commonMintUrls,
+            })
+            return
+          case 'error':
+            addToast({ type: 'error', message: t(SEND_ROUTE_ERROR_I18N[decision.error]), duration: 3000 })
+            return
+        }
       }
 
       const detected = inputParser.detectAndClassify(contact.address)
@@ -134,23 +134,22 @@ export function ContactsScreen({ onSendToContact }: ContactsScreenProps) {
             selectedMintUrl: null,
           })
 
-          if (resolution.status === 'ready' || resolution.status === 'needs-mint-selection') {
-            setPendingSend({
-              data: resolution.validatedData,
-              name: contact.name,
-              commonMintUrls: resolution.commonMintUrls,
-            })
-            return
-          }
+          const decision = resolveSendRoute(validated, resolution)
 
-          if (!validated.lnurlParams) {
-            const message = resolution.status === 'no-common-mint'
-              ? t('send.destination.noCommonMint')
-              : resolution.status === 'no-relay'
-                ? t('send.destination.relayNotFound')
-                : t('send.destination.ecashInfoNotFound')
-            addToast({ type: 'error', message, duration: 3000 })
-            return
+          switch (decision.kind) {
+            case 'advance':
+            case 'needs-mint-selection':
+              setPendingSend({
+                data: decision.data,
+                name: contact.name,
+                commonMintUrls: decision.commonMintUrls,
+              })
+              return
+            case 'lnurl-fallback':
+              break
+            case 'error':
+              addToast({ type: 'error', message: t(SEND_ROUTE_ERROR_I18N[decision.error]), duration: 3000 })
+              return
           }
         }
 

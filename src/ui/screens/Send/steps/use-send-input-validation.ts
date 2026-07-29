@@ -18,7 +18,7 @@ import { useContacts } from '@/ui/hooks/use-contacts'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import type { InputType, ValidatedData } from '@/core/domain/input-types'
 import { resolveFlowTarget } from '@/core/domain/resolve-flow-target'
-import { resolveSendRoute, type DirectPaymentResolution } from '@/core/domain/send-route-resolution'
+import { resolveSendRoute, SEND_ROUTE_ERROR_I18N, type DirectPaymentResolution, type SendRouteError } from '@/core/domain/send-route-resolution'
 import type { SendableValidatedData } from '../SendFlow'
 
 const LIGHTNING_ADDRESS_RE = /^[a-z0-9_.+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i
@@ -374,12 +374,7 @@ export function useSendInputValidation({
         })
         return 'needs-mint-selection'
       }
-      const message = resolution.status === 'no-common-mint'
-        ? t('send.destination.noCommonMint')
-        : resolution.status === 'no-relay'
-          ? t('send.destination.relayNotFound')
-          : t('send.destination.ecashInfoNotFound')
-      setPreValidationError(message)
+      setPreValidationError(t(SEND_ROUTE_ERROR_I18N[resolution.status as SendRouteError]))
       return 'handled-error'
     }
 
@@ -436,16 +431,9 @@ export function useSendInputValidation({
           case 'lnurl-fallback':
             // Fall through to standard email/LNURL handling below.
             break
-          case 'error': {
-            const message =
-              decision.error === 'no-common-mint'
-                ? t('send.destination.noCommonMint')
-                : decision.error === 'no-relay'
-                  ? t('send.destination.relayNotFound')
-                  : t('send.destination.ecashInfoNotFound')
-            setPreValidationError(message)
+          case 'error':
+            setPreValidationError(t(SEND_ROUTE_ERROR_I18N[decision.error]))
             return 'handled-error'
-          }
         }
       }
 
