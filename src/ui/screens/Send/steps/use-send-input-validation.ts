@@ -352,7 +352,12 @@ export function useSendInputValidation({
     // displayed destination is what Next re-reads. The contact name, once known,
     // refines this below.
     applyDestinationState({ destination: trimmed, rawAddress: null, validatedData: null, detectedTypes: [] })
+    // Captured after our own bump, like every branch below. The contact lookup is
+    // the one await that had no guard, so a paste parked here used to resume and
+    // overwrite whatever the user selected while it was in flight.
+    const entryEpoch = selectionEpochRef.current
     const initialContactName = displayName || await findContactDisplayName(getContactLookupCandidates(trimmed))
+    if (selectionEpochRef.current !== entryEpoch) return 'stale'
     const initialDestination = initialContactName || trimmed
     const hasInitialDisplayName = !!initialContactName
 

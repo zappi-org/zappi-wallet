@@ -221,18 +221,20 @@ export function useFocusTrap(
     openerRef.current = null
   }, [])
 
-  // A dialog torn down with its screen — OS back, a route swap — never reaches
+  // A dialog that unmounts without an exit animation never reaches
   // AnimatePresence's exit callback, so focus would be left on <body>. Cleanup of
   // an empty-dep effect runs only on unmount, and a normal close has already
   // cleared the opener by then, so this cannot double-restore.
+  //
+  // StrictMode's replayed cleanup also lands here and moves focus to the opener
+  // for a frame before the re-run layout effect re-inerts it. There is nothing to
+  // branch on — the container ref reads null in both the replay and a real
+  // unmount (measured) — and StrictMode does not double-invoke in production, so
+  // the jump is a development artefact rather than something to guard against.
   useEffect(() => () => {
-    // StrictMode replays passive cleanup with the dialog still mounted; a real
-    // unmount has already detached the ref. Without this the replay pulls focus
-    // back to the opener, which the re-run layout effect then re-inerts.
-    if (containerRef.current) return
     openerRef.current?.focus()
     openerRef.current = null
-  }, [containerRef])
+  }, [])
 
   return { onEntryComplete, restoreFocus }
 }

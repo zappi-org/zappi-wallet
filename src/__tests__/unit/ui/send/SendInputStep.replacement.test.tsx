@@ -177,28 +177,75 @@ describe('SendInputStep failed replacement', () => {
    * re-reads the *displayed* destination, so the old recipient's text was
    * revalidated and advanced to once the lookup finally resolved.
    */
+  /**
+   * The contact lookup is an IndexedDB round trip, so the replacement is in
+   * flight for a moment. Clearing only the validation was not enough: Next
+   * re-reads the *displayed* destination, so the old recipient's text was
+   * revalidated and advanced to once the lookup finally resolved.
+   *
+   * Alice is deliberately classifiable here — with every input treated as
+   * unrecognised the money-losing branch is unreachable and the assertion
+   * below cannot fail.
+   */
   it('Next during a pending lookup cannot advance to the replaced recipient', async () => {
-    let releaseLookup: (() => void) | undefined
+    mockDetectAndClassify.mockImplementation((input) =>
+      input === 'alice@example.com'
+        ? { type: 'email-address', address: input }
+        : { type: 'unknown', input },
+    )
+    mockValidateAsync.mockResolvedValue(ALICE as ValidatedData)
+
+    const releases: Array<() => void> = []
     mockFindByAddress.mockImplementation(
-      () => new Promise<null>((resolve) => { releaseLookup = () => resolve(null) }),
+      () => new Promise<null>((resolve) => { releases.push(() => resolve(null)) }),
     )
 
     renderWithValidatedRecipient()
 
     await act(async () => { pasteIntoInput('definitely-not-an-address') })
 
-    // The replacement is already on screen, so Next has nothing stale to act on.
+    // The replacement is on screen, so Next has nothing stale left to re-read.
     expect(destinationInput().value).toBe('definitely-not-an-address')
 
     await act(async () => {
       screen.getByRole('button', { name: 'send.next' }).click()
     })
     await act(async () => {
-      releaseLookup?.()
+      // Every parked lookup, so no path is merely stalled.
+      releases.forEach((release) => release())
       await vi.runAllTimersAsync()
     })
 
     expect(defaultProps.onNext).not.toHaveBeenCalled()
+  })
+
+  /**
+   * The contact lookup was the one await with no epoch check, so a paste parked
+   * there resumed after a newer selection and overwrote it — the user ends up
+   * pointed at whatever they had already moved on from.
+   */
+  it('a paste that resolves late does not overwrite a newer one', async () => {
+    const releases: Array<() => void> = []
+    mockFindByAddress.mockImplementation(
+      () => new Promise<null>((resolve) => { releases.push(() => resolve(null)) }),
+    )
+
+    renderWithValidatedRecipient()
+
+    await act(async () => { pasteIntoInput('older-input') })
+    await act(async () => { pasteIntoInput('newer-input') })
+
+    // The newer one finishes first; the stale one then wakes up.
+    await act(async () => {
+      releases[1]?.()
+      await vi.runAllTimersAsync()
+    })
+    await act(async () => {
+      releases[0]?.()
+      await vi.runAllTimersAsync()
+    })
+
+    expect(destinationInput().value).toBe('newer-input')
   })
 
   it('an unrecognized paste is never silent — the detector names it inline', async () => {
