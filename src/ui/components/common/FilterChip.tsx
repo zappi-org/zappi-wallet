@@ -16,7 +16,7 @@ export function FilterChip({ icon, label, active, onClick, truncate }: FilterChi
       className={cn(
         'h-8 rounded-card flex items-center gap-1.5 px-3 font-medium transition-colors whitespace-nowrap',
         'text-caption font-medium',
-        active ? 'bg-primary/10 text-primary' : 'bg-background-card text-foreground/70',
+        active ? 'bg-primary/10 text-primary' : 'bg-[#F9F9F9] text-foreground/70',
       )}
     >
       {icon}

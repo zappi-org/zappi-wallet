@@ -29,7 +29,7 @@ function checkStorageAvailability(): boolean {
 function renderStorageBlocked() {
   const root = document.getElementById('root')!;
   root.innerHTML = `
-    <div style="min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; text-align: center; background: #F8F9FC; color: #1D1D1F; font-family: 'Outfit', system-ui, sans-serif;">
+    <div style="min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; text-align: center; background: #F8F9FC; color: #1D1D1F; font-family: 'Pretendard', system-ui, sans-serif;">
       <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
       <h1 style="font-size: 24px; font-weight: bold; margin-bottom: 8px;">Storage Unavailable</h1>
       <p style="color: #6F7076; max-width: 320px; line-height: 1.5;">

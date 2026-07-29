@@ -5,7 +5,7 @@
    ZAPPI WALLET — Design Token System
    Brand: #515AC0 (Indigo)
    Background: #F8F9FC (Cool White)
-   Typography: Outfit (primary) + Montserrat (display/amounts)
+   Typography: Pretendard (primary) + Montserrat (display/amounts)
    ============================================================ */
 
 @theme inline {
@@ -37,7 +37,7 @@
   --spacing-flow: clamp(1.75rem, 4vh, 2.75rem);
 
   /* Font Families */
-  --font-primary: 'Outfit', system-ui, -apple-system, sans-serif;
+  --font-primary: 'Pretendard', system-ui, -apple-system, sans-serif;
   --font-display: 'Montserrat', 'Outfit', system-ui, sans-serif;
 
   /* Typography Scale — registered as Tailwind text-* utilities */
