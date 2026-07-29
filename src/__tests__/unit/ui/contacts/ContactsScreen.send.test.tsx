@@ -112,7 +112,7 @@ describe('ContactsScreen send', () => {
 
     await waitFor(() =>
       expect(addToast).toHaveBeenCalledWith(
-        expect.objectContaining({ type: 'error', message: 'send.destination.ecashInfoNotFound' })
+        expect.objectContaining({ type: 'error', message: 'send.destination.lookupFailed' })
       )
     )
     expect(screen.queryByTestId('mint-select')).not.toBeInTheDocument()

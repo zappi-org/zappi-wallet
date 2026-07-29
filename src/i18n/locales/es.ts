@@ -830,6 +830,7 @@ export default {
       invalidCashuToken: 'Formato de token Cashu inválido',
       validationFailed: 'No se pudo verificar la dirección',
       ecashInfoNotFound: 'No se encontró información para recibir ecash.',
+      lookupFailed: 'No pudimos conectar con la red para consultarlo. Inténtalo de nuevo.',
       noCommonMint: 'No hay ningún mint compartido disponible para este destinatario.',
       relayNotFound: 'No se encontró información de relé para este destinatario.',
       selectedMintUnavailable: '{{mint}} no es compatible con este destinatario. Puedes enviar desde uno de los mints de abajo.',

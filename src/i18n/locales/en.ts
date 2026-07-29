@@ -826,6 +826,7 @@ export default {
       invalidCashuToken: 'Invalid Cashu token format',
       validationFailed: 'Unable to verify address',
       ecashInfoNotFound: 'Could not find ecash receiving information.',
+      lookupFailed: 'Could not reach the network to look that up. Please try again.',
       noCommonMint: 'No shared mint is available for this recipient.',
       relayNotFound: 'Could not find relay information for this recipient.',
       selectedMintUnavailable: '{{mint}} is not supported by this recipient. You can send from one of the mints below.',

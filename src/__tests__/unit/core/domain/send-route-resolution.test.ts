@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   resolveSendRoute,
   resolveCashuRoute,
-  resolveDirectPaymentOrNoInfo,
+  resolveDirectPaymentOrLookupFailure,
   SEND_ROUTE_ERROR_I18N,
   type DirectPaymentResolution,
   type SendRouteError,
@@ -188,7 +188,7 @@ describe('resolveCashuRoute', () => {
   })
 })
 
-describe('resolveDirectPaymentOrNoInfo', () => {
+describe('resolveDirectPaymentOrLookupFailure', () => {
   const ecashData: ValidatedCashuRequest = {
     type: 'cashu-request',
     request: 'npub1shared',
@@ -210,29 +210,30 @@ describe('resolveDirectPaymentOrNoInfo', () => {
       selectedMintUrl: 'https://shared-mint.example.com',
     }
 
-    await expect(resolveDirectPaymentOrNoInfo(async () => resolution)).resolves.toBe(resolution)
+    await expect(resolveDirectPaymentOrLookupFailure(async () => resolution)).resolves.toBe(resolution)
   })
 
   // Unreachable relays reject inside the resolver; without this the rejection
   // escapes into a caller that never awaits and the user sees nothing.
-  it('turns a rejected lookup into no-info', async () => {
-    const resolution = await resolveDirectPaymentOrNoInfo(async () => {
+  it('turns a rejected lookup into lookup-failed', async () => {
+    const resolution = await resolveDirectPaymentOrLookupFailure(async () => {
       throw new Error('relay unreachable')
     })
 
-    expect(resolution).toEqual({ status: 'no-info' })
-    expect(resolveCashuRoute(resolution)).toEqual({ kind: 'error', error: 'no-info' })
-    expect(SEND_ROUTE_ERROR_I18N['no-info']).toBe('send.destination.ecashInfoNotFound')
+    expect(resolution).toEqual({ status: 'lookup-failed' })
+    expect(resolveCashuRoute(resolution)).toEqual({ kind: 'error', error: 'lookup-failed' })
+    // A failed lookup must not read as "this recipient has no ecash info".
+    expect(SEND_ROUTE_ERROR_I18N['lookup-failed']).toBe('send.destination.lookupFailed')
   })
 
   // A prefix-valid but malformed npub throws while decoding — before any promise
   // exists — so the thunk must be invoked inside the guard.
-  it('turns a synchronous throw into no-info', async () => {
-    const resolution = await resolveDirectPaymentOrNoInfo(() => {
+  it('turns a synchronous throw into lookup-failed', async () => {
+    const resolution = await resolveDirectPaymentOrLookupFailure(() => {
       throw new Error('invalid bech32 checksum')
     })
 
-    expect(resolution).toEqual({ status: 'no-info' })
+    expect(resolution).toEqual({ status: 'lookup-failed' })
   })
 })
 
@@ -250,7 +251,7 @@ describe('SEND_ROUTE_ERROR_I18N', () => {
   })
 
   it('covers every SendRouteError variant', () => {
-    const allErrors: SendRouteError[] = ['no-common-mint', 'no-relay', 'no-info']
+    const allErrors: SendRouteError[] = ['no-common-mint', 'no-relay', 'no-info', 'lookup-failed']
     for (const error of allErrors) {
       expect(SEND_ROUTE_ERROR_I18N).toHaveProperty(error)
       expect(typeof SEND_ROUTE_ERROR_I18N[error]).toBe('string')

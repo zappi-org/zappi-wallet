@@ -5,7 +5,7 @@ import { createPreUnlockServices } from '@/composition/pre-unlock'
 import { wipeAccountData } from '@/composition/logout'
 import { LIMITS } from '@/core/constants'
 import { sat, toNumber } from '@/core/domain/amount'
-import { resolveSendRoute, resolveCashuRoute, resolveDirectPaymentOrNoInfo, SEND_ROUTE_ERROR_I18N } from '@/core/domain/send-route-resolution'
+import { resolveSendRoute, resolveCashuRoute, resolveDirectPaymentOrLookupFailure, SEND_ROUTE_ERROR_I18N } from '@/core/domain/send-route-resolution'
 import { InsufficientBalanceError } from '@/core/errors/payment.errors'
 import { ServiceProvider } from '@/ui/hooks/service-context'
 import { useAppNavigation } from '@/ui/hooks/use-app-navigation'
@@ -285,7 +285,7 @@ export default function MainApp() {
       // onScan never awaits this handler, so a rejected lookup (relay down,
       // malformed npub) would vanish as an unhandled promise with the scanner
       // already closed — route it through the same domain error instead.
-      const resolution = await resolveDirectPaymentOrNoInfo(() =>
+      const resolution = await resolveDirectPaymentOrLookupFailure(() =>
         nostrDirectPayment.resolve({
           address: raw,
           ownMintUrls: settings.mints,

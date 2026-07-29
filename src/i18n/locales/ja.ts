@@ -828,6 +828,7 @@ export default {
       invalidCashuToken: '無効な Cashu トークン形式です',
       validationFailed: 'アドレスを確認できません',
       ecashInfoNotFound: 'eCash受取情報が見つかりません。',
+      lookupFailed: '照会のためのネットワークに接続できませんでした。もう一度お試しください。',
       noCommonMint: '相手が受け取れる共通ミントがありません。',
       relayNotFound: '相手へ送るためのリレー情報が見つかりません。',
       selectedMintUnavailable: '{{mint}}は相手が受け取れません。下のミントから送れます。',

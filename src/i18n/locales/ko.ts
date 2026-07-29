@@ -832,6 +832,7 @@ export default {
       invalidCashuToken: '유효하지 않은 이캐시 토큰 형식입니다',
       validationFailed: '주소를 확인할 수 없습니다',
       ecashInfoNotFound: '이캐시 받기 정보를 찾을 수 없습니다.',
+      lookupFailed: '조회하려는데 네트워크에 연결하지 못했어요. 다시 시도해주세요.',
       noCommonMint: '상대가 받을 수 있는 민트가 없습니다.',
       relayNotFound: '상대에게 보낼 릴레이 정보를 찾을 수 없습니다.',
       selectedMintUnavailable: '{{mint}}은 상대가 받을 수 없습니다. 아래 민트로 보낼 수 있습니다.',

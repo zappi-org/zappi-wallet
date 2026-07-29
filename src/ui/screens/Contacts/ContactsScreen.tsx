@@ -9,7 +9,7 @@ import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomS
 import { ContactFormModal } from './ContactFormModal'
 import { useInputParser } from '@/ui/hooks/use-input-parser'
 import type { ValidatedData } from '@/core/domain/input-types'
-import { resolveSendRoute, resolveCashuRoute, resolveDirectPaymentOrNoInfo, SEND_ROUTE_ERROR_I18N } from '@/core/domain/send-route-resolution'
+import { resolveSendRoute, resolveCashuRoute, resolveDirectPaymentOrLookupFailure, SEND_ROUTE_ERROR_I18N } from '@/core/domain/send-route-resolution'
 import { useAppStore } from '@/store'
 import { isSameMintUrl } from '@/utils/url'
 import { useContacts } from '@/ui/hooks/use-contacts'
@@ -92,7 +92,7 @@ export function ContactsScreen({ onSendToContact }: ContactsScreenProps) {
         // No catch guards this branch, so a rejected lookup (relay down,
         // malformed npub) would only clear the spinner and leave the tap
         // silent — route it through the same domain error instead.
-        const resolution = await resolveDirectPaymentOrNoInfo(() =>
+        const resolution = await resolveDirectPaymentOrLookupFailure(() =>
           nostrDirectPayment.resolve({
             address: contact.address,
             ownMintUrls: settings.mints,

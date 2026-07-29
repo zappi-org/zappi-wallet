@@ -830,6 +830,7 @@ export default {
       invalidCashuToken: 'Format token Cashu tidak valid',
       validationFailed: 'Tidak dapat memverifikasi alamat',
       ecashInfoNotFound: 'Informasi penerimaan ecash tidak ditemukan.',
+      lookupFailed: 'Tidak dapat terhubung ke jaringan untuk mencarinya. Coba lagi.',
       noCommonMint: 'Tidak ada mint bersama yang tersedia untuk penerima ini.',
       relayNotFound: 'Informasi relay untuk penerima ini tidak ditemukan.',
       selectedMintUnavailable: '{{mint}} tidak didukung oleh penerima ini. Anda bisa mengirim dari salah satu mint di bawah.',

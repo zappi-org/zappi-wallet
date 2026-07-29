@@ -395,9 +395,12 @@ export function useSendInputValidation({
           ownMintUrls: settings.mints,
           selectedMintUrl: mintUrl || null,
         })
-      } catch {
+      } catch (error) {
         if (selectionEpochRef.current !== nostrEpoch) return 'stale'
-        setPreValidationError(t('send.destination.ecashInfoNotFound'))
+        // The lookup never completed, which says nothing about the recipient —
+        // telling the user "no ecash info" points them away from a retry.
+        console.error('[sendRoute] direct payment lookup failed:', error)
+        setPreValidationError(t(SEND_ROUTE_ERROR_I18N['lookup-failed']))
         setIsPreValidating(false)
         return 'handled-error'
       }
