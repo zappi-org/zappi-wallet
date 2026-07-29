@@ -12,23 +12,27 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children?: ReactNode
 }
 
+/**
+ * Weight belongs to the button's ROLE, not its size: the deciding action is
+ * semibold, everything quiet stays at the base medium. Size only sets metrics.
+ */
 const variantStyles: Record<ButtonVariant, string> = {
-  primary: 'bg-accent-primary text-white hover:bg-accent-primary/90',
+  primary: 'bg-accent-primary text-white font-semibold hover:bg-accent-primary/90',
   // Tinted, not white-on-white: this variant carries 취소 / 초기화 and has to
   // read as a button on the canvas AND inside white sheets. 6% is the tint the
   // segment rail already uses, so it is the system's own value, not a new one.
   secondary: 'bg-foreground/[0.06] text-foreground hover:bg-foreground/[0.09]',
-  destructive: 'bg-accent-danger text-white hover:bg-accent-danger/90',
+  destructive: 'bg-accent-danger text-white font-semibold hover:bg-accent-danger/90',
   ghost: 'bg-transparent text-foreground-muted hover:bg-background-card',
   outline: 'border border-input bg-background hover:bg-background-card',
-  brand: 'bg-brand text-white rounded-card shadow-lg shadow-brand/25 hover:bg-brand/90',
+  brand: 'bg-brand text-white font-semibold rounded-card shadow-lg shadow-brand/25 hover:bg-brand/90',
 }
 
 const sizeStyles: Record<ButtonSize, string> = {
-  sm: 'h-8 px-3 text-label font-medium rounded-card',
+  sm: 'h-8 px-3 text-label rounded-card',
   md: 'h-9 px-4 text-caption rounded-card',
   lg: 'h-12 px-5 text-body rounded-card',
-  xl: 'h-14 px-6 text-subtitle font-semibold rounded-card',
+  xl: 'h-14 px-6 text-subtitle rounded-card',
 }
 
 // Touch feedback styles (Section 17.3)

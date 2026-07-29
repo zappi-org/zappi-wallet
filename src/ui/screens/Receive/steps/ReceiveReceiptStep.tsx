@@ -105,7 +105,7 @@ export function ReceiveReceiptStep({ amount, mintUrl, memo, method, receivedAt, 
         className="flex gap-3 px-6 pb-app shrink-0"
       >
         {onMakeAnother && (
-          <Button variant="secondary" size="xl" onClick={() => { hapticTap(); onMakeAnother() }} className="flex-none px-6 font-medium">
+          <Button variant="secondary" size="xl" onClick={() => { hapticTap(); onMakeAnother() }} className="flex-none px-6">
             {t('receive.request.makeAnother')}
           </Button>
         )}
