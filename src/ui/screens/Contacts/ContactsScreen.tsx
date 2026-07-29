@@ -9,7 +9,7 @@ import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomS
 import { ContactFormModal } from './ContactFormModal'
 import { useInputParser } from '@/ui/hooks/use-input-parser'
 import type { ValidatedData } from '@/core/domain/input-types'
-import { resolveSendRoute, resolveCashuRoute, SEND_ROUTE_ERROR_I18N } from '@/core/domain/send-route-resolution'
+import { resolveSendRoute, SEND_ROUTE_ERROR_I18N } from '@/core/domain/send-route-resolution'
 import { useAppStore } from '@/store'
 import { isSameMintUrl } from '@/utils/url'
 import { useContacts } from '@/ui/hooks/use-contacts'
@@ -100,7 +100,7 @@ export function ContactsScreen({ onSendToContact }: ContactsScreenProps) {
           selectedMintUrl: null,
         })
 
-        const decision = resolveCashuRoute(resolution)
+        const decision = resolveSendRoute(resolution)
 
         switch (decision.kind) {
           case 'advance':
@@ -134,7 +134,7 @@ export function ContactsScreen({ onSendToContact }: ContactsScreenProps) {
             selectedMintUrl: null,
           })
 
-          const decision = resolveSendRoute(validated, resolution)
+          const decision = resolveSendRoute(resolution, validated)
 
           switch (decision.kind) {
             case 'advance':
