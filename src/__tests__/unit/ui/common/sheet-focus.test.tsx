@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { BottomSheet } from '@/ui/components/common/BottomSheet'
-import { HistorySheetOverlay } from '@/ui/components/common/HistorySheetOverlay'
+import { HistoryDrawer } from '@/ui/components/common/HistoryDrawer'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -106,18 +106,20 @@ describe('BottomSheet focus containment', () => {
   })
 })
 
-describe('HistorySheetOverlay focus containment', () => {
-  it('cycles Tab inside the overlay and leaves the background inert', async () => {
+describe('HistoryDrawer focus containment', () => {
+  it('cycles Tab inside the expanded drawer and leaves the background inert', async () => {
     const user = userEvent.setup()
     render(
       <>
         <button>background</button>
-        <HistorySheetOverlay open onClose={() => {}} transactions={[]} />
+        <HistoryDrawer expanded onExpandedChange={() => {}} peek={null} transactions={[]} />
       </>,
     )
 
     const action = await screen.findByText('history-action')
-    expect(screen.getByText('background')).toHaveAttribute('inert')
+    // The drawer portals to the body, so what goes inert is the app subtree the
+    // background sits in, not the button node itself.
+    expect(screen.getByText('background').closest('[inert]')).not.toBeNull()
 
     action.focus()
     await user.tab()

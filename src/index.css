@@ -327,7 +327,15 @@
     @apply bg-background text-foreground font-primary;
     overscroll-behavior: none;
   }
+  /* The document itself must not rubber-band: a vertical drag the app doesn't
+     consume otherwise bounces the whole standalone webview. body alone is not
+     enough — iOS applies the bounce at the document scroller. */
+  html {
+    overscroll-behavior: none;
+    touch-action: manipulation;
+  }
 }
+
 
 /* ============================================================
    Typography — font-weight & font-family are now separate.
