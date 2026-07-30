@@ -2,7 +2,7 @@
  * Default mints
  */
 export const DEFAULT_MINTS = [
-  'https://mint.lemonfizz.st',
+  'https://mint.bitcoinhanbit.org',
 ] as const
 
 /**
