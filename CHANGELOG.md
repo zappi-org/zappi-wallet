@@ -1,5 +1,44 @@
 # zappi-wallet
 
+## 0.4.0
+
+### Minor Changes
+
+- 34074e5: Refactored NutZap send-route resolution into a pure domain function, decoupling the fallback decision logic from the SendInputStep hook.
+- 6bf71e7: refactor: bottom-sheet QR scanner modal with paste/upload buttons
+- 47de82b: feat: swipe-up history bottom sheet with drag-to-dismiss plus home card refresh
+- 6bf71e7: QR surfaces now size themselves from their container instead of a fixed 65vw, with the spec quiet zone owned once by the component — a dense code fills ~77% of a phone's width rather than ~51%. Archive QRs gained protocol tabs, the animated frame counter is gone, and a request QR picks up a late-arriving lightning invoice without reopening.
+- 6bf71e7: Polish the unified send/receive surfaces: transaction rows now name the act (받음/보냄/되찾음) with the means as subtitle, amount entry leads with the number instead of the prompt, receipt titles distinguish pending from settled, and the request summary, keypad spacing and mint selector share one rhythm across both flows.
+
+### Patch Changes
+
+- 47de82b: ci: add `bun run build` step to catch TypeScript regressions in PRs
+- 38bc2eb: refactor: extract shared send route decision logic and error i18n mapping
+- 2c8c916: fix(ui): add nostr-direct to SendFlow sendable types
+- c91cc2b: refactor(input): resolve email addresses via NIP-05/NutZap with LNURL fallback
+- 3ea02e3: ix(input): centralize email NutZap resolution in InputParser.validateAsync
+- 06eec83: fix(input): eliminate duplicate LNURL call for email NutZap resolution
+- 0b5e907: refactor(input): add nostr-direct type to InputParser, unify NIP-19 classification
+- 207a4fa: refactor(nostr): classify recipient pubkey once via discriminated type, drop local relay fallback
+- 831a31e: Redesign history timeline and home card, switch primary font to Pretendard, add swap/local-transfer direction labels
+- 6bf71e7: fix(feedback): every copy and share confirms itself
+
+  Copy and share actions now share one hook that changes the pressed button and raises a toast, so they no longer rely on haptics that iOS never fires; sharing reports whether it shared, copied or was cancelled instead of guessing.
+
+- 6bf71e7: perf: keep the wallet SDK, charts and oversized art off the boot path
+
+  The eager critical path drops from ~420 KB to ~234 KB gzip by chunking React and the crypto/storage vendors away from the lazy SDK, and image weight drops from 4.6 MB to 1.1 MB by shipping the logo and card art at display size in webp.
+
+- 6bf71e7: fix(reclaim): a reclaim is recorded as a reclaim, not a receive or a claim
+
+  Reclaiming an ecash token now cancels the send operation instead of self-redeeming it, so the ledger no longer books it as a plain receive; a rolled-back active send is read as a reclaim rather than a failure; a stale settlement event can no longer relabel a claimed send; and a send whose delivery never landed rolls back instead of stranding an unclaimed token.
+
+- 6bf71e7: fix(security): validate what other parties hand us
+
+  The invoice an LNURL service returns is now checked against the amount that was requested; gift-wrapped messages must carry a verifiable sender; support attachments are narrowed to an allowlisted MIME before any blob is built and are downloaded rather than opened; and the app ships a Content-Security-Policy.
+
+- 033289f: fix(nostr): use resolved pubkey as transport target in NostrDirectPaymentService
+
 ## 0.3.0
 
 ### Minor Changes
