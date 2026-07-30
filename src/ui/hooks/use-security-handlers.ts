@@ -14,7 +14,7 @@ export interface UseSecurityHandlersDeps {
 }
 
 export interface SecurityHandlers {
-  handleAutoLock: () => void
+  handleAutoLock: () => Promise<void>
   /**
    * false = current-PIN mismatch only (INVALID_PASSWORD). Storage/crypto infra
    * failures (CHANGE_PASSWORD_FAILED, NO_WALLET) throw — the caller's catch
@@ -50,8 +50,11 @@ export function useSecurityHandlers(deps: UseSecurityHandlersDeps): SecurityHand
   // "receiving while the app is alive" is all there is, and killing the session
   // would revive a reconnect burst on every unlock. Re-evaluate immediately on
   // screen return (compensates for timers frozen during freeze).
-  const handleAutoLock = useCallback(() => {
-    security.lock()
+  const handleAutoLock = useCallback(async () => {
+    // Await the grace clear before flipping the UI to locked — reaching LockScreen
+    // must guarantee the PIN-free grace blob is already gone. A clear failure still
+    // locks (security.lock logs internally and resolves — fail toward locked).
+    await security.lock()
     setLocked(true)
   }, [security, setLocked])
 

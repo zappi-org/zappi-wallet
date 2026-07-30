@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, type ClipboardEvent } from 'react'
+import { useState, useCallback, useEffect, type ClipboardEvent } from 'react'
 import { AlertTriangle, Check, ClipboardPaste, Copy, ShieldCheck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { AnimatePresence } from 'motion/react'
@@ -12,6 +12,7 @@ import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import { cn } from '@/ui/lib/utils'
 import { Button } from '@/ui/components/common/Button'
 import { ENABLE_LIGHTNING_ADDRESS_SETTINGS } from '@/ui/config/feature-flags'
+import { useActivityStepNavigation } from '@/ui/navigation/activity-step-navigation'
 
 import { PinChangePage } from './pages/PinChangePage'
 import { usePinChange } from './usePinChange'
@@ -83,23 +84,32 @@ export function SettingsScreen({
   const p2pkPubkey = useAppStore((state) => state.p2pkPubkey)
   const registry = useServiceRegistry()
   const setBalance = useAppStore((state) => state.setBalance)
+  const { stepDepth, pushStep, popStep } = useActivityStepNavigation()
 
-  // Two-layer navigation: category (z-65) + detail (z-66)
+  // Two-layer navigation: category (z-65) + detail (z-66).
+  // Single source of truth: `pages` is the ordered sub-page stack whose length
+  // always equals the Stackflow step depth. Steps flow one way — UI actions push/
+  // pop imperatively; a browser/iOS back is reconciled by the one effect below.
   type CategoryPage = 'category-profile' | 'category-preferences' | 'category-security' | 'category-wallet'
-  const [categoryPage, setCategoryPage] = useState<CategoryPage | null>(null)
-  const [detailPage, setDetailPage] = useState<Exclude<SettingsPage, CategoryPage> | null>(null)
+  const isCategoryPage = (page: SettingsPage): page is CategoryPage => page.startsWith('category-')
+  const [pages, setPages] = useState<SettingsPage[]>([])
 
-  // Unified setter for SettingsMainList and category pages
+  // Push a sub-page and its matching step in one UI action.
   const navigateTo = useCallback((page: SettingsPage) => {
-    if (page.startsWith('category-')) {
-      setCategoryPage(page as CategoryPage)
-    } else {
-      setDetailPage(page as Exclude<SettingsPage, CategoryPage>)
-    }
-  }, [])
+    setPages((current) => [...current, page])
+    pushStep()
+  }, [pushStep])
 
-  // Derived: any sub-page is open
-  const hasSubPage = categoryPage !== null || detailPage !== null
+  // In-app back: drop the top sub-page and its step together.
+  const closeTopPage = useCallback(() => {
+    setPages((current) => current.slice(0, -1))
+    popStep()
+  }, [popStep])
+
+  // Derived views — never independent state, so they cannot drift.
+  const categoryPage = (pages.find(isCategoryPage) ?? null) as CategoryPage | null
+  const detailPage = (pages.find((page) => !isCategoryPage(page)) ?? null) as Exclude<SettingsPage, CategoryPage> | null
+  const hasSubPage = pages.length > 0
 
   // Lightning address registration
   const [isRegistering, setIsRegistering] = useState(false)
@@ -149,37 +159,14 @@ export function SettingsScreen({
     }
   }, [hasSubPage, pinChange.isOpen, onSubPageChange])
 
-  // sync history on sub-page enter/leave (handles iOS edge-swipe back)
-  const prevHasSubPageRef = useRef(false)
+  // Nested settings pages are Stackflow steps, so browser/iOS back reverses
+  // exactly one visible layer without competing window.popstate listeners.
+  // Reconcile only EXTERNAL step decreases (browser/iOS back): trim `pages` to
+  // the step depth without re-popping. In-app back already popped its own step,
+  // so `stepDepth === pages.length` here and this is a no-op.
   useEffect(() => {
-    const prev = prevHasSubPageRef.current
-    prevHasSubPageRef.current = hasSubPage
-
-    if (hasSubPage && !prev) {
-      window.history.pushState({ screen: 'settings' }, '')
-    }
-  }, [hasSubPage])
-
-  const detailPageRef = useRef(detailPage)
-  const categoryPageRef = useRef(categoryPage)
-  useEffect(() => { detailPageRef.current = detailPage }, [detailPage])
-  useEffect(() => { categoryPageRef.current = categoryPage }, [categoryPage])
-
-  useEffect(() => {
-    const handlePopState = (e: PopStateEvent) => {
-      if (detailPageRef.current !== null) {
-        e.stopImmediatePropagation()
-        setDetailPage(null)
-        return
-      }
-      if (categoryPageRef.current !== null) {
-        e.stopImmediatePropagation()
-        setCategoryPage(null)
-      }
-    }
-    window.addEventListener('popstate', handlePopState, true)
-    return () => window.removeEventListener('popstate', handlePopState, true)
-  }, [])
+    setPages((current) => (stepDepth < current.length ? current.slice(0, stepDepth) : current))
+  }, [stepDepth])
 
   // Face ID
   const [showFaceIdModal, setShowFaceIdModal] = useState(false)
@@ -504,7 +491,7 @@ export function SettingsScreen({
       case 'category-profile':
         return (
           <ProfileCategoryPage
-            onBack={() => setCategoryPage(null)}
+            onBack={closeTopPage}
             onNavigate={navigateTo}
             onRegisterLightningAddress={handleRegisterLightningAddress}
             isRegistering={isRegistering}
@@ -514,14 +501,14 @@ export function SettingsScreen({
       case 'category-preferences':
         return (
           <PreferencesCategoryPage
-            onBack={() => setCategoryPage(null)}
+            onBack={closeTopPage}
             onNavigate={navigateTo}
           />
         )
       case 'category-security':
         return (
           <SecurityCategoryPage
-            onBack={() => setCategoryPage(null)}
+            onBack={closeTopPage}
             onNavigate={navigateTo}
             onFaceIdToggle={handleFaceIdToggle}
             onOpenPinChange={pinChange.open}
@@ -530,7 +517,7 @@ export function SettingsScreen({
       case 'category-wallet':
         return (
           <WalletCategoryPage
-            onBack={() => setCategoryPage(null)}
+            onBack={closeTopPage}
             onMintManagement={onMintManagement}
             onRelayManagement={onRelayManagement}
             onOpenCurrentWalletRecovery={() => {
@@ -584,7 +571,7 @@ export function SettingsScreen({
 
   // Render detail page (z-66, on top of category)
   const renderDetailPage = () => {
-    const closeDetail = () => setDetailPage(null)
+    const closeDetail = closeTopPage
     switch (detailPage) {
       case 'language':
         return <LanguageSettingPage onBack={closeDetail} />

@@ -1,3 +1,4 @@
+import { withMintCycleLock } from '../internal/mint-cycle-lock'
 import { classifyCashuError } from '@/modules/cashu/internal/classify-error'
 import type {
   PreparedRouteMelt,
@@ -56,7 +57,8 @@ export class CashuRoutePaymentOperatorAdapter implements RoutePaymentOperator {
   }
 
   async prepareMelt(mintUrl: string, invoice: string): Promise<PreparedRouteMelt> {
-    const result = await this.run(() => this.backend.prepareMelt(mintUrl, invoice))
+    // prepare only — never hold the mint lock across execute
+    const result = await withMintCycleLock(mintUrl, () => this.run(() => this.backend.prepareMelt(mintUrl, invoice)))
     return {
       operationId: result.operationId,
       quoteId: result.quoteId,
@@ -87,7 +89,8 @@ export class CashuRoutePaymentOperatorAdapter implements RoutePaymentOperator {
     amount: number
     lockingCondition?: RouteLockingCondition
   }) {
-    const result = await this.run(() => this.backend.prepareSend(params))
+    // prepare only — never hold the mint lock across execute
+    const result = await withMintCycleLock(params.mintUrl, () => this.run(() => this.backend.prepareSend(params)))
     return {
       operationId: result.operationId,
       fee: result.fee ?? 0,

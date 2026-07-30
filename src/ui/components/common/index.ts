@@ -15,14 +15,7 @@ export {
   type BottomSheetProps,
   type BottomSheetItemProps,
 } from './BottomSheet'
-export {
-  PageTransition,
-  SuccessAnimation,
-  AnimatedPresenceWrapper,
-  type PageTransitionProps,
-  type SuccessAnimationProps,
-  type AnimatedPresenceWrapperProps,
-} from './PageTransition'
+export { PageTransition, type PageTransitionProps } from './PageTransition'
 export { QrScanner, type QrScannerProps } from './QrScanner'
 export { PinInput, type PinInputProps } from './PinInput'
 export { CountdownTimer } from './CountdownTimer'

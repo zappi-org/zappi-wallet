@@ -20,7 +20,6 @@ vi.mock('nostr-tools', () => ({
       id: 'wrap-id', kind: 1059, content: 'encrypted',
       tags: [], pubkey: 'ephemeral', sig: 'sig', created_at: 1000,
     }),
-    unwrapEvent: vi.fn().mockReturnValue({ content: 'inner-message', pubkey: 'sender-hex' }),
   },
 }))
 
@@ -46,7 +45,6 @@ import {
   encrypt,
   decrypt,
   wrapEvent,
-  unwrapEvent,
 } from '@/adapters/nostr/internal/nostr-crypto'
 
 describe('nostr-crypto', () => {
@@ -134,15 +132,6 @@ describe('nostr-crypto', () => {
     })
   })
 
-  describe('unwrapEvent', () => {
-    it('unwraps gift wrapped event', () => {
-      const event = {
-        id: 'wrap-id', pubkey: 'ephemeral', created_at: 1000,
-        kind: 1059, tags: [], content: 'encrypted', sig: 'sig',
-      }
-      const result = unwrapEvent(event, 'a'.repeat(64))
-      expect(result.content).toBe('inner-message')
-      expect(result.sender).toBe('sender-hex')
-    })
-  })
+  // unwrapEvent authenticates the sender against the seal's signature, which
+  // mocked crypto cannot express — see gift-wrap-unwrap.test.ts (real crypto).
 })

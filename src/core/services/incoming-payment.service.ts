@@ -19,7 +19,8 @@ import type { EventBus } from '@/core/events/event-bus'
 import { toNumber } from '@/core/domain/amount'
 import { BaseError } from '@/core/errors/base'
 
-type ReceiveRequestSettlement = Pick<ReceiveRequestUseCase, 'settleByPaymentRef'>
+type ReceiveRequestSettlement = Pick<ReceiveRequestUseCase, 'settleByPaymentRef'> &
+  Partial<Pick<ReceiveRequestUseCase, 'findByRequestId'>>
 
 export class IncomingPaymentService implements IncomingPaymentUseCase {
   constructor(
@@ -45,6 +46,18 @@ export class IncomingPaymentService implements IncomingPaymentUseCase {
     // Idempotency check
     if (await this.processedStore.exists(externalId)) {
       return { status: 'already_processed' }
+    }
+
+    // Transports stamp different externalIds for the same payment (eventId vs
+    // paymentRef), so the store alone can't dedup across them — the request's
+    // own fulfillment state can.
+    if (params.receiveRequestPaymentRef && this.receiveRequest?.findByRequestId) {
+      const existing = await this.receiveRequest
+        .findByRequestId(params.receiveRequestPaymentRef)
+        .catch(() => null)
+      if (existing?.fulfillmentStatus === 'fulfilled') {
+        return { status: 'already_processed' }
+      }
     }
 
     try {

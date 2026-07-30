@@ -1,13 +1,24 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ReclaimService } from '@/core/services/reclaim.service'
+import { PaymentService } from '@/core/services/payment.service'
+import { TokenReceiverAdapter } from '@/composition/token-receiver.adapter'
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
 import type { SendTokenOperator } from '@/core/ports/driven/send-token-operator.port'
 import type { PendingOperationRepository } from '@/core/ports/driven/pending-operation.repository.port'
 import type { TokenReceiver } from '@/core/ports/driven/token-receiver.port'
+import type { WalletModule } from '@/core/ports/driven/wallet-module.port'
+import type { PaymentMethodAdapter } from '@/core/ports/driven/payment-method.port'
 import type { EventBus } from '@/core/events/event-bus'
 import type { Transaction } from '@/core/domain/transaction'
 import { sat } from '@/core/domain/amount'
 import { TokenSpentByRecipientError } from '@/core/errors/reclaim'
+import { collectReclaimCompanionSendIds, isReclaimRow } from '@/ui/components/wallet/transactionHelpers'
+
+/** What a list surface renders as 되찾음, derived from the full ledger. */
+function reclaimRowsOf(all: Transaction[]): Transaction[] {
+  const companions = collectReclaimCompanionSendIds(all)
+  return all.filter((tx) => isReclaimRow(tx, companions.has(tx.id)))
+}
 
 function createMockTxRepo(): TransactionRepository {
   return {
@@ -55,6 +66,79 @@ function createMockEventBus(): EventBus {
     emit: vi.fn(),
     on: vi.fn().mockReturnValue(() => {}),
     off: vi.fn(),
+  }
+}
+
+// ─── Integration doubles (real PaymentService + in-memory repo) ───
+//
+// A vi.fn() txRepo mock returns whatever getById is told to, regardless of
+// the id it was called with — so it can't catch a requestId/txId mismatch.
+// This in-memory double is keyed by id like the real repo, so a stamp that
+// looks up the wrong id genuinely misses.
+function createInMemoryTxRepo(): TransactionRepository {
+  const store = new Map<string, Transaction>()
+  return {
+    save: async (tx) => {
+      store.set(tx.id, tx)
+    },
+    getById: async (id) => store.get(id) ?? null,
+    list: async () => Array.from(store.values()),
+    update: async (id, patch) => {
+      const existing = store.get(id)
+      if (existing) store.set(id, { ...existing, ...patch })
+    },
+    delete: async (id) => {
+      store.delete(id)
+    },
+    findAll: async () => Array.from(store.values()),
+    deleteAll: async () => {
+      store.clear()
+    },
+    deleteOlderThan: async () => {},
+  }
+}
+
+// Mirrors the real cashu-ecash adapter's redeem(): it returns its own
+// requestId (a UUID unrelated to the ledger tx id PaymentService assigns).
+function createRedeemAdapter(): PaymentMethodAdapter {
+  return {
+    id: 'cashu:ecash',
+    moduleId: 'cashu',
+    protocol: 'ecash',
+    supportedUnits: ['sat'],
+    capabilities: { canSend: true, canReceive: true, canEstimateFee: true },
+    estimateFee: vi.fn(),
+    prepareSend: vi.fn(),
+    executeSend: vi.fn(),
+    cancelPrepared: vi.fn(),
+    reclaimFailed: vi.fn(),
+    createReceiveRequest: vi.fn(),
+    canRedeem: () => true,
+    redeem: vi.fn().mockResolvedValue({
+      requestId: 'adapter-own-request-id',
+      amount: sat(1000),
+      method: 'cashu:ecash',
+      protocol: 'cashu-token',
+      completed: true,
+      accountId: 'https://mint',
+    }),
+    recoverPending: vi.fn(),
+  } as unknown as PaymentMethodAdapter
+}
+
+function createRedeemModule(adapter: PaymentMethodAdapter): WalletModule {
+  return {
+    id: 'cashu',
+    displayName: 'Cashu',
+    initialize: vi.fn(),
+    dispose: vi.fn(),
+    isEnabled: () => true,
+    send: vi.fn(),
+    recoverAccount: vi.fn(),
+    getPaymentAdapters: () => [adapter],
+    getCapabilities: () => [],
+    getBalance: vi.fn(),
+    on: vi.fn().mockReturnValue(() => {}),
   }
 }
 
@@ -177,6 +261,7 @@ describe('ReclaimService', () => {
 
       expect(result.ok).toBe(true)
       expect(sendOp.rollbackSendToken).toHaveBeenCalledWith('op1')
+      // Rollback's fee is unmeasured — no reclaimFee is persisted for it.
       expect(txRepo.update).toHaveBeenCalledWith('tx1', {
         status: 'settled',
         outcome: 'reclaimed',
@@ -196,6 +281,38 @@ describe('ReclaimService', () => {
       })
     })
 
+    it('prefers the operationId path over self-redeem for direct-transfer ecash (metadata has both)', async () => {
+      // A direct-transfer ecash send now carries BOTH operationId and token.
+      // Reclaim must cancel the send op (rollback), never self-redeem the token:
+      // self-redeem leaves the coco send op dangling and surfaces a false "claimed".
+      const tx = createUnclaimedSendTx('tx1', {
+        metadata: { operationId: 'op1', token: 'cashuAabc123' },
+      })
+      vi.mocked(txRepo.getById).mockResolvedValue(tx)
+      vi.mocked(sendOp.rollbackSendToken).mockResolvedValue(undefined)
+
+      const result = await service.reclaim('tx1')
+
+      expect(result.ok).toBe(true)
+      expect(sendOp.rollbackSendToken).toHaveBeenCalledWith('op1')
+      // The token path (self-redeem) must not run — no receive TX is created.
+      expect(tokenReceiver.receiveToken).not.toHaveBeenCalled()
+      expect(txRepo.save).not.toHaveBeenCalled()
+      // Settles as reclaimed and emits send-reclaimed, never send:claimed.
+      expect(txRepo.update).toHaveBeenCalledWith('tx1', {
+        status: 'settled',
+        outcome: 'reclaimed',
+        completedAt: expect.any(Number),
+      })
+      expect(eventBus.emit).toHaveBeenCalledWith({
+        type: 'transactions:changed',
+        payload: { reason: 'send-reclaimed', txId: 'tx1' },
+      })
+      expect(eventBus.emit).not.toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'send:claimed' }),
+      )
+    })
+
     it('should handle concurrent reclaim when rollback fails but tx is reclaimed', async () => {
       const tx = createUnclaimedSendTx('tx1', {
         metadata: { operationId: 'op1' },
@@ -209,6 +326,48 @@ describe('ReclaimService', () => {
 
       expect(result.ok).toBe(true)
       expect(sendOp.rollbackSendToken).toHaveBeenCalledWith('op1')
+    })
+
+    // Crash window: coco persisted the op as rolled_back (money already back in
+    // the wallet) but the process died before the ledger write. The retry must
+    // finish the ledger side, not strand the row on an UnknownError.
+    it('is idempotent against an already rolled_back op — settles reclaimed and returns Ok', async () => {
+      const tx = createUnclaimedSendTx('tx1', {
+        metadata: { operationId: 'op1' },
+      })
+      vi.mocked(txRepo.getById).mockResolvedValue(tx)
+      // Verbatim coco SendOpsApi.reclaim rejection for a non-pending op.
+      vi.mocked(sendOp.rollbackSendToken).mockRejectedValue(
+        new Error("Cannot reclaim operation in state 'rolled_back'. Expected 'pending'."),
+      )
+
+      const result = await service.reclaim('tx1')
+
+      expect(result.ok).toBe(true)
+      expect(txRepo.update).toHaveBeenCalledWith('tx1', {
+        status: 'settled',
+        outcome: 'reclaimed',
+        completedAt: expect.any(Number),
+      })
+      expect(pendingOps.delete).toHaveBeenCalledWith('tx1')
+      expect(eventBus.emit).not.toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'send:claimed' }),
+      )
+    })
+
+    it('does NOT treat an in-flight rolling_back op as done — that swap has not returned the proofs yet', async () => {
+      const tx = createUnclaimedSendTx('tx1', {
+        metadata: { operationId: 'op1' },
+      })
+      vi.mocked(txRepo.getById).mockResolvedValue(tx)
+      vi.mocked(sendOp.rollbackSendToken).mockRejectedValue(
+        new Error("Cannot reclaim operation in state 'rolling_back'. Expected 'pending'."),
+      )
+
+      const result = await service.reclaim('tx1')
+
+      expect(!result.ok).toBe(true)
+      expect(txRepo.update).not.toHaveBeenCalled()
     })
 
     it('should mark send as claimed when reclaim races with recipient claim', async () => {
@@ -273,6 +432,32 @@ describe('ReclaimService', () => {
 
       expect(result.ok).toBe(true)
       expect(tokenReceiver.receiveToken).toHaveBeenCalledWith('cashuAabc123')
+      // No operationId → falls back to the token path, never the rollback path.
+      expect(sendOp.rollbackSendToken).not.toHaveBeenCalled()
+      expect(txRepo.update).toHaveBeenCalledWith('tx1', expect.objectContaining({
+        status: 'settled',
+        outcome: 'reclaimed',
+      }))
+    })
+
+    it('still settles the send as reclaimed when the reclaim provenance stamp write throws (best-effort)', async () => {
+      const tx = createUnclaimedSendTx('tx1', {
+        metadata: { token: 'cashuAabc123' },
+      })
+      vi.mocked(txRepo.getById).mockResolvedValue(tx)
+      // The stamp write (getById + update on the receive tx) throws — it must
+      // be swallowed rather than aborting markSendReclaimed below it.
+      vi.mocked(txRepo.update).mockImplementation(async (id) => {
+        if (id === 'tx1-receive') throw new Error('storage failure')
+      })
+      vi.mocked(tokenReceiver.receiveToken).mockResolvedValue({
+        ok: true,
+        value: { amount: 1000, transactionId: 'tx1-receive' },
+      })
+
+      const result = await service.reclaim('tx1')
+
+      expect(result.ok).toBe(true)
       expect(txRepo.update).toHaveBeenCalledWith('tx1', expect.objectContaining({
         status: 'settled',
         outcome: 'reclaimed',
@@ -450,5 +635,92 @@ describe('ReclaimService', () => {
 
       expect(result).toBe(false)
     })
+  })
+})
+
+// Real PaymentService + in-memory txRepo, wired the way composition does
+// (TokenReceiverAdapter over PaymentUseCase.redeem). A mocked txRepo can't
+// expose a requestId/txId mismatch since it returns whatever it's told
+// regardless of the id queried — this double is keyed by id for real.
+describe('ReclaimService — token path stamps reclaimedFrom (integration)', () => {
+  it('marks the ledger receive TX with metadata.reclaimedFrom === sendTxId', async () => {
+    const realTxRepo = createInMemoryTxRepo()
+    const adapter = createRedeemAdapter()
+    const module = createRedeemModule(adapter)
+    const paymentService = new PaymentService([module], realTxRepo, createMockEventBus())
+    const realTokenReceiver = new TokenReceiverAdapter(paymentService)
+
+    const sendTx = createUnclaimedSendTx('send-tx-1', { metadata: { token: 'cashuAabc123' } })
+    await realTxRepo.save(sendTx)
+
+    const service = new ReclaimService(
+      realTxRepo,
+      createMockSendOp(),
+      realTokenReceiver,
+      createMockPendingOps(),
+      createMockEventBus(),
+    )
+
+    const result = await service.reclaim('send-tx-1')
+
+    expect(result.ok).toBe(true)
+    const all = await realTxRepo.list()
+    const receiveTx = all.find((t) => t.direction === 'receive')
+    expect(receiveTx).toBeDefined()
+    expect(receiveTx?.metadata?.reclaimedFrom).toBe('send-tx-1')
+  })
+
+  // Both halves settle as reclaimed, so without the derived companion History
+  // would render the same reclaim as two unsigned 되찾음 rows.
+  it('leaves exactly one 되찾음 row: the companion receive, not the send half', async () => {
+    const realTxRepo = createInMemoryTxRepo()
+    const adapter = createRedeemAdapter()
+    const module = createRedeemModule(adapter)
+    const paymentService = new PaymentService([module], realTxRepo, createMockEventBus())
+    const realTokenReceiver = new TokenReceiverAdapter(paymentService)
+
+    await realTxRepo.save(
+      createUnclaimedSendTx('send-tx-1', { metadata: { token: 'cashuAabc123' } }),
+    )
+
+    const service = new ReclaimService(
+      realTxRepo,
+      createMockSendOp(),
+      realTokenReceiver,
+      createMockPendingOps(),
+      createMockEventBus(),
+    )
+
+    expect((await service.reclaim('send-tx-1')).ok).toBe(true)
+
+    const all = await realTxRepo.list()
+    const reclaimRows = reclaimRowsOf(all)
+    expect(reclaimRows).toHaveLength(1)
+    expect(reclaimRows[0]?.direction).toBe('receive')
+
+    const sendTx = await realTxRepo.getById('send-tx-1')
+    expect(sendTx?.outcome).toBe('reclaimed')
+  })
+
+  it('opId path writes no companion — its single send row stays the 되찾음 row', async () => {
+    const realTxRepo = createInMemoryTxRepo()
+    await realTxRepo.save(
+      createUnclaimedSendTx('send-tx-2', { metadata: { operationId: 'op-2' } }),
+    )
+
+    const service = new ReclaimService(
+      realTxRepo,
+      createMockSendOp(),
+      createMockTokenReceiver(),
+      createMockPendingOps(),
+      createMockEventBus(),
+    )
+
+    expect((await service.reclaim('send-tx-2')).ok).toBe(true)
+
+    const all = await realTxRepo.list()
+    const reclaimRows = reclaimRowsOf(all)
+    expect(reclaimRows).toHaveLength(1)
+    expect(reclaimRows[0]?.id).toBe('send-tx-2')
   })
 })

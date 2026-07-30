@@ -14,6 +14,16 @@ import type { PendingTransferStore } from '@/core/ports/driven/pending-transfer-
 import type { TransferIntent, TransferOperator } from '@/core/ports/driven/transfer-operator.port'
 import type { OperationMap } from '@/core/ports/driven/operation-map.port'
 
+/**
+ * Outgoing transfers whose initiateTransfer is running in THIS JS process.
+ * Module-scoped on purpose: the service layer can re-bootstrap mid-send (new
+ * service instances, same process) and its recovery sweep would otherwise mark
+ * a live 'preparing' transfer as crashed. A real reload empties module state —
+ * exactly the crash semantics recovery is for. Known gap (pre-existing): a
+ * second TAB's sweep can still fail this tab's live transfer.
+ */
+const liveOutgoingTransferIds = new Set<string>()
+
 /** Stuck threshold — one remote check once this long has passed since the last transition. */
 const STUCK_THRESHOLD_MS = 120_000
 
@@ -219,6 +229,9 @@ export class TransferLifecycleService {
     if (!operator) throw new AdapterNotFoundError(`Unknown protocol: ${protocol}`)
 
     let transfer = await operator.prepare(intent)
+    // Registered before the store write: from this moment a re-bootstrap's
+    // recovery sweep must not treat the transfer as a crash leftover.
+    liveOutgoingTransferIds.add(transfer.id)
     await this.transferStore.create(transfer)
 
     // Execute; the transfer stays in the store even on failure
@@ -237,6 +250,9 @@ export class TransferLifecycleService {
         payload: { transfer: failed, reason: String(error) },
       })
       return failed
+    } finally {
+      // Past 'preparing' (or terminal) — the crash-recovery concern is over.
+      liveOutgoingTransferIds.delete(transfer.id)
     }
 
     this.eventBus.emit({
@@ -285,31 +301,23 @@ export class TransferLifecycleService {
   }
 
   async processIncomingTransfer(transferId: string): Promise<void> {
-    console.log('[TLS] processIncomingTransfer called:', transferId)
     const transfer = await this.transferStore.get(transferId)
-    console.log('[TLS] Got transfer:', transfer?.id, 'direction:', transfer?.direction)
     if (!transfer || transfer.direction !== 'incoming') {
-      console.log('[TLS] Early return: no transfer or wrong direction')
       return
     }
     // Block the path where a duplicate incoming:received re-redeems an already
     // settled transfer (→TOKEN_SPENT → catch demotes it to failed).
     if (isTerminal(transfer.phase)) {
-      console.log('[TLS] Early return: transfer already terminal:', transfer.phase)
       return
     }
 
     const operator = this.findOperator(transfer)
-    console.log('[TLS] Found operator:', operator?.protocol)
     if (!operator?.processIncoming) {
-      console.log('[TLS] Early return: no operator or processIncoming')
       return
     }
 
     try {
-      console.log('[TLS] Calling operator.processIncoming...')
       const processed = await operator.processIncoming(transfer)
-      console.log('[TLS] processIncoming result phase:', processed.phase)
       await this.transferStore.update(processed.id, processed)
 
       this.eventBus.emit({
@@ -399,6 +407,25 @@ export class TransferLifecycleService {
     return this.resolveTransfer(transfer.id, phase)
   }
 
+  /** An active send that rolled back = a reclaim (user or recovery), never a
+   *  failure — execute-failures stay in 'preparing' (outside listActive). */
+  async resolveReclaimByOperationRef(operationRef: string): Promise<boolean> {
+    const active = await this.transferStore.listActive()
+    const transfer = active.find((t) => {
+      const ref = t.transportRef as Record<string, unknown>
+      return ref?.quoteId === operationRef || ref?.operationId === operationRef
+    })
+    if (!transfer) return false
+    // Terminalize to 'settled' (the only legal terminal phase; no 'reclaimed'
+    // phase exists) so the swept transfer isn't re-processed, but emit the
+    // 'reclaimed' event — NOT settled, which would mislabel the tx as claimed
+    // and fire the recipient-claim toast. Symmetric with reclaimTransfer.
+    const updated = transitionPhase(transfer, 'settled', Date.now())
+    await this.transferStore.update(updated.id, updated)
+    this.eventBus.emit({ type: 'transfer:reclaimed', payload: { transfer: updated } })
+    return true
+  }
+
   // ─── Polling ───
 
   async pollPendingTransfers(): Promise<void> {
@@ -476,7 +503,12 @@ export class TransferLifecycleService {
   async recoverTransfers(): Promise<void> {
     // 1. Clean up transfers stuck in 'preparing' (from an app crash)
     const stuckPreparing = await this.transferStore.listByPhase(['preparing'])
-    for (const transfer of stuckPreparing) {
+    // Anything live in this process is not a leftover — initiateTransfer is still
+    // running and will move the phase itself. A genuinely hung one waits for the
+    // next real launch (module state cleared → not skipped → failed). The sweep
+    // ignores 'preparing', so nothing else can touch it meanwhile.
+    const crashLeftovers = stuckPreparing.filter((t) => !liveOutgoingTransferIds.has(t.id))
+    for (const transfer of crashLeftovers) {
       if (transfer.direction === 'incoming') {
         // incoming: the quote already exists at the mint → transition to submitted
         const updated = transitionPhase(transfer, 'submitted', Date.now())

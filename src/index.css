@@ -19,6 +19,23 @@
   --radius-4xl: calc(var(--radius) + 16px);
   --radius-card: 13px;
 
+  /* QR width cap (max-w-qr) — one owner for the number, so anything drawn on
+     top of a QR (a veil overlay) can bound itself to exactly the QR. */
+  --container-qr: 360px;
+
+  /* Elevation — three steps, one ink. Screens used to hand-roll a different
+     rgba() per surface, so nothing matched anything. shadow-{raised,card,sheet} */
+  --shadow-raised: 0 2px 12px rgb(29 29 31 / 0.06);
+  --shadow-card: 0 2px 12px rgb(29 29 31 / 0.08);
+  --shadow-sheet: 0 -8px 40px rgb(29 29 31 / 0.12);
+  /* The receipt sheet lifts further off the canvas than a card — it is paper
+     in hand, not a surface in the layout. */
+  --shadow-paper: 0 8px 24px rgb(29 29 31 / 0.08);
+
+  /* The flow's vertical breathing step — a fluid rhythm decision repeated
+     verbatim on the receive screens before it had a name. mt-flow / gap-flow */
+  --spacing-flow: clamp(1.75rem, 4vh, 2.75rem);
+
   /* Font Families */
   --font-primary: 'Outfit', system-ui, -apple-system, sans-serif;
   --font-display: 'Montserrat', 'Outfit', system-ui, sans-serif;
@@ -61,6 +78,7 @@
   --color-accent-warning: var(--accent-warning);
   --color-accent-warning-bright: var(--accent-warning-bright);
   --color-accent-warning-bright-text: var(--accent-warning-bright-text);
+  --color-accent-warning-text: var(--accent-warning-text);
   --color-accent-danger: var(--accent-danger);
   --color-brand: var(--brand);
   --color-brand-50: var(--brand-50);
@@ -161,7 +179,8 @@
   --neutral-200: #E5E6EB;
   --neutral-300: #D1D3DA;
   --neutral-400: #A0A3AD;
-  --neutral-500: #86868B;
+  /* ≥4.5:1 on --neutral-50 and #FFF — muted text must stay AA-readable */
+  --neutral-500: #6F7076;
   --neutral-600: #636366;
   --neutral-700: #3A3A3C;
   --neutral-800: #1D1D1F;
@@ -170,7 +189,9 @@
   /* ---- Primitive: Semantic ---- */
   --success:  #34C759;
   --warning:  #D4A03D;
-  --danger:   #C45D3E;
+  /* Darkened from #C45D3E: the old value was 4.21:1 on white and 4.00:1 on the
+     canvas, so every error line and every white-on-red button missed AA. */
+  --danger:   #B05438;
 
   /* ---- Semantic: Background ---- */
   --background:          var(--neutral-50);
@@ -192,6 +213,8 @@
   --accent-warning:              var(--warning);
   --accent-warning-bright:       #F3C300;
   --accent-warning-bright-text:  #B39200;
+  /* Amber is a fill/icon color (2.36:1 as text) — words wear this instead. */
+  --accent-warning-text:         #8A6623;
   --accent-danger:               var(--danger);
 
   /* ---- Semantic: Hover States ---- */
@@ -226,6 +249,7 @@
   --card-color-peach:   #FFC5AB;  /* Soft peach */
   --card-color-coral:   #C75D4A;  /* Warm coral */
   --card-color-teal:    #3A9E8F;  /* Teal */
+  --surface-redeem:     #2E7E72;  /* Teal, deep enough for white body copy */
   --card-color-slate:   #5A6578;  /* Cool slate */
   --card-color-amber:   #B8863A;  /* Warm amber */
   --card-color-plum:    #8B5A8A;  /* Soft plum */
@@ -279,9 +303,25 @@
   button, input, select, textarea {
     font: inherit;
   }
+  /* The shell is the ONLY place that measures the viewport; every screen
+     inside uses h-full (no dvh anywhere else — child spacing must not
+     re-measure a unit iOS mis-reports). In installed (standalone) mode iOS
+     fails to initialize 100dvh on cold start — it reports the small-viewport
+     value (screen minus status bar) until a drag/rotation exercises it,
+     which was the dead band measured on device (vv.height 896→852 across
+     keyboard/relaunch/lock). 100vh is stable from cold start, and with no
+     browser chrome in standalone the two units are equal by definition —
+     so standalone pins to 100vh. Browser tabs keep dvh (there 100vh really
+     can sit behind a dynamic toolbar). */
   html, body, #root {
-    @apply h-dvh overflow-hidden;
+    @apply overflow-hidden;
+    height: 100dvh;
     background-color: var(--background);
+  }
+  @media (display-mode: standalone) {
+    html, body, #root {
+      height: 100vh;
+    }
   }
   body {
     @apply bg-background text-foreground font-primary;
@@ -303,7 +343,16 @@
 :root {
   --safe-area-inset-top: env(safe-area-inset-top, 0px);
   --safe-area-inset-right: env(safe-area-inset-right, 0px);
+  --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
   --safe-area-inset-left: env(safe-area-inset-left, 0px);
+  /* viewport-fit=cover keeps the shell painting the home-indicator strip
+     (no white band), but bottom paddings deliberately IGNORE the bottom
+     inset. Device readouts showed the real instability is the dynamic
+     viewport height itself (WebKit flips dvh between full screen and the
+     small-viewport value across keyboard/relaunch/lock cycles — see
+     viewport-scroll-restore.ts); env-based bottom gaps only added more
+     movement on top. Content extending under the indicator is standard
+     iOS — the OS draws it over every app. */
   --app-bottom-padding: 1.5rem;
   --app-bottom-nav-height: 3.5rem;
   --app-bottom-nav-top-padding: 0.5rem;
@@ -388,6 +437,36 @@
   }
 }
 
+/* Floating glass tab bar.
+   Base = solid fallback: without backdrop-filter a 6%-white pill floats
+   unreadable text straight over scrolling content. The dark hairline (not
+   white) is what keeps the pill's edge visible on the light theme. */
+@layer utilities {
+  .glass-nav {
+    background: rgba(255, 255, 255, 0.88);
+    border: 1px solid rgba(29, 29, 31, 0.06);
+    box-shadow:
+      0 2px 10px rgba(0, 0, 0, 0.04),
+      inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  }
+  @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .glass-nav {
+      background: rgba(255, 255, 255, 0.06);
+      -webkit-backdrop-filter: blur(28px) saturate(180%);
+      backdrop-filter: blur(28px) saturate(180%);
+    }
+  }
+  /* Unknown media features evaluate false, so this override only fires where
+     the preference is real and on — everywhere else the glass stays. */
+  @media (prefers-reduced-transparency: reduce) {
+    .glass-nav {
+      background: rgba(255, 255, 255, 0.92);
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+  }
+}
+
 /* Card Solid Color Utilities */
 @layer utilities {
   .bg-card-indigo     { background: var(--card-brand-dark); }
@@ -396,6 +475,10 @@
   .bg-card-peach      { background: var(--card-color-peach); }
   .bg-card-coral      { background: var(--card-color-coral); }
   .bg-card-teal       { background: var(--card-color-teal); }
+  /* Deeper teal for the redeem hero, which carries WORDS. The card palette's
+     #3A9E8F is a mint-card fill (white on it is 3.25:1); this one clears AA
+     for the small lines at 4.83:1. */
+  .bg-surface-redeem  { background: var(--surface-redeem); }
   .bg-card-slate      { background: var(--card-color-slate); }
   .bg-card-amber      { background: var(--card-color-amber); }
   .bg-card-plum       { background: var(--card-color-plum); }
@@ -447,6 +530,27 @@
 .animate-slideInRight { animation: slideInRight 0.25s ease-out both }
 .animate-slideInUp { animation: slideInUp 0.25s ease-out both }
 
+/* Reduced motion — every keyframe class, not the two that happened to be
+   listed. The infinite ones (scan-line, pulseScale, float-slow, shimmer) are
+   the ones that actually hurt, because they never settle.
+   `.animate-scan-line` keeps a static line so the scanner still reads as armed. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fadeIn,
+  .animate-slideInRight,
+  .animate-slideInUp,
+  .animate-scaleIn,
+  .animate-confetti,
+  .animate-dropdownIn,
+  .animate-pulseScale,
+  .animate-cardFlipIn,
+  .animate-float-slow,
+  .animate-shimmer,
+  .animate-scan-line {
+    animation: none;
+  }
+  .animate-scan-line { top: 50%; opacity: 1; }
+}
+
 @keyframes scaleIn {
   from { opacity: 0; transform: scale(0.9) }
   to { opacity: 1; transform: scale(1) }
@@ -484,6 +588,6 @@
   100% { transform: rotateY(0deg) scale(1) }
 }
 .animate-cardFlipIn {
-  animation: cardFlipIn 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation: cardFlipIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
   transform-style: preserve-3d;
 }

@@ -9,8 +9,7 @@
  *   eliminating notation-variant misses.
  */
 import { describe, it, expect } from 'vitest'
-import { mintUrlKey, isSameMintUrl, normalizeMintUrl } from '@/core/domain/mint-url'
-import { getMintBalance } from '@/utils/url'
+import { mintUrlKey, isSameMintUrl, getMintBalance, normalizeMintUrl } from '@/utils/url'
 
 const CANON = 'https://mint.example.com'
 

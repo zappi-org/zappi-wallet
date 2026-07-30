@@ -90,13 +90,15 @@ describe('CashuBolt11Adapter', () => {
       expect(backend.checkMintQuote).toHaveBeenCalledWith('https://mint.test', 'mint-quote-1')
     })
 
-    it('returns false when the remote mint no longer knows the quote', async () => {
+    it('abstains when the local mint operation is gone', async () => {
+      // null means the LOCAL op was pruned (e.g. right after redemption) — no
+      // verdict, or a freshly-paid request would be expired by its own cleanup.
       vi.mocked(backend.checkMintQuote).mockResolvedValueOnce(null)
 
       await expect(adapter.checkAlive({
         requestId: 'missing-quote',
         accountId: 'https://mint.test',
-      })).resolves.toBe(false)
+      })).resolves.toBeUndefined()
     })
 
     it('treats terminal paid states as alive for effective-expiry checks', async () => {
@@ -242,19 +244,17 @@ describe('CashuBolt11Adapter', () => {
       expect(result.method).toBe('lightning')
     })
 
-    it('returns zero fee on error', async () => {
+    it('surfaces an unavailable estimate instead of returning a false zero fee', async () => {
       vi.mocked(backend.prepareMelt).mockRejectedValue(new Error('network error'))
 
-      const result = await adapter.estimateFee({
+      await expect(adapter.estimateFee({
         destination: 'lnbc1000n1...',
         amount: sat(1000),
         accountId: 'https://mint.test',
-      })
-
-      expect(toNumber(result.fee)).toBe(0)
+      })).rejects.toThrow('network error')
     })
 
-    it('rolls back on prepare failure after partial success', async () => {
+    it('surfaces rollback failure because the temporary lock release is not confirmed', async () => {
       vi.mocked(backend.prepareMelt).mockResolvedValueOnce({
         operationId: 'melt-op-2',
         quoteId: 'q2',
@@ -265,14 +265,11 @@ describe('CashuBolt11Adapter', () => {
       })
       vi.mocked(backend.rollbackMelt).mockRejectedValueOnce(new Error('rollback fail'))
 
-      // Should not throw even if rollback fails
-      const result = await adapter.estimateFee({
+      await expect(adapter.estimateFee({
         destination: 'lnbc...',
         amount: sat(1000),
         accountId: 'https://mint.test',
-      })
-
-      expect(toNumber(result.fee)).toBe(5)
+      })).rejects.toThrow('rollback fail')
     })
   })
 

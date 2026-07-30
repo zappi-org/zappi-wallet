@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react'
-import { Plus, Search, Trash2, Pencil, Zap, Hash, Link, ArrowUpRight, Loader2 } from 'lucide-react'
+import { Plus, Search, Trash2, Pencil, ArrowUpRight, Loader2 } from 'lucide-react'
 import { IdentificationIcon } from '@heroicons/react/24/outline'
 import { useTranslation } from 'react-i18next'
 import { AnimatePresence, motion } from 'motion/react'
@@ -9,12 +9,13 @@ import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomS
 import { ContactFormModal } from './ContactFormModal'
 import { useInputParser } from '@/ui/hooks/use-input-parser'
 import type { ValidatedData } from '@/core/domain/input-types'
-import { resolveSendRoute, SEND_ROUTE_ERROR_I18N } from '@/core/domain/send-route-resolution'
+import { resolveSendRoute, resolveDirectPaymentOrLookupFailure, SEND_ROUTE_ERROR_I18N } from '@/core/domain/send-route-resolution'
 import { useAppStore } from '@/store'
 import { isSameMintUrl } from '@/utils/url'
 import { useContacts } from '@/ui/hooks/use-contacts'
-import type { Contact, ContactAddressType } from '@/core/types'
+import type { Contact } from '@/core/types'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
+import { ContactAddressIcon } from '@/ui/components/payment/RecipientEndpointIcon'
 
 function detectAddressType(address: string): 'lightning' | 'npub' | 'custom' {
   const trimmed = address.trim()
@@ -26,12 +27,6 @@ function detectAddressType(address: string): 'lightning' | 'npub' | 'custom' {
 export interface ContactsScreenProps {
   /** Called with validated data + contact name + selected mint when send is confirmed */
   onSendToContact?: (validatedData: ValidatedData, displayName: string, mintUrl: string) => void
-}
-
-const addressTypeIcon: Record<ContactAddressType, typeof Zap> = {
-  lightning: Zap,
-  npub: Hash,
-  custom: Link,
 }
 
 export function ContactsScreen({ onSendToContact }: ContactsScreenProps) {
@@ -94,11 +89,16 @@ export function ContactsScreen({ onSendToContact }: ContactsScreenProps) {
     setSendingId(contact.id)
     try {
       if (contact.addressType === 'npub') {
-        const resolution = await nostrDirectPayment.resolve({
-          address: contact.address,
-          ownMintUrls: settings.mints,
-          selectedMintUrl: null,
-        })
+        // No catch guards this branch, so a rejected lookup (relay down,
+        // malformed npub) would only clear the spinner and leave the tap
+        // silent — route it through the same domain error instead.
+        const resolution = await resolveDirectPaymentOrLookupFailure(() =>
+          nostrDirectPayment.resolve({
+            address: contact.address,
+            ownMintUrls: settings.mints,
+            selectedMintUrl: null,
+          })
+        )
 
         const decision = resolveSendRoute(resolution)
 
@@ -151,6 +151,13 @@ export function ContactsScreen({ onSendToContact }: ContactsScreenProps) {
               addToast({ type: 'error', message: t(SEND_ROUTE_ERROR_I18N[decision.error]), duration: 3000 })
               return
           }
+        }
+
+        // An address with neither ecash info nor LNURL pay has no usable route —
+        // fail here instead of on the send screen at an unavailable fee.
+        if (validated.type === 'email-address' && !validated.lnurlParams) {
+          addToast({ type: 'error', message: t('send.destination.validationFailed'), duration: 3000 })
+          return
         }
 
         setPendingSend({ data: validated, name: contact.name })
@@ -211,7 +218,6 @@ export function ContactsScreen({ onSendToContact }: ContactsScreenProps) {
         ) : (
           <div className="bg-background-card">
             {filtered.map((contact) => {
-              const Icon = addressTypeIcon[contact.addressType]
               const isExpanded = expandedId === contact.id
               const isSending = sendingId === contact.id
               return (
@@ -221,8 +227,8 @@ export function ContactsScreen({ onSendToContact }: ContactsScreenProps) {
                     onClick={() => handleToggle(contact.id)}
                     className="w-full flex items-center gap-3 px-4 py-3.5 text-left active:bg-foreground/[0.02] transition-colors"
                   >
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${contact.addressType === 'lightning' ? 'bg-amber-500' : contact.addressType === 'npub' ? 'bg-purple-500' : 'bg-foreground-muted'}`}>
-                      <Icon className="w-[18px] h-[18px] text-white" />
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center">
+                      <ContactAddressIcon type={contact.addressType} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-body font-medium text-foreground truncate">{contact.name}</p>

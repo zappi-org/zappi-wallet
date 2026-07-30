@@ -199,7 +199,7 @@ export interface WalletSettings {
   lightningAddress?: string
   /** zappi-link API base URL extracted from LNURL callback (e.g. "https://link.zappi.space") */
   zappiLinkApiUrl?: string
-  autoLockEnabled: boolean
+  /** Idle timeout in minutes. Auto-lock is always on — no separate enable flag. */
   autoLockTimeoutMinutes: number
   soundEnabled: boolean
   expertModeEnabled: boolean
@@ -221,8 +221,6 @@ export interface WalletSettings {
   showFiatConversion?: boolean
   /** Sender Privacy mode: prefer routes where the mint cannot link sender to receiver, even at higher fees */
   senderPrivacyMode?: boolean
-  /** When the Token-tab PendingEmptyWidget was last dismissed (ms epoch). Re-shown when a new send-claim occurs afterward. */
-  pendingEmptyDismissedAt?: number | null
 }
 
 /**

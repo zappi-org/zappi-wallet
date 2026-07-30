@@ -163,7 +163,7 @@ function App() {
   // Loading state (checking wallet existence)
   if (isOnboarded === null) {
     return (
-      <div className="flex items-center justify-center h-dvh bg-background">
+      <div className="flex items-center justify-center h-full bg-background">
         <div className="text-center">
           <h1 className="text-title font-bold text-brand mb-4">ZAPPI</h1>
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
@@ -185,7 +185,7 @@ function App() {
   // Authenticated user → lazy-load the full app
   return (
     <Suspense fallback={
-      <div className="flex items-center justify-center h-dvh bg-background">
+      <div className="flex items-center justify-center h-full bg-background">
         <div className="text-center">
           <h1 className="text-title font-bold text-brand mb-4">ZAPPI</h1>
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />

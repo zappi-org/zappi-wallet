@@ -41,7 +41,7 @@ vi.mock('@/ui/hooks/use-mint-metadata', () => ({
 }))
 
 vi.mock('@/ui/hooks/use-contacts', () => ({
-  useContacts: () => ({ contacts: mockContacts, findByAddress: mockFindByAddress }),
+  useContacts: () => ({ contacts: mockContacts, isReady: true, findByAddress: mockFindByAddress }),
 }))
 
 vi.mock('@/ui/utils/haptic', () => ({
@@ -71,6 +71,7 @@ vi.mock('@/ui/components/icons/CameraFilled', () => ({
 const defaultProps = {
   onBack: vi.fn(),
   onNext: vi.fn(),
+  onDirectTransfer: vi.fn(),
   mintUrl: 'https://mint.example.com',
 }
 
@@ -120,7 +121,7 @@ describe('SendInputStep pre-validation', () => {
 
   // Network policy while typing: prevents the regression where a real GET fired for a
   // partial domain (`a@gmail.co` → gmail.co) — remote validation happens only at submit.
-  it('lightning-address typing performs ZERO remote validation — submit validates (§8.5)', async () => {
+  it('email-address typing performs ZERO remote validation — submit validates (§8.5)', async () => {
     mockDetectAndClassify.mockReturnValue({
       type: 'email-address',
       address: 'test@stacker.news',
@@ -165,7 +166,7 @@ describe('SendInputStep pre-validation', () => {
   })
 
   it('invalid format (TLD < 2 chars) does NOT trigger validateAsync', async () => {
-    // detectAndClassify returns lightning-address but format gate rejects it
+    // detectAndClassify returns email-address but format gate rejects it
     mockDetectAndClassify.mockReturnValue({
       type: 'email-address',
       address: 'user@d.c',
@@ -243,11 +244,11 @@ describe('SendInputStep pre-validation', () => {
     expect(nextButton).not.toBeDisabled()
   })
 
-  it('error container has reserved h-5 height even when empty', () => {
+  it('error container reserves height and stays empty when idle (error pops in without shifting tabs)', () => {
     renderStep()
     const errorArea = screen.getByTestId('pre-validation-error-area')
-    expect(errorArea).toBeInTheDocument()
     expect(errorArea.className).toContain('h-5')
+    expect(errorArea).toBeEmptyDOMElement()
   })
 
   it('no pre-validation spinner while typing a valid-syntax address (§8.5)', async () => {
@@ -318,21 +319,18 @@ describe('SendInputStep pre-validation', () => {
     await act(async () => { vi.advanceTimersByTime(500) })
     await act(async () => { await vi.runAllTimersAsync() })
 
-    // Validation succeeded — badge should show
-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    // Validation succeeded — no error
     expect(screen.queryByText('send.destination.validationFailed')).not.toBeInTheDocument()
 
-    // Now change input — clears validatedData and error, shows spinner (pessimistic pattern)
+    // Now change input — clears validatedData and error, re-evaluates
     mockDetectAndClassify.mockReturnValue({ type: 'unknown', input: 'test@stacker.newsx' })
     typeIntoInput('test@stacker.newsx')
 
-    // Immediately after change: error cleared, spinner shows (pending re-evaluation)
+    // Immediately after change: previous error cleared
     expect(screen.queryByText('send.destination.validationFailed')).not.toBeInTheDocument()
-    expect(screen.getByRole('status')).toBeInTheDocument()
 
-    // After debounce: spinner clears, unrecognized error shown
+    // After debounce: unrecognized error shown (inline pre-validation spinner removed — Next button carries loading)
     await act(async () => { vi.advanceTimersByTime(500) })
-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
     expect(screen.getByText('send.destination.unrecognized')).toBeInTheDocument()
   })
 
@@ -412,7 +410,7 @@ describe('SendInputStep pre-validation', () => {
       },
     })
 
-    renderStep()
+    const { rerender } = renderStep()
     typeIntoInput(creqStr)
 
     // First auto-advance: debounce (500ms) + timer (300ms)
@@ -422,7 +420,20 @@ describe('SendInputStep pre-validation', () => {
 
     defaultProps.onNext.mockReset()
 
-    // Type the SAME value again (simulates re-render with preserved destination after back-nav)
+    // Upstream (SendFlow) rejects the advance: isLoading pulses true→false,
+    // restoring the input from the leaving text stand-in
+    rerender(
+      <ServiceProvider registry={mockRegistry}>
+        <SendInputStep {...defaultProps} isLoading />
+      </ServiceProvider>,
+    )
+    rerender(
+      <ServiceProvider registry={mockRegistry}>
+        <SendInputStep {...defaultProps} isLoading={false} />
+      </ServiceProvider>,
+    )
+
+    // Type the SAME value again (preserved destination after the rejected advance)
     typeIntoInput(creqStr)
 
     // Wait for debounce + auto-advance timer

@@ -96,10 +96,6 @@ export function createCashuBackend(deps: CreateCashuBackendDeps): CashuModuleBac
     // Token inspection (lock + DLEQ)
     inspectInput: backend.inspectInput,
     abandonMintQuote,
-    // PaymentRequest (NUT-18)
-    parsePaymentRequest: backend.parsePaymentRequest,
-    preparePaymentRequest: backend.preparePaymentRequest,
-    executePaymentRequest: backend.executePaymentRequest,
     // Module-level
     getBalances: backend.getBalances,
   }

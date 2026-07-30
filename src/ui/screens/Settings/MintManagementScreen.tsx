@@ -5,6 +5,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
 import { Button } from '@/ui/components/common/Button'
+import { useCopyFeedback } from '@/ui/hooks/use-copy-feedback'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { useMintHealth } from '@/ui/hooks/use-mint-health'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
@@ -53,7 +54,7 @@ export function MintManagementScreen({
   const [qrUrl, setQrUrl] = useState<string | null>(null)
 
   // Copy states
-  const [copiedField, setCopiedField] = useState<string | null>(null)
+  const { isCopied, copy } = useCopyFeedback()
   const mints = reconcileOrder(orderedMints, settings.mints)
 
   useEffect(() => { checkAllMints() }, [checkAllMints])
@@ -85,11 +86,7 @@ export function MintManagementScreen({
     })
   }, [fetchMintInfo])
 
-  const handleCopy = useCallback(async (text: string, field: string) => {
-    try { await navigator.clipboard.writeText(text) } catch { /* fallback */ }
-    setCopiedField(field)
-    setTimeout(() => setCopiedField(null), 2000)
-  }, [])
+  const handleCopy = useCallback((text: string, field: string) => copy(text, field), [copy])
 
   const handleRemoveMint = useCallback((url: string) => {
     setMintToDelete(url)
@@ -267,7 +264,7 @@ export function MintManagementScreen({
                               className="flex items-center gap-1.5 text-label font-medium font-mono text-foreground-muted active:opacity-60 max-w-[180px]"
                             >
                               <span className="truncate">{formatMintHost(url)}</span>
-                              {copiedField === `url-${url}`
+                              {isCopied(`url-${url}`)
                                 ? <Check className="w-3.5 h-3.5 text-accent-primary shrink-0" />
                                 : <Copy className="w-3.5 h-3.5 shrink-0" />}
                             </button>
@@ -303,7 +300,7 @@ export function MintManagementScreen({
                                         className="flex items-center gap-1.5 text-label font-medium font-mono text-foreground-muted active:opacity-60 min-w-0"
                                       >
                                         <span className="truncate">{c.info}</span>
-                                        {copiedField === `contact-${i}-${url}`
+                                        {isCopied(`contact-${i}-${url}`)
                                           ? <Check className="w-3.5 h-3.5 text-accent-primary shrink-0" />
                                           : <Copy className="w-3.5 h-3.5 shrink-0" />}
                                       </button>
@@ -322,7 +319,7 @@ export function MintManagementScreen({
                                     className="flex items-start gap-1.5 active:opacity-60 min-w-0"
                                   >
                                     <p className="text-overline font-medium font-mono text-foreground break-all opacity-70 text-right">{infoData.pubkey}</p>
-                                    {copiedField === `pubkey-${url}`
+                                    {isCopied(`pubkey-${url}`)
                                       ? <Check className="w-3.5 h-3.5 text-accent-primary shrink-0 mt-0.5" />
                                       : <Copy className="w-3.5 h-3.5 text-foreground-muted shrink-0 mt-0.5" />}
                                   </button>
@@ -340,7 +337,7 @@ export function MintManagementScreen({
                                     className="flex items-center gap-1.5 text-label font-medium text-foreground active:opacity-60"
                                   >
                                     <span>{infoData.version}</span>
-                                    {copiedField === `version-${url}`
+                                    {isCopied(`version-${url}`)
                                       ? <Check className="w-3.5 h-3.5 text-accent-primary shrink-0" />
                                       : <Copy className="w-3.5 h-3.5 text-foreground-muted shrink-0" />}
                                   </button>
@@ -471,7 +468,7 @@ export function MintManagementScreen({
             })()}
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="lg" onClick={() => setMintToDelete(null)} className="flex-1">
+            <Button variant="secondary" size="lg" onClick={() => setMintToDelete(null)} className="flex-1">
               {t('common.cancel')}
             </Button>
             <Button variant="destructive" size="lg" onClick={confirmRemoveMint} className="flex-1">

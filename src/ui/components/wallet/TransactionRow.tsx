@@ -3,8 +3,8 @@
  * Shared between TransactionList (mini) and HistoryScreen (full).
  *
  * Layout:
- *   Title (body, semibold)                 1,000 sats (amount, display, green)
- *   10:35 · receive (Lightning) (label, muted)    ≈ $0.50 (label, muted)
+ *   Received · Lunch money (body, semibold)      1,000 sats (amount, display, green)
+ *   10:35 · Lightning (label, muted)             ≈ $0.50 (label, muted)
  */
 
 import type { TranslationKey } from '@/i18n'
@@ -17,7 +17,7 @@ import { useFormatSats, useFormatFiat, formatTransactionFiat, getLocaleCode } fr
 import { formatMintHost } from '@/utils/url'
 import { formatMD } from '@/ui/utils/dateFilter'
 import { cn } from '@/ui/lib/utils'
-import { getTitle, getTypeLabel } from './transactionHelpers'
+import { getTitle, getTypeLabel, isReclaimRow } from './transactionHelpers'
 
 // ─── Component ───
 
@@ -28,6 +28,8 @@ export interface TransactionRowProps {
   getMintName?: (url: string) => string
   /** Show M.DD date prefix in subtitle (for mini lists without date group headers) */
   showDate?: boolean
+  /** This send's reclaim is booked on a companion receive row (legacy token path). */
+  hasCompanionReceive?: boolean
 }
 
 export const TransactionRow = memo(function TransactionRow({
@@ -36,6 +38,7 @@ export const TransactionRow = memo(function TransactionRow({
   onClick,
   getMintName,
   showDate = false,
+  hasCompanionReceive = false,
 }: TransactionRowProps) {
   const { t, i18n } = useTranslation()
   const formatSats = useFormatSats()
@@ -57,10 +60,10 @@ export const TransactionRow = memo(function TransactionRow({
   const swapRoute = isSwap && swapFromUrl && swapToUrl
     ? `${resolveName(swapFromUrl)} → ${resolveName(swapToUrl)}`
     : null
-  const title = swapRoute ?? getTitle(tx, t)
-  const defaultSubtitle = title === typeLabel ? timeStr : `${timeStr} · ${typeLabel}`
+  const title = swapRoute ?? getTitle(tx, t, hasCompanionReceive)
+  const defaultSubtitle = `${timeStr} · ${typeLabel}`
 
-  // Subtitle: "10:35 · receive (Lightning)" or swap flow
+  // Subtitle: "10:35 · Lightning" or swap flow
   let subtitle: string
   if (isSwap && swapRoute) {
     subtitle = `${timeStr} · ${typeLabel}`
@@ -76,9 +79,13 @@ export const TransactionRow = memo(function TransactionRow({
   // Amount styling — Toss pattern: receive = green (no sign), send = black with "-"
   const isPending = tx.status === 'pending'
   const isFailed = tx.status === 'failed'
+  const isReclaim = isReclaimRow(tx, hasCompanionReceive)
 
-  const amountPrefix = isReceive ? '' : '-'
+  // A reclaim moved nothing in or out — the money simply came back, so it gets
+  // no sign at all ('-' would read as spent, '+' as earned) and a neutral tone.
+  const amountPrefix = isReclaim ? '' : isReceive ? '+' : '-'
   const amountColor = isFailed ? 'line-through text-foreground-muted'
+    : isReclaim ? 'text-foreground-muted'
     : isPending ? cn(isReceive ? 'text-primary' : 'text-foreground', 'opacity-60')
     : isReceive ? 'text-primary' : 'text-foreground'
   const amountSats = toNumber(getTotalCost(tx))
@@ -91,14 +98,18 @@ export const TransactionRow = memo(function TransactionRow({
     >
       {/* Left: title + subtitle */}
       <div className="flex flex-col gap-0.5 text-left min-w-0 flex-1 mr-4">
-        <span className="text-body font-semibold text-foreground leading-normal truncate">{title}</span>
+        <span className="text-body font-semibold text-foreground leading-normal truncate">
+          {/* Line-through + dot color are invisible to screen readers — failure must be spoken too. */}
+          {isFailed && <span className="sr-only">{t('history.failedStatus')} · </span>}
+          {title}
+        </span>
         <span className="text-label font-medium text-foreground-muted leading-normal truncate">{subtitle}</span>
       </div>
 
       {/* Right: amount + fiat */}
       <div className="flex flex-col items-end gap-0.5 shrink-0">
         <div className="flex items-center gap-1.5">
-          {isPending && <span className="w-1.5 h-1.5 rounded-full bg-status-pending animate-pulse" />}
+          {isPending && <span className="w-1.5 h-1.5 rounded-full bg-status-pending animate-pulse motion-reduce:animate-none" />}
           {isFailed && <span className="w-1.5 h-1.5 rounded-full bg-accent-danger" />}
           <span className={cn('text-amount font-semibold font-display leading-normal', amountColor)}>
             {amountPrefix}{formatSats(amountSats)}

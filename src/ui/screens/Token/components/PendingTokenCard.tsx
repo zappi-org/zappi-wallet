@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { Share2 } from 'lucide-react'
+import { Check, Share2 } from 'lucide-react'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
 import { formatRelativeTime } from '../token-view-model'
 import type { PendingTokenView } from '../types'
@@ -8,10 +8,12 @@ export interface PendingTokenCardProps {
   token: PendingTokenView
   onReclaim?: () => void
   onShare?: () => void
+  /** Confirmation state for the share button — vibration is dead on iOS. */
+  shared?: boolean
   onSelect?: () => void
 }
 
-export function PendingTokenCard({ token, onReclaim, onShare, onSelect }: PendingTokenCardProps) {
+export function PendingTokenCard({ token, onReclaim, onShare, shared, onSelect }: PendingTokenCardProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
   const formatFiat = useFormatFiat()
@@ -23,6 +25,8 @@ export function PendingTokenCard({ token, onReclaim, onShare, onSelect }: Pendin
       tabIndex={onSelect ? 0 : undefined}
       onClick={onSelect}
       onKeyDown={onSelect ? (e) => {
+        // Ignore keys bubbling from the nested reclaim/share buttons.
+        if (e.target !== e.currentTarget) return
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
           onSelect()
@@ -64,7 +68,7 @@ export function PendingTokenCard({ token, onReclaim, onShare, onSelect }: Pendin
           aria-label={t('token.reclaimable.actions.share')}
           className="px-2 py-1 rounded-full bg-background border border-border text-foreground hover:bg-background-hover transition-colors"
         >
-          <Share2 size={14} />
+          {shared ? <Check size={14} className="text-accent-success" /> : <Share2 size={14} />}
         </button>
       </div>
     </div>

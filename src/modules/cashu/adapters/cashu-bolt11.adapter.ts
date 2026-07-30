@@ -20,6 +20,7 @@ import type { Amount } from '@/core/domain/amount'
 import { sat, toNumber, amount as amt } from '@/core/domain/amount'
 import type { TransferOperator, TransferIntent } from '@/core/ports/driven/transfer-operator.port'
 import type { PendingTransfer, TransferPhase } from '@/core/domain/pending-transfer'
+import { withMintCycleLock } from '../internal/mint-cycle-lock'
 import { createPendingTransfer, transitionPhase, isExpired } from '@/core/domain/pending-transfer'
 
 
@@ -90,7 +91,10 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter, TransferOperato
   // ─── TransferOperator (Outgoing) ───
 
   async prepare(intent: TransferIntent): Promise<PendingTransfer> {
-    const op = await this.backend.prepareMelt(intent.accountId, intent.recipient!)
+    // prepare only — never hold the mint lock across execute
+    const op = await withMintCycleLock(intent.accountId, () =>
+      this.backend.prepareMelt(intent.accountId, intent.recipient!),
+    )
 
     return createPendingTransfer({
       id: crypto.randomUUID(),
@@ -105,6 +109,9 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter, TransferOperato
         request: intent.recipient,
         mintUrl: intent.accountId,
         feeReserve: op.fee_reserve,
+        // Archive fields — the tx bridge writes these onto the record.
+        destination: intent.displayDestination,
+        memo: intent.memo,
       },
       now: Date.now(),
       amount: op.amount
@@ -269,24 +276,29 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter, TransferOperato
   // ─── Send ───
 
   async estimateFee(params: SendParams): Promise<FeeEstimate> {
-    const invoice = params.destination!
-    let meltOp: Awaited<ReturnType<LightningBackend['prepareMelt']>> | null = null
+    // Serialized with every other proof-reserving cycle on this mint
+    return withMintCycleLock(params.accountId, async () => {
+      const invoice = params.destination!
+      let meltOp: Awaited<ReturnType<LightningBackend['prepareMelt']>> | null = null
 
-    try {
-      meltOp = await this.backend.prepareMelt(params.accountId, invoice)
-      const fee = meltOp.fee_reserve + meltOp.swap_fee
-      await this.backend.rollbackMelt(meltOp.operationId, 'fee estimation only').catch(() => { })
-      return { fee: sat(fee), method: 'lightning', protocol: 'bolt11' }
-    } catch {
-      if (meltOp) {
-        await this.backend.rollbackMelt(meltOp.operationId, 'fee estimation failed').catch(() => { })
+      try {
+        meltOp = await this.backend.prepareMelt(params.accountId, invoice)
+        const fee = meltOp.fee_reserve + meltOp.swap_fee
+        await this.backend.rollbackMelt(meltOp.operationId, 'fee estimation only')
+        return { fee: sat(fee), method: 'lightning', protocol: 'bolt11' }
+      } catch (error) {
+        if (meltOp) {
+          await this.backend.rollbackMelt(meltOp.operationId, 'fee estimation failed').catch(() => { })
+        }
+        throw error
       }
-      return { fee: sat(0), method: 'lightning', protocol: 'bolt11' }
-    }
+    })
   }
 
   async prepareSend(params: SendParams): Promise<PreparedPayment> {
-    const meltOp = await this.backend.prepareMelt(params.accountId, params.destination!)
+    const meltOp = await withMintCycleLock(params.accountId, () =>
+      this.backend.prepareMelt(params.accountId, params.destination!),
+    )
     const fee = meltOp.fee_reserve + meltOp.swap_fee
 
     // Store unit for execute() phase
@@ -377,13 +389,16 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter, TransferOperato
     })
   }
 
-  async checkAlive(params: CheckAliveParams): Promise<boolean> {
+  async checkAlive(params: CheckAliveParams): Promise<boolean | undefined> {
     if (!params.accountId) {
       return true
     }
 
     const quote = await this.backend.checkMintQuote(params.accountId, params.requestId)
-    return quote?.state === 'UNPAID' || quote?.state === 'PAID' || quote?.state === 'ISSUED'
+    // A pruned/absent local op is no verdict at all — reporting "dead" here
+    // used to expire freshly-paid requests whose op was already cleaned up.
+    if (!quote) return undefined
+    return quote.state === 'UNPAID' || quote.state === 'PAID' || quote.state === 'ISSUED'
   }
 
   async queryReceiveStatus(params: CheckAliveParams): Promise<{ state: string }> {

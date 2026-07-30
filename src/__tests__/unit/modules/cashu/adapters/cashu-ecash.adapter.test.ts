@@ -68,16 +68,24 @@ describe('CashuEcashAdapter', () => {
       expect(result.method).toBe('ecash')
     })
 
-    it('returns zero fee on error', async () => {
+    it('surfaces an unavailable estimate instead of returning a false zero fee', async () => {
       vi.mocked(backend.prepareSend).mockRejectedValue(new Error('insufficient'))
 
-      const result = await adapter.estimateFee({
+      await expect(adapter.estimateFee({
         destination: 'cashuBpXh...',
         amount: sat(500),
         accountId: 'https://mint.test',
-      })
+      })).rejects.toThrow('insufficient')
+    })
 
-      expect(toNumber(result.fee)).toBe(0)
+    it('surfaces rollback failure because the temporary lock release is not confirmed', async () => {
+      vi.mocked(backend.rollbackSend).mockRejectedValueOnce(new Error('rollback fail'))
+
+      await expect(adapter.estimateFee({
+        destination: 'cashuBpXh...',
+        amount: sat(500),
+        accountId: 'https://mint.test',
+      })).rejects.toThrow('rollback fail')
     })
   })
 
@@ -117,6 +125,46 @@ describe('CashuEcashAdapter', () => {
         amount: 500,
         lockingCondition: { kind: 'P2PK', data: '02abc...' },
       })
+    })
+  })
+
+  // ─── TransferOperator execute — fund-lock guard ───
+
+  describe('execute rollback on outgoing failure', () => {
+    const outgoingTransfer = (recipient?: string) =>
+      createPendingTransfer({
+        id: 'p1',
+        txId: 'tx-p1',
+        direction: 'outgoing',
+        finality: 'deferred',
+        onExpiry: 'reclaim',
+        transportRef: { type: 'ecash-token', operationId: 'send-op-9', recipient, amount: 100, mintUrl: 'https://mint.test' },
+        now: Date.now(),
+      })
+
+    it('releases the reserved proofs when executeSend throws', async () => {
+      vi.mocked(backend.executeSend).mockRejectedValueOnce(new Error('mint down'))
+
+      await expect(adapter.execute(outgoingTransfer())).rejects.toThrow('mint down')
+      expect(backend.rollbackSend).toHaveBeenCalledWith('send-op-9')
+    })
+
+    it('reclaims the created token when transport publish throws', async () => {
+      const transport = { publish: vi.fn().mockRejectedValue(new Error('relay down')) }
+      const adapterWithTransport = new CashuEcashAdapter(
+        backend,
+        transport as unknown as ConstructorParameters<typeof CashuEcashAdapter>[1],
+      )
+
+      await expect(adapterWithTransport.execute(outgoingTransfer('npub1recipient'))).rejects.toThrow('relay down')
+      expect(backend.rollbackSend).toHaveBeenCalledWith('send-op-9')
+    })
+
+    it('swallows a rollback failure and keeps the original error', async () => {
+      vi.mocked(backend.executeSend).mockRejectedValueOnce(new Error('mint down'))
+      vi.mocked(backend.rollbackSend).mockRejectedValueOnce(new Error('already redeemed'))
+
+      await expect(adapter.execute(outgoingTransfer())).rejects.toThrow('mint down')
     })
   })
 
@@ -306,6 +354,43 @@ describe('CashuEcashAdapter', () => {
     it('confirmStuck(send, no token): null — no means to confirm', async () => {
       const noToken = makeSend({ transportRef: { operationId: 'send-op-1' } })
       await expect(adapter.confirmStuck(noToken)).resolves.toBeNull()
+    })
+
+    // A reclaim swap spends the very proofs a recipient claim would, so a poll
+    // landing mid-reclaim must never report 'settled' — that reads as claimed.
+    describe('poll: a reclaim in flight is never read as a claim', () => {
+      it('rolling_back short-circuits before the proof check', async () => {
+        vi.mocked(backend.getSendOperationState).mockResolvedValue('rolling_back')
+
+        await expect(adapter.poll(makeSend())).resolves.toBe('awaiting_confirmation')
+        expect(backend.checkProofStates).not.toHaveBeenCalled()
+      })
+
+      it('allSpent re-reads the op: a rollback that started after step 1 still wins', async () => {
+        vi.mocked(backend.getSendOperationState)
+          .mockResolvedValueOnce('pending')
+          .mockResolvedValueOnce('rolling_back')
+        vi.mocked(backend.checkProofStates).mockResolvedValue({ allSpent: true, allPending: false, states: [] })
+
+        await expect(adapter.poll(makeSend())).resolves.toBe('awaiting_confirmation')
+        expect(backend.getSendOperationState).toHaveBeenCalledTimes(2)
+      })
+
+      it('allSpent re-reads the op: an already rolled_back op is recoverable, not settled', async () => {
+        vi.mocked(backend.getSendOperationState)
+          .mockResolvedValueOnce('pending')
+          .mockResolvedValueOnce('rolled_back')
+        vi.mocked(backend.checkProofStates).mockResolvedValue({ allSpent: true, allPending: false, states: [] })
+
+        await expect(adapter.poll(makeSend())).resolves.toBe('recoverable')
+      })
+
+      it('a genuine recipient claim still settles', async () => {
+        vi.mocked(backend.getSendOperationState).mockResolvedValue('pending')
+        vi.mocked(backend.checkProofStates).mockResolvedValue({ allSpent: true, allPending: false, states: [] })
+
+        await expect(adapter.poll(makeSend())).resolves.toBe('settled')
+      })
     })
   })
 })

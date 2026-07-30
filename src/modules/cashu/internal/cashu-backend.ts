@@ -207,11 +207,14 @@ export async function executeSend(
 /**
  * Cancel or reclaim a token send.
  * prepared → cancel, pending → reclaim.
+ * A missing operation is already rolled back — coco's reclaim would only throw
+ * "not found" and mask the real failure the caller is compensating for.
  */
 export async function rollbackSend(operationId: string): Promise<void> {
   const manager = await getCocoManager();
   const op = await manager.ops.send.get(operationId);
-  if (op?.state === 'prepared') {
+  if (!op) return;
+  if (op.state === 'prepared') {
     await manager.ops.send.cancel(operationId);
   } else {
     await manager.ops.send.reclaim(operationId);
@@ -628,79 +631,6 @@ export async function getActivePendingQuotes(): Promise<PendingQuote[]> {
       invoice: q.request,
       expiry: q.expiry ? q.expiry * 1000 : 0,
     }));
-}
-
-// ─── Payment Request (NUT-18) ───
-
-export interface ResolvedCreq {
-  payableMints: string[];
-  allowedMints: string[];   // empty array = any mint allowed
-  amount?: number;
-  transport: { type: 'inband' } | { type: 'http'; url: string };
-  nut10?: { kind: string; data: string; tags?: string[][] };
-}
-
-export interface PreparedCreq {
-  operationId: string;
-  resolved: ResolvedCreq;
-}
-
-export interface CreqExecutionResult {
-  type: 'inband' | 'http';
-  token?: string;
-}
-
-export async function parsePaymentRequest(creq: string): Promise<ResolvedCreq> {
-  const manager = await getCocoManager();
-  const resolved = await manager.paymentRequests.parse(creq);
-  const nut10 = resolved.paymentRequest.nut10;
-  return {
-    payableMints: resolved.payableMints,
-    allowedMints: resolved.allowedMints,
-    amount: resolved.amount,
-    transport: resolved.transport,
-    nut10: nut10 ? { kind: nut10.kind, data: nut10.data, tags: nut10.tags } : undefined,
-  };
-}
-
-export async function preparePaymentRequest(
-  resolved: ResolvedCreq,
-  options: { mintUrl: string; amount?: number },
-): Promise<PreparedCreq> {
-  const manager = await getCocoManager();
-  const prepared = await manager.paymentRequests.prepare(
-    resolved as Parameters<typeof manager.paymentRequests.prepare>[0],
-    options,
-  );
-  return {
-    operationId: prepared.sendOperation.id,
-    resolved,
-  };
-}
-
-export async function executePaymentRequest(
-  prepared: PreparedCreq,
-): Promise<CreqExecutionResult> {
-  const manager = await getCocoManager();
-  const sendOp = await manager.ops.send.get(prepared.operationId);
-  if (!sendOp || sendOp.state !== 'prepared') {
-    throw new Error(`Send operation ${prepared.operationId} not in prepared state`);
-  }
-
-  const { token } = await manager.ops.send.execute(sendOp);
-  const encodedToken = getEncodedToken(token);
-
-  if (prepared.resolved.transport.type === 'http') {
-    const { url } = prepared.resolved.transport as { type: 'http'; url: string };
-    await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: encodedToken }),
-    });
-    return { type: 'http' };
-  }
-
-  return { type: 'inband', token: encodedToken };
 }
 
 // ─── Wallet management ───

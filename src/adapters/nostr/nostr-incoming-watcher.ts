@@ -78,10 +78,28 @@ export class NostrIncomingWatcher {
 
   // ─── Private ───
 
+  // Two relays can deliver the same event concurrently — the async dedup
+  // checks below all race, so a same-event message must wait its turn out.
+  private readonly inflightEventIds = new Set<string>()
+
   private async handleMessage(msg: UnwrappedMessage): Promise<void> {
     // Instrumentation: the deduped-to-received ratio measures replay waste — the basis for
     // comparing before and after the cursor rollout.
     incrementNetCounter('giftwrap_events_received')
+
+    if (this.inflightEventIds.has(msg.eventId)) {
+      incrementNetCounter('giftwrap_events_deduped')
+      return
+    }
+    this.inflightEventIds.add(msg.eventId)
+    try {
+      await this.processMessage(msg)
+    } finally {
+      this.inflightEventIds.delete(msg.eventId)
+    }
+  }
+
+  private async processMessage(msg: UnwrappedMessage): Promise<void> {
 
     // 1. Skip if RecoveryService already processed this eventId (prevents recovery-sync duplicates).
     if (await this.recoveryStore.isProcessed(msg.eventId)) {

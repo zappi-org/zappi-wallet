@@ -258,8 +258,13 @@ export function createLifecycle(deps: {
     }
 
     // Clean up stuck mint ops inside the Coco SDK (>1 day → abandon, else → attempt recovery)
+    // + once per process: cancel crash-leftover 'prepared' send/melt ops whose
+    // reservations would otherwise depress the spendable balance forever.
     import('@/modules/cashu/internal/cashu-recovery')
-      .then(({ cleanAndRecoverStaleMintOps }) => cleanAndRecoverStaleMintOps().catch(console.error))
+      .then(({ cleanAndRecoverStaleMintOps, sweepStalePreparedOps }) => {
+        cleanAndRecoverStaleMintOps().catch(console.error);
+        sweepStalePreparedOps().catch(console.error);
+      })
       .catch(() => {});
   };
 

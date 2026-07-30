@@ -4,9 +4,9 @@ export default {
     cancel: 'キャンセル',
     confirm: '確認',
     close: '閉じる',
-    next: '次へ',
     back: '戻る',
     save: '保存',
+    edit: '編集',
     delete: '削除',
     add: '追加',
     copy: 'コピー',
@@ -19,10 +19,10 @@ export default {
     amount: '金額',
     min: '分',
     offlineRequired: 'インターネット接続が必要です',
-    memo: 'メモ',
     paste: '貼り付け',
     change: '変更',
     search: '検索',
+    reset: 'リセット',
   },
 
   // Lock Screen
@@ -390,7 +390,7 @@ export default {
     senderPrivacyModeDescription: '手数料が高くてもミントが送受信者をリンクできない経路を選択します',
 
     // Descriptions
-    autoLockDescription: '非アクティブ時に自動ロック',
+    autoLockDescription: '設定した無操作時間で自動ロックします。その時間内に開き直すとPINを省略します。',
   },
 
   // Add Mint Screen
@@ -416,8 +416,7 @@ export default {
   scanner: {
     title: 'スキャン',
     paste: '貼り付け',
-    loadFromPhoto: '写真から読み込む',
-    validating: '確認中...',
+    loadFromPhoto: '写真から',
     unrecognizedFormat: '認識できない形式です',
     invalidToken: '無効なイーキャッシュです',
     cameraPermission: 'カメラの許可が必要です',
@@ -426,7 +425,6 @@ export default {
     cameraPreparing: 'カメラ準備中...',
     multipartScanning: 'マルチパートQRスキャン中...',
     enableCameraPermission: '設定でカメラの許可を有効にしてください',
-    uploadImage: '画像からQRスキャン',
     noQrFound: 'QRコードが見つかりません',
   },
 
@@ -490,6 +488,8 @@ export default {
 
   // History Screen
   history: {
+    lightning: 'Lightning',
+    ecash: 'eCash',
     title: '取引履歴',
     noTransactions: '取引履歴がありません',
     all: 'すべて',
@@ -507,15 +507,6 @@ export default {
     endOfList: 'すべての履歴を確認しました。',
 
     // Transaction Types
-    lightningReceive: '受取 (Lightning)',
-    lightningSend: '送金 (Lightning)',
-    ecashReceive: '受取 (eCash)',
-    ecashSend: '送金 (eCash)',
-    ecashToken: '作成 (eCash)',
-    ecashRegister: '登録 (eCash)',
-    ecashReclaim: '回収 (eCash)',
-    requestFulfill: 'Ecash決済受取',
-    requestPay: 'Ecash決済送金',
     nutzap: 'NutZap',
     swap: 'スワップ',
 
@@ -523,6 +514,13 @@ export default {
     completed: '完了',
     pendingStatus: '処理中',
     failedStatus: '失敗',
+    reclaimed: '回収済み',
+
+    // Row title = the act (means moved to the subtitle)
+    received: '受取',
+    sent: '送金',
+    receiving: '受取中',
+    sending: '送金中',
 
     // Redesigned history screen
     income: '入金',
@@ -535,9 +533,9 @@ export default {
     period3m: '3ヶ月',
     periodAll: '全期間',
     dateFilter: '期間選択',
-    mintFilter: 'ウォレット選択',
-    allMints: 'すべてのウォレット',
-    mintCount: '{{count}}件のウォレット',
+    mintFilter: 'ミント選択',
+    allMints: 'すべてのミント',
+    mintCount: '{{count}}件のミント',
 
     // Export
     export: 'エクスポート',
@@ -551,6 +549,32 @@ export default {
 
   // Transaction Detail Screen
   txDetail: {
+    recordMissing: '取引記録が見つかりません',
+    state: {
+      created: '生成済み',
+      waiting: '待機中',
+      used: '使用済み',
+      reclaimed: '回収済み',
+      sent: '送信済み',
+      awaitingReceipt: '受信待ち',
+      confirmed: '確定済み',
+      requested: 'リクエスト済み',
+      received: '受取済み',
+      registered: '登録済み',
+      swapStart: '交換開始',
+      swapDone: '交換完了',
+      completed: '完了',
+      failed: '送信失敗',
+      notePending: 'まだ登録されていません · いつでも取り戻せます',
+      noteClaimed: '相手が登録して取引が完了しました',
+      noteReclaimed: '使用される前に残高へ戻しました',
+      noteInTransit: '決済を確認しています',
+    },
+    share: '共有',
+    viewRawToken: 'トークン原文を見る',
+    reclaimWithFee: '取り戻す（受取手数料: {{fee}}）',
+    reclaimQuoting: '手数料を確認中',
+    time: '日時',
     type: '種類',
     mint: 'Mint',
     source: '送信元',
@@ -575,33 +599,21 @@ export default {
     'source.unknown': '外部',
 
     // Token lifecycle
-    reclaiming: '回収中...',
     reclaimSuccess: 'eCashを回収しました',
     reclaimFailed: 'eCashの回収に失敗しました',
     consumedByRecipient: '相手がすでに受領しました',
     sentToken: '送信eCash',
-    copied: 'コピーしました',
     delete: '削除',
     deleteConfirm: 'この取引記録を削除しますか？',
     deleteWarning: '削除後は元に戻せません。',
 
     // Context sentences
-    receivedToWallet: '{{wallet}}に受取',
-    sentViaLightning: '{{address}}に送金',
-    sentEcash: 'eCash送金',
-    tokenCreated: 'eCash作成',
-    swappedAt: '{{mint}}でスワップ',
-    swappedFromTo: '{{from}} → {{to}} スワップ',
-    receivedFromPOS: '{{name}}から受取',
     reclaimAction: 'eCashを回収',
 
     // Section titles
     txInfo: '取引情報',
-    paymentInfo: '支払い情報',
-    swapInfo: 'スワップ情報',
 
     // Kiosk order
-    orderItems: '注文内容',
     orderTotal: '合計',
 
     // Fiat
@@ -721,6 +733,7 @@ export default {
     securityError: 'セキュリティエラーが発生しました',
     tokenSpent: 'すでに使用済みのトークンです',
     insufficientBalance: '残高が不足しています (必要: {{required}}  保有: {{available}})',
+    insufficientBalanceUnknown: '手数料を含めると残高が不足します',
     insufficientBalanceForFee: '残高が不足しています (必要: {{required}} + 手数料  保有: {{available}})',
     mintConnection: '{{mint}}に接続できません',
     keysetSyncFailed: 'ミントのキーセット鍵をダウンロードできませんでした',
@@ -749,6 +762,7 @@ export default {
     adapterNotFound: 'この操作に使える決済手段が見つかりません',
     serviceNotReady: 'サービスを準備しています。しばらくしてからもう一度お試しください。',
     invalidDestination: '認識できない送金先アドレスです',
+    paymentDeliveryFailed: '受取人に接続できず、送金できませんでした',
     unrecognizedInput: '認識できない入力形式です',
     lnurlParseFailed: 'このLNURLは処理できません',
     transferStateInvalid: 'この送金はこれ以上処理できません',
@@ -764,6 +778,8 @@ export default {
   // Toast Messages
   toast: {
     copied: 'クリップボードにコピーしました',
+    shared: '共有しました',
+    copyFailed: 'コピーできませんでした',
     ecashReceivedFromSync: '{{count}}件のEcash決済を受け取りました（{{amount}}）',
     lightningReceived: '{{unit}} {{amount}} Lightning決済が到着しました',
     swapOffline: 'オフライン時はスワップできません',
@@ -772,8 +788,8 @@ export default {
     paymentCompletedWithFee: '{{amount}} 支払い完了（手数料: {{fee}}）',
     swapCompleted: '{{amount}} スワップ完了（手数料: {{fee}}）',
     recoveryCompleted: '{{recovered}}件回復完了（{{failed}}件失敗）',
-    ecashTokenReceived: '{{amount}} Ecashトークン受信完了',
-    ecashTokenReceivedWithFee: '{{amount}} Ecashトークン受信完了（手数料: {{fee}}）',
+    ecashTokenReceived: '{{amount}} Ecashトークン受取完了',
+    ecashTokenReceivedWithFee: '{{amount}} Ecashトークン受取完了（手数料: {{fee}}）',
     requestFulfilled: 'Ecash決済 {{amount}} 受取',
     noMintsRegistered: '登録されたミントがありません',
     noReachableMints: '接続可能なミントがありません',
@@ -782,6 +798,8 @@ export default {
     offlineStatus: 'オフライン状態です',
     transferSettled: '転送完了',
     transferReclaimed: '転送回収完了',
+    transferInterrupted: '中断された送金を失敗として処理しました',
+    transferFailed: '送金に失敗しました',
     tokenClaimed: 'イーキャッシュ {{amount}} が使用されました',
     tokenClaimedWithMemo: 'イーキャッシュ {{amount}} が使用されました · {{memo}}',
   },
@@ -798,9 +816,10 @@ export default {
   // Send
   send: {
     title: '送金',
+    max: '全額',
     next: '次へ',
     noOtherWallets: '他のウォレットがありません',
-    myWalletList: '自分に送る',
+    myWalletList: '自分のミント',
     amountRequired: '金額を入力してください',
     destination: {
       whoToSend: '誰に送りますか？',
@@ -809,34 +828,27 @@ export default {
       invalidCashuToken: '無効な Cashu トークン形式です',
       validationFailed: 'アドレスを確認できません',
       ecashInfoNotFound: 'eCash受取情報が見つかりません。',
+      lookupFailed: '照会のためのネットワークに接続できませんでした。もう一度お試しください。',
       noCommonMint: '相手が受け取れる共通ミントがありません。',
       relayNotFound: '相手へ送るためのリレー情報が見つかりません。',
       selectedMintUnavailable: '{{mint}}は相手が受け取れません。下のミントから送れます。',
     },
     amount: {
-      howMuchSend: 'いくら送りますか？',
-      addMemo: 'メモ（任意）',
+      prompt: 'いくら送りますか？',
+      fixedByInvoice: 'インボイスで固定された金額です',
+    },
+    direct: {
+      cta: '直接渡す',
+      confirmCta: '作成',
+      label: '直接受け渡し',
+      createFailed: 'トークンの作成に失敗しました',
+      noMint: '利用可能なミントがありません',
+      awaitingClaim: '相手が受け取ると完了します',
+      claimed: '受け取り完了',
     },
     tokenCreate: {
-      howMuch: 'いくら分のイーキャッシュを作りますか？',
-      amountCaption: 'イーキャッシュはビットコインを商品券のように手渡せる仕組みです',
-      memoPlaceholder: 'メモ（任意）',
-      confirmTitle: '作成の確認',
-      confirmQuestion: '<b>{{mint}}</b>から<b>{{amount}}</b>の\nイーキャッシュを作りますか？',
-      reclaimNote: '受取人が登録する前ならイーキャッシュを取り戻せます',
-      mintLabel: 'ミント',
-      createFee: '作成手数料',
-      postBalance: '作成後の残高',
-      creating: '作成中…',
       toggleUnit: '単位切替（現在: {{current}}）',
-      insufficientBalance: 'ミント残高不足:',
-      changeMint: 'ミント変更',
-      senderPaysFeeCaption: '受取手数料をイーキャッシュに含めて、受取人がそのままの金額を受け取れるようにします（任意）',
-      createdTitle: 'イーキャッシュが作成されました',
-      spentTitle: 'イーキャッシュが使用されました',
-      spentMessage: '{{amount}} 使用されました',
       tapToReveal: 'タップして表示',
-      receiveFeeAmount: '受取手数料 {{amount}}',
       share: '共有',
       reclaim: '取り戻す',
       reclaiming: '取り戻し中…',
@@ -844,32 +856,45 @@ export default {
     },
     confirm: {
       title: '送金確認',
-      method: '送金方法',
-      sourceMint: '送金ウォレット',
-      recipient: '受取人',
+      question: '<b>{{recipient}}</b>へ\n<amt>{{amount}}</amt>を\n送りますか？',
+      requestQuestion: '<amt>{{amount}}</amt>を\n送りますか？',
+      transferQuestion: '<b>{{target}}</b>へ\n<amt>{{amount}}</amt>を\n移動しますか？',
+      createQuestion: '<amt>{{amount}}</amt>の\neCashを作成しますか？',
+      sourceMint: '送金ミント',
       memo: 'メモ',
       requestAmount: '請求額',
       estimatedFee: '予想手数料',
+      fee: '手数料',
+      feeChecking: '手数料を確認中',
+      feeUnavailableValue: '確認不可',
+      feeUnavailable: '手数料を計算できませんでした。もう一度お試しください。',
+      retryFee: '再確認',
       total: '合計',
       send: '送金',
-      transfer: '移動する',
       internalTransfer: '残高移動',
-      targetWallet: '受取ウォレット',
-      fullQuestion: '<b>{{mint}}</b>から\n<b>{{recipient}}</b>へ\n{{amount}}を\n送りますか？',
-      fullRequestQuestion: '<b>{{mint}}</b>から\n{{amount}}を\n送りますか？',
-      fullTransferQuestion: '<b>{{mint}}</b>から\n<b>{{target}}</b>へ\n{{amount}}を\n移動しますか？',
-      recipientTo: '<b>{{recipient}}</b>に',
-      lightningInvoice: 'Lightning インボイス',
-      ecashRequest: 'eCash 支払いリクエスト',
+      paymentRequest: '支払いリクエスト',
+      insufficientWithTotal: '残高不足 · 合計 {{total}} 必要',
+    },
+    memo: {
+      changeTitle: 'メモを変更',
+      placeholder: 'メモを入力',
+      none: 'なし',
     },
     sending: {
-      fullMessage: '<b>{{recipient}}</b>へ\n{{amount}}を\n送金中です...',
-      fullRequestMessage: '{{amount}}を\n送金中です...',
+      title: '送金中',
       networkDelay: 'ネットワーク状況により時間がかかる場合があります',
     },
+    receipt: {
+      title: '送金レシート',
+      pendingTitle: '受け渡し待ち',
+      recipient: '宛先',
+      sending: '送金中',
+      settling: '決済確認中',
+      completed: '送金完了',
+      kept: 'レシートは取引履歴に保存されます',
+    },
     complete: {
-      fullMessage: '<b>{{recipient}}</b>へ\n{{amount}}を\n送金しました!',
-      fullRequestMessage: '{{amount}}を\n送金しました!',
+      title: '送金完了',
       confirm: '完了',
     },
   },
@@ -877,12 +902,6 @@ export default {
   // Receive
   receive: {
     title: '受取',
-    next: '次へ',
-    amountRequired: '金額を入力してください',
-    amountStep: {
-      howMuchRequest: 'いくらリクエストしますか？',
-      addMemo: 'メモ（任意）',
-    },
     qr: {
       title: '受取',
       protocols: {
@@ -891,12 +910,6 @@ export default {
         lightning: 'Lightning',
       },
       share: '共有',
-      fullMessage: '{{amount}}が入金されたらお知らせします',
-    },
-    complete: {
-      fullMessage: '{{amount}} 入金されました!',
-      requestFulfilledMessage: 'リクエストした{{amount}}\n到着しました!',
-      done: '完了',
     },
     token: {
       title: 'トークン確認',
@@ -914,27 +927,68 @@ export default {
       reject: '受け取らない',
       rejectSub: 'このトークンを受け取りません',
     },
+    amount: {
+      prompt: 'いくらリクエストしますか？',
+      addMemo: 'メモを追加',
+    },
+    request: {
+      summary: '受取サマリー',
+      expiresIn: 'あと{{seconds}}秒で期限切れ',
+      expiresAtTime: '{{time}}に期限切れ',
+      expired: 'リクエストの期限が切れました',
+      regenerate: '新しく作る',
+      makeAnother: 'もう一度作る',
+      exit: '閉じる',
+    },
+    receipt: {
+      title: '受取レシート',
+      reclaimTitle: '回収レシート',
+      // Names the paper, not the step — the state bar's own node says
+      // "受信待ち" on the same sheet.
+      pendingTitle: '入金予定',
+      method: '方法',
+      methodLightning: 'ライトニング',
+      methodEcash: 'イーキャッシュ',
+      toMint: '受取ミント',
+      memo: 'メモ',
+      completed: '受取完了',
+      receiving: '確認中',
+    },
+    redeem: {
+      title: 'トークンを受け取る',
+      photo: '写真から',
+      paste: '貼り付け',
+      confirmSentence: '{{amount}}を受け取りますか？',
+    },
     tokenReceiveFeeTooHigh: '受取手数料を差し引くと受け取れる金額が残りません。',
+  },
+
+  myAddress: {
+    title: '自分のアドレス',
+    comingSoon: '準備中です',
+    lightningTab: 'ライトニング',
+    nostrTab: 'Nostr npub',
+    noAddress: '受取アドレスがまだありません',
+    createAddress: 'アドレスを作成',
+    depositsTo: 'このアドレスへの受取は{{mint}}に入ります',
+    depositsToFallback: '登録済みのミントに入ります',
+    changeMint: '設定で変更',
   },
 
   // Mint Detail Screen
   mintDetail: {
-    title: 'ミント詳細',
+    title: 'ミント管理',
     pendingItems: '保留中の項目',
     pending: '保留中',
-    seeMore: 'もっと見る',
     transactions: '取引履歴',
-    seeDetails: '詳細を見る',
-    ecashToken: '受信トークン',
+    ecashToken: '受取トークン',
     receiveRequest: '受取リクエスト',
     sentToken: '未受領トークン',
     expiresIn: '{{time}}後に期限切れ',
     noPendingItems: '保留中の項目はありません',
-    noTransactions: '取引履歴はありません',
     duplicateName: 'この名前はすでに使用されています',
     defaultName: 'ミント {{number}}',
     mintInfo: 'ミント情報',
-    announcement: 'お知らせ',
     description: '説明',
     mintUrl: 'ミントURL',
     version: 'バージョン',
@@ -997,51 +1051,29 @@ export default {
 
   nav: {
     wallet: 'ウォレット',
-    token: 'イーキャッシュ',
     contacts: '連絡先',
     settings: '設定',
   },
 
   token: {
-    create: '作る',
-    register: '受け取る',
-    empty: {
-      title: '作成したイーキャッシュがありません。\nイーキャッシュを作ってみましょう。',
-      footerNote: 'イーキャッシュは現金のように機能します。持っている人なら誰でも登録して使えます。',
-    },
     time: {
       justNow: 'たった今',
       minutesAgo: '{{count}}分前',
       hoursAgo: '{{count}}時間前',
       yesterday: '昨日',
       daysAgo: '{{count}}日前',
-      atTimeOfDay: '{{time}}',
-      dayWithTime: '{{day}}日 {{time}}',
     },
     pending: {
-      timeLabel: '待機中 · {{time}}',
-    },
-    pendingWidget: {
-      title: '待機中',
-      summary: '{{count}}個 · 合計 {{total}}',
-      viewAll: '待機中を見る',
-    },
-    pendingEmpty: {
-      title: 'すべて片付きました',
-      subtitle: '待機中のイーキャッシュはありません',
+      timeLabel: '保留中のイーキャッシュ · {{time}}',
     },
     reclaimable: {
       section: '取り戻せます ({{count}})',
+      reclaimAll: 'すべて取り戻す',
       actions: {
         reclaim: '取り戻す',
         share: '共有',
       },
       shareText: '{{memo}}: {{amount}}',
-      copiedToClipboard: 'クリップボードにコピーしました',
-    },
-    firstCreate: {
-      hint: '作成しましたが、まだ登録されていないイーキャッシュです。\n相手が受け取っていないか、まだ登録していない可能性があります。',
-      dismiss: '今後表示しない',
     },
     reclaim: {
       title: '取り戻す',
@@ -1053,104 +1085,14 @@ export default {
       success: '正常に取り戻しました',
       failed: '取り戻しに失敗しました',
     },
-    history: {
-      section: '履歴',
-      deleteSuccess: '履歴を削除しました',
-      deleteFailed: '履歴を削除できませんでした',
-      anchor: {
-        today: '{{weekday}} · 今日',
-        yesterday: '{{weekday}} · 昨日',
-        monthSameYear: '月',
-        monthOtherYear: '{{year}}.{{month02}}',
-      },
-      subLine: '{{status}} · {{time}}',
-      endOfList: 'すべての履歴を確認しました。',
-      status: {
-        registered: '登録',
-        consumed: '使用済み',
-        reclaimed: '取り戻し',
-      },
-    },
     detail: {
-      unread: '未読のイーキャッシュ',
-      title: {
-        pending: '待機中のイーキャッシュ',
-        registered: 'イーキャッシュ登録完了',
-        consumed: 'イーキャッシュ使用済み',
-        reclaimed: 'イーキャッシュの取り戻し完了',
-      },
-      weekday: {
-        sun: '日曜日',
-        mon: '月曜日',
-        tue: '火曜日',
-        wed: '水曜日',
-        thu: '木曜日',
-        fri: '金曜日',
-        sat: '土曜日',
-      },
-      dateLine: {
-        pending: '{{year}}年{{month}}月{{day}}日 {{weekday}}\n{{time}}に作成',
-        registered: '{{year}}年{{month}}月{{day}}日 {{weekday}}\n{{time}}に登録',
-        consumed: '{{year}}年{{month}}月{{day}}日 {{weekday}}\n{{time}}に作成',
-        reclaimed: '{{year}}年{{month}}月{{day}}日 {{weekday}}\n{{time}}に取り戻し',
-      },
-      amountLabel: '金額',
-      feeLine: '手数料 {{fee}}',
-      memoLabel: 'メモ',
-      memoEmpty: '—',
-      typeLabel: '種類',
-      typeValue: {
-        pending: 'イーキャッシュ作成',
-        registered: 'イーキャッシュ登録',
-        consumed: 'イーキャッシュ使用',
-        reclaimed: 'イーキャッシュ取り戻し',
-      },
-      mintLabel: {
-        pending: '出金ミント',
-        registered: '入金ミント',
-        consumed: '発行ミント',
-        reclaimed: '入金ミント',
-      },
-      action: {
-        forward: 'イーキャッシュを転送',
-        confirm: 'イーキャッシュを確認',
-      },
-      actions: {
-        qr: 'QR',
-        copy: 'コピー',
-        share: '共有',
-        viewRaw: 'イーキャッシュの原文',
-      },
-      reclaimCta: '取り戻す（手数料: {{fee}}）',
       raw: {
-        title: 'イーキャッシュ詳細',
-        issuingMint: '発行ミント',
-        unit: '単位',
-        receiveFee: '受取手数料',
-        empty: 'イーキャッシュデータがありません。',
         easterEgg: 'ZAPPI X CASHU',
       },
-      qr: {
-        title: 'QR共有',
-      },
-    },
-    rawSheet: {
-      delete: '履歴を削除',
-      deleteConfirm: '履歴を削除しますか？',
-      deleting: '削除中…',
-      yes: 'はい',
-      no: 'いいえ',
     },
   },
 
   tokenRegister: {
-    title: 'イーキャッシュ登録',
-    inputHeading: 'イーキャッシュを貼り付けまたはスキャンして\n登録できます。',
-    description: 'イーキャッシュはギフトカードのように登録して使えます（{{format}}で始まる文字列です）。',
-    inputPlaceholder: 'イーキャッシュを入力',
-    invalidFormat: '形式が正しくありません。cashuBで始まるイーキャッシュかご確認ください。',
-    scan: 'スキャン',
-    arrived: 'イーキャッシュが届きました！',
     receiving: '受け取り中…',
   },
 

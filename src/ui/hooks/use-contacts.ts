@@ -41,15 +41,22 @@ export function useContacts() {
   const registry = useContext(ServiceContext)
   const [contacts, setContacts] = useState<LegacyContact[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  // True once the first load settles — consumers defer default-tab decisions
+  // on it so the []→loaded flip doesn't animate as a phantom user action
+  const [isReady, setIsReady] = useState(false)
 
   const loadContacts = useCallback(async () => {
-    if (!registry?.contact) return
+    if (!registry?.contact) {
+      setIsReady(true)
+      return
+    }
     setIsLoading(true)
     try {
       const domainContacts = await registry.contact.list()
       setContacts(domainContacts.map(toLegacy))
     } finally {
       setIsLoading(false)
+      setIsReady(true)
     }
   }, [registry?.contact])
 
@@ -98,6 +105,7 @@ export function useContacts() {
   return {
     contacts,
     isLoading,
+    isReady,
     loadContacts,
     createContact,
     updateContact,

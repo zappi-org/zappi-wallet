@@ -4,9 +4,9 @@ export default {
     cancel: 'Cancel',
     confirm: 'Confirm',
     close: 'Close',
-    next: 'Next',
     back: 'Back',
     save: 'Save',
+    edit: 'Edit',
     delete: 'Delete',
     add: 'Add',
     copy: 'Copy',
@@ -19,10 +19,10 @@ export default {
     amount: 'Amount',
     min: 'min',
     offlineRequired: 'Internet connection required',
-    memo: 'Memo',
     paste: 'Paste',
     change: 'Change',
     search: 'Search',
+    reset: 'Reset',
   },
 
   // Lock Screen
@@ -394,7 +394,7 @@ export default {
     senderPrivacyModeDescription: 'Prefer routes where the mint cannot link sender and receiver, even if fees are higher',
 
     // Descriptions
-    autoLockDescription: 'Automatically lock after inactivity',
+    autoLockDescription: 'Locks after the idle time you set. Reopening within that window skips the PIN.',
   },
 
   // Add Mint Screen
@@ -420,8 +420,7 @@ export default {
   scanner: {
     title: 'Scan',
     paste: 'Paste',
-    loadFromPhoto: 'Load from Photo',
-    validating: 'Validating...',
+    loadFromPhoto: 'Photos',
     unrecognizedFormat: 'Unrecognized format',
     invalidToken: 'Invalid ecash',
     cameraPermission: 'Camera permission required',
@@ -430,7 +429,6 @@ export default {
     cameraPreparing: 'Preparing camera...',
     multipartScanning: 'Scanning multipart QR...',
     enableCameraPermission: 'Please enable camera permission in settings',
-    uploadImage: 'Scan QR from image',
     noQrFound: 'No QR code found',
   },
 
@@ -494,6 +492,8 @@ export default {
 
   // History Screen
   history: {
+    lightning: 'Lightning',
+    ecash: 'eCash',
     title: 'Transaction History',
     noTransactions: 'No transactions yet',
     all: 'All',
@@ -511,15 +511,6 @@ export default {
     endOfList: "You're all caught up.",
 
     // Transaction Types
-    lightningReceive: 'Receive (Lightning)',
-    lightningSend: 'Send (Lightning)',
-    ecashReceive: 'Receive (eCash)',
-    ecashSend: 'Send (eCash)',
-    ecashToken: 'Create (eCash)',
-    ecashRegister: 'Redeem (eCash)',
-    ecashReclaim: 'Reclaim (eCash)',
-    requestFulfill: 'Ecash payment received',
-    requestPay: 'Ecash payment sent',
     nutzap: 'NutZap',
     swap: 'Swap',
 
@@ -527,6 +518,13 @@ export default {
     completed: 'Completed',
     pendingStatus: 'Processing',
     failedStatus: 'Failed',
+    reclaimed: 'Reclaimed',
+
+    // Row title = the act (means moved to the subtitle)
+    received: 'Received',
+    sent: 'Sent',
+    receiving: 'Receiving',
+    sending: 'Sending',
 
     // Redesigned history screen
     income: 'Income',
@@ -539,9 +537,9 @@ export default {
     period3m: '3M',
     periodAll: 'All',
     dateFilter: 'Date Filter',
-    mintFilter: 'Wallet Filter',
-    allMints: 'All Wallets',
-    mintCount: '{{count}} Wallets',
+    mintFilter: 'Mint Filter',
+    allMints: 'All Mints',
+    mintCount: '{{count}} Mints',
 
     // Export
     export: 'Export',
@@ -555,6 +553,32 @@ export default {
 
   // Transaction Detail Screen
   txDetail: {
+    recordMissing: 'Transaction record not found',
+    state: {
+      created: 'Created',
+      waiting: 'Waiting',
+      used: 'Used',
+      reclaimed: 'Reclaimed',
+      sent: 'Sent',
+      awaitingReceipt: 'Awaiting receipt',
+      confirmed: 'Confirmed',
+      requested: 'Requested',
+      received: 'Received',
+      registered: 'Redeemed',
+      swapStart: 'Swap started',
+      swapDone: 'Swap done',
+      completed: 'Completed',
+      failed: 'Failed',
+      notePending: 'Not redeemed yet · you can reclaim anytime',
+      noteClaimed: 'Redeemed by the recipient — all done',
+      noteReclaimed: 'Returned to your balance before it was used',
+      noteInTransit: 'Confirming settlement',
+    },
+    share: 'Share',
+    viewRawToken: 'View raw token',
+    reclaimWithFee: 'Reclaim (receive fee: {{fee}})',
+    reclaimQuoting: 'Checking fee',
+    time: 'Time',
     type: 'Type',
     mint: 'Mint',
     source: 'Source',
@@ -576,33 +600,19 @@ export default {
     'source.zappi-link': 'Zappi Link',
     'source.wallet': 'Wallet',
     'source.unknown': 'External',
-
-    reclaiming: 'Reclaiming...',
     reclaimSuccess: 'eCash reclaimed successfully',
     reclaimFailed: 'Failed to reclaim eCash',
     consumedByRecipient: 'Recipient has already claimed this eCash',
     sentToken: 'Sent eCash',
-    copied: 'Copied',
     delete: 'Delete',
     deleteConfirm: 'Delete this transaction record?',
     deleteWarning: 'This cannot be undone.',
 
     // Context sentences
-    receivedToWallet: 'Received to {{wallet}}',
-    sentViaLightning: 'Sent to {{address}}',
-    sentEcash: 'eCash sent',
-    tokenCreated: 'eCash created',
-    swappedAt: 'Swapped at {{mint}}',
-    swappedFromTo: '{{from}} → {{to}} swap',
-    receivedFromPOS: 'Received from {{name}}',
     reclaimAction: 'Reclaim eCash',
 
     // Section titles
     txInfo: 'Transaction info',
-    paymentInfo: 'Payment info',
-    swapInfo: 'Swap info',
-
-    orderItems: 'Order Items',
     orderTotal: 'Total',
 
   },
@@ -721,6 +731,7 @@ export default {
     securityError: 'A security error occurred',
     tokenSpent: 'Token has already been spent',
     insufficientBalance: 'Insufficient balance (need: {{required}}  have: {{available}})',
+    insufficientBalanceUnknown: 'Your balance is insufficient after fees',
     insufficientBalanceForFee: 'Insufficient balance (need: {{required}} + fee  have: {{available}})',
     mintConnection: 'Cannot connect to {{mint}}',
     keysetSyncFailed: 'Failed to download mint keyset keys',
@@ -749,6 +760,7 @@ export default {
     adapterNotFound: 'No payment method available for this operation',
     serviceNotReady: 'Service is starting up — try again in a moment.',
     invalidDestination: 'Unrecognized destination address',
+    paymentDeliveryFailed: 'Could not reach the recipient — the payment was not sent',
     unrecognizedInput: 'Unrecognized input format',
     lnurlParseFailed: 'Could not process this LNURL',
     transferStateInvalid: 'This transfer can no longer be processed',
@@ -764,6 +776,8 @@ export default {
   // Toast Messages
   toast: {
     copied: 'Copied to clipboard',
+    shared: 'Shared',
+    copyFailed: 'Could not copy',
     ecashReceivedFromSync: '{{count}} Ecash payment(s) received ({{amount}})',
     lightningReceived: '{{unit}} {{amount}} Lightning payment arrived',
     swapOffline: 'Cannot swap while offline',
@@ -782,6 +796,8 @@ export default {
     offlineStatus: 'You are offline',
     transferSettled: 'Transfer completed',
     transferReclaimed: 'Transfer reclaimed',
+    transferInterrupted: 'An interrupted transfer was marked as failed',
+    transferFailed: 'Transfer failed',
     tokenClaimed: '{{amount}} ecash was claimed',
     tokenClaimedWithMemo: '{{amount}} ecash was claimed · {{memo}}',
   },
@@ -798,9 +814,10 @@ export default {
   // Send
   send: {
     title: 'Send',
+    max: 'Max',
     next: 'Next',
     noOtherWallets: 'No other wallets',
-    myWalletList: 'Send to myself',
+    myWalletList: 'My mints',
     amountRequired: 'Please enter an amount',
     destination: {
       whoToSend: 'Who are you sending to?',
@@ -809,34 +826,27 @@ export default {
       invalidCashuToken: 'Invalid Cashu token format',
       validationFailed: 'Unable to verify address',
       ecashInfoNotFound: 'Could not find ecash receiving information.',
+      lookupFailed: 'Could not reach the network to look that up. Please try again.',
       noCommonMint: 'No shared mint is available for this recipient.',
       relayNotFound: 'Could not find relay information for this recipient.',
       selectedMintUnavailable: '{{mint}} is not supported by this recipient. You can send from one of the mints below.',
     },
     amount: {
-      howMuchSend: 'How much to send?',
-      addMemo: 'Memo (optional)',
+      prompt: 'How much would you like to send?',
+      fixedByInvoice: 'Amount fixed by the invoice',
+    },
+    direct: {
+      cta: 'Hand over directly',
+      confirmCta: 'Create',
+      label: 'Direct transfer',
+      createFailed: 'Failed to create token',
+      noMint: 'No mint available',
+      awaitingClaim: 'Completes once they receive it',
+      claimed: 'Picked up',
     },
     tokenCreate: {
-      howMuch: 'How much ecash to create?',
-      amountCaption: 'Ecash turns bitcoin into a gift card you can hand over',
-      memoPlaceholder: 'Memo (optional)',
-      confirmTitle: 'Confirm Creation',
-      confirmQuestion: 'Create <b>{{amount}}</b> ecash\nfrom <b>{{mint}}</b>?',
-      reclaimNote: 'You can reclaim ecash until the recipient redeems it',
-      mintLabel: 'Mint',
-      createFee: 'Creation fee',
-      postBalance: 'Balance after creation',
-      creating: 'Creating…',
       toggleUnit: 'Toggle unit (current: {{current}})',
-      insufficientBalance: 'Insufficient mint balance:',
-      changeMint: 'Change mint',
-      senderPaysFeeCaption: 'Add the receive fee to the ecash so the recipient gets the full amount (optional)',
-      createdTitle: 'Ecash created',
-      spentTitle: 'Ecash spent',
-      spentMessage: '{{amount}} spent',
       tapToReveal: 'Tap to reveal',
-      receiveFeeAmount: 'Receive fee {{amount}}',
       share: 'Share',
       reclaim: 'Reclaim',
       reclaiming: 'Reclaiming…',
@@ -844,32 +854,45 @@ export default {
     },
     confirm: {
       title: 'Confirm Send',
-      method: 'Method',
-      sourceMint: 'Source Wallet',
-      recipient: 'Recipient',
+      question: 'Send <amt>{{amount}}</amt>\nto <b>{{recipient}}</b>?',
+      requestQuestion: 'Send <amt>{{amount}}</amt>?',
+      transferQuestion: 'Move <amt>{{amount}}</amt>\nto <b>{{target}}</b>?',
+      createQuestion: 'Create <amt>{{amount}}</amt>\nas eCash?',
+      sourceMint: 'Source Mint',
       memo: 'Memo',
       requestAmount: 'Request',
       estimatedFee: 'Estimated Fee',
+      fee: 'Fee',
+      feeChecking: 'Checking fee',
+      feeUnavailableValue: 'Unavailable',
+      feeUnavailable: 'Could not estimate the fee. Please try again.',
+      retryFee: 'Try again',
       total: 'Total',
       send: 'Send',
-      transfer: 'Transfer',
       internalTransfer: 'Internal Transfer',
-      targetWallet: 'Destination Wallet',
-      fullQuestion: 'Send {{amount}}\nto <b>{{recipient}}</b>\nfrom <b>{{mint}}</b>?',
-      fullRequestQuestion: 'Send {{amount}}\nfrom <b>{{mint}}</b>?',
-      fullTransferQuestion: 'Transfer {{amount}}\nto <b>{{target}}</b>\nfrom <b>{{mint}}</b>?',
-      recipientTo: 'to <b>{{recipient}}</b>',
-      lightningInvoice: 'Lightning Invoice',
-      ecashRequest: 'eCash Payment Request',
+      paymentRequest: 'Payment request',
+      insufficientWithTotal: 'Insufficient balance · {{total}} needed',
+    },
+    memo: {
+      changeTitle: 'Change memo',
+      placeholder: 'Add a memo',
+      none: 'None',
     },
     sending: {
-      fullMessage: 'Sending {{amount}}\nto <b>{{recipient}}</b>...',
-      fullRequestMessage: 'Sending {{amount}}...',
+      title: 'Sending',
       networkDelay: 'This may take a moment depending on the network',
     },
+    receipt: {
+      title: 'Send Receipt',
+      pendingTitle: 'Awaiting delivery',
+      recipient: 'To',
+      sending: 'Sending',
+      settling: 'Confirming settlement',
+      completed: 'Completed',
+      kept: 'Saved to your transaction history',
+    },
     complete: {
-      fullMessage: 'Sent {{amount}}\nto <b>{{recipient}}</b>!',
-      fullRequestMessage: 'Sent {{amount}}!',
+      title: 'Sent',
       confirm: 'Done',
     },
   },
@@ -877,12 +900,6 @@ export default {
   // Receive
   receive: {
     title: 'Receive',
-    next: 'Next',
-    amountRequired: 'Please enter an amount',
-    amountStep: {
-      howMuchRequest: 'How much to request?',
-      addMemo: 'Memo (optional)',
-    },
     qr: {
       title: 'Receive',
       protocols: {
@@ -891,12 +908,6 @@ export default {
         lightning: 'Lightning',
       },
       share: 'Share',
-      fullMessage: "We'll notify you when {{amount}} is deposited",
-    },
-    complete: {
-      fullMessage: '{{amount}} received!',
-      requestFulfilledMessage: 'Your request for\n{{amount}} arrived!',
-      done: 'Done',
     },
     token: {
       title: 'Token Confirmation',
@@ -914,27 +925,68 @@ export default {
       reject: 'Do not receive',
       rejectSub: 'Do not accept this token',
     },
+    amount: {
+      prompt: 'How much do you want to request?',
+      addMemo: 'Add memo',
+    },
+    request: {
+      summary: 'Receive summary',
+      expiresIn: 'Expires in {{seconds}}s',
+      expiresAtTime: 'Expires at {{time}}',
+      expired: 'This request expired',
+      regenerate: 'Create a new one',
+      makeAnother: 'Make another',
+      exit: 'Done',
+    },
+    receipt: {
+      title: 'RECEIVE RECEIPT',
+      reclaimTitle: 'Reclaim receipt',
+      // Names the paper, not the step — the state bar's own node says
+      // "Awaiting receipt" on the same sheet.
+      pendingTitle: 'Incoming payment',
+      method: 'Method',
+      methodLightning: 'Lightning',
+      methodEcash: 'Ecash',
+      toMint: 'To mint',
+      memo: 'Memo',
+      completed: 'Received',
+      receiving: 'Confirming',
+    },
+    redeem: {
+      title: 'Redeem a token',
+      photo: 'From photos',
+      paste: 'Paste',
+      confirmSentence: 'Receive {{amount}}?',
+    },
     tokenReceiveFeeTooHigh: 'After receive fees, there is no amount left to receive.',
+  },
+
+  myAddress: {
+    title: 'My address',
+    comingSoon: 'Coming soon',
+    lightningTab: 'Lightning',
+    nostrTab: 'Nostr npub',
+    noAddress: 'No receive address yet',
+    createAddress: 'Create address',
+    depositsTo: 'Payments to this address arrive at {{mint}}',
+    depositsToFallback: 'Payments arrive at your registered mint',
+    changeMint: 'Change in settings',
   },
 
   // Mint Detail Screen
   mintDetail: {
-    title: 'Mint Detail',
+    title: 'Manage Mint',
     pendingItems: 'Pending Items',
     pending: 'Pending',
-    seeMore: 'See More',
     transactions: 'Transactions',
-    seeDetails: 'See Details',
     ecashToken: 'Received Token',
     receiveRequest: 'Receive Request',
     sentToken: 'Unclaimed Token',
     expiresIn: 'Expires in {{time}}',
     noPendingItems: 'No pending items',
-    noTransactions: 'No transactions',
     duplicateName: 'This name is already in use',
     defaultName: 'Mint {{number}}',
     mintInfo: 'Mint Info',
-    announcement: 'Announcement',
     description: 'Description',
     mintUrl: 'Mint URL',
     version: 'Version',
@@ -998,52 +1050,30 @@ export default {
   // Bottom Navigation
   nav: {
     wallet: 'Wallet',
-    token: 'Ecash',
     contacts: 'Contacts',
     settings: 'Settings',
   },
 
   // Token tab toolbar
   token: {
-    create: 'Create',
-    register: 'Receive',
-    empty: {
-      title: 'No ecash yet.\nWant to create one?',
-      footerNote: 'Ecash works like cash. Anyone who has it can redeem and use it.',
-    },
     time: {
       justNow: 'just now',
       minutesAgo: '{{count}} min ago',
       hoursAgo: '{{count}} hr ago',
       yesterday: 'yesterday',
       daysAgo: '{{count}} days ago',
-      atTimeOfDay: '{{time}}',
-      dayWithTime: 'Day {{day}}, {{time}}',
     },
     pending: {
-      timeLabel: 'Pending · {{time}}',
-    },
-    pendingWidget: {
-      title: 'Pending',
-      summary: '{{count}} ecash · {{total}}',
-      viewAll: 'Reclaim all',
-    },
-    pendingEmpty: {
-      title: 'All caught up',
-      subtitle: 'No pending ecash',
+      timeLabel: 'Pending ecash · {{time}}',
     },
     reclaimable: {
       section: 'Reclaimable ({{count}})',
+      reclaimAll: 'Reclaim all',
       actions: {
         reclaim: 'Reclaim',
         share: 'Share',
       },
       shareText: '{{memo}}: {{amount}}',
-      copiedToClipboard: 'Copied to clipboard',
-    },
-    firstCreate: {
-      hint: 'You created this ecash but it has not been redeemed yet.\nThe recipient may not have received or redeemed it yet.',
-      dismiss: "Don't show again",
     },
     reclaim: {
       title: 'Reclaim',
@@ -1055,105 +1085,15 @@ export default {
       success: 'Successfully reclaimed',
       failed: 'Failed to reclaim',
     },
-    history: {
-      section: 'History',
-      deleteSuccess: 'History deleted',
-      deleteFailed: 'Failed to delete history',
-      anchor: {
-        today: '{{weekday}} · Today',
-        yesterday: '{{weekday}} · Yesterday',
-        monthSameYear: '{{monthName}}',
-        monthOtherYear: '{{year}}.{{month02}}',
-      },
-      subLine: '{{status}} · {{time}}',
-      endOfList: "You're all caught up.",
-      status: {
-        registered: 'Redeemed',
-        consumed: 'Spent',
-        reclaimed: 'Reclaimed',
-      },
-    },
     detail: {
-      unread: 'Unread ecash',
-      title: {
-        pending: 'Pending ecash',
-        registered: 'Ecash redeemed',
-        consumed: 'Ecash spent',
-        reclaimed: 'Ecash reclaimed',
-      },
-      weekday: {
-        sun: 'Sunday',
-        mon: 'Monday',
-        tue: 'Tuesday',
-        wed: 'Wednesday',
-        thu: 'Thursday',
-        fri: 'Friday',
-        sat: 'Saturday',
-      },
-      dateLine: {
-        pending: 'Created {{weekday}}, {{month}}/{{day}}/{{year}} at {{time}}',
-        registered: 'Redeemed {{weekday}}, {{month}}/{{day}}/{{year}} at {{time}}',
-        consumed: 'Created {{weekday}}, {{month}}/{{day}}/{{year}} at {{time}}',
-        reclaimed: 'Reclaimed {{weekday}}, {{month}}/{{day}}/{{year}} at {{time}}',
-      },
-      amountLabel: 'Amount',
-      feeLine: 'Fee {{fee}}',
-      memoLabel: 'Memo',
-      memoEmpty: '—',
-      typeLabel: 'Type',
-      typeValue: {
-        pending: 'Create ecash',
-        registered: 'Redeem ecash',
-        consumed: 'Ecash spent',
-        reclaimed: 'Reclaim ecash',
-      },
-      mintLabel: {
-        pending: 'Source mint',
-        registered: 'Target mint',
-        consumed: 'Issuing mint',
-        reclaimed: 'Target mint',
-      },
-      action: {
-        forward: 'Forward ecash',
-        confirm: 'View ecash',
-      },
-      actions: {
-        qr: 'QR',
-        copy: 'Copy',
-        share: 'Share',
-        viewRaw: 'View raw ecash',
-      },
-      reclaimCta: 'Reclaim (fee: {{fee}})',
       raw: {
-        title: 'Raw ecash',
-        issuingMint: 'Issuing mint',
-        unit: 'Unit',
-        receiveFee: 'Receive fee',
-        empty: 'No ecash data.',
         easterEgg: 'ZAPPI X CASHU',
       },
-      qr: {
-        title: 'Share QR',
-      },
-    },
-    rawSheet: {
-      delete: 'Delete history',
-      deleteConfirm: 'Delete history?',
-      deleting: 'Deleting…',
-      yes: 'Yes',
-      no: 'No',
     },
   },
 
   // Token Register Flow
   tokenRegister: {
-    title: 'Redeem ecash',
-    inputHeading: 'Paste or scan ecash\nto redeem it.',
-    description: 'Ecash works like a gift card you can redeem and use (a string starting with {{format}}).',
-    inputPlaceholder: 'Enter ecash',
-    invalidFormat: 'Invalid format. Make sure the ecash starts with cashuB.',
-    scan: 'Scan',
-    arrived: 'Your ecash arrived!',
     receiving: 'Receiving…',
   },
 

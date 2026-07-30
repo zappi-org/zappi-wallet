@@ -13,6 +13,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { hapticTap } from '@/ui/utils/haptic'
+import { translateError } from '@/ui/utils/error-i18n'
 import { useInputParser } from '@/ui/hooks/use-input-parser'
 import { useContacts } from '@/ui/hooks/use-contacts'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
@@ -115,6 +116,10 @@ export function useSendInputValidation({
   const { nostrDirectPayment } = useServiceRegistry()
 
   const [destination, setDestination] = useState(initialDestination)
+  // Bumped when a failed replacement resets state. setDestination is a no-op for
+  // identical text, so without this the detector never re-runs and the cleared
+  // error is never replaced — the same bad paste twice would say nothing.
+  const [detectNonce, setDetectNonce] = useState(0)
   const [detectedTypes, setDetectedTypes] = useState<string[]>(() => {
     if (!initialValidatedData) return []
     if (initialValidatedData.type === 'cashu-request') {
@@ -136,6 +141,16 @@ export function useSendInputValidation({
   const validatedDataRef = useRef<SendableValidatedData | null>(null)
   // Store the raw address when displayName is used (contact selection)
   const rawAddressRef = useRef<string | null>(null)
+  // Synchronous latch against a second advance while the first is still
+  // validating (isValidating only flips after a render, so a rapid re-tap on a
+  // list row would slip past it).
+  const selectingRef = useRef(false)
+  // Selection epoch — bumped on every destination change/selection (via
+  // applyDestinationState). Timers are cleared by cancelPendingValidation, but
+  // an ALREADY-RUNNING async continuation (validateAsync, contact lookup,
+  // nostr resolve) survives that; each one captures the epoch before awaiting
+  // and drops its result when a newer input/selection has superseded it.
+  const selectionEpochRef = useRef(0)
 
   // Restore rawAddressRef from initialValidatedData when navigating back
   useEffect(() => {
@@ -153,12 +168,18 @@ export function useSendInputValidation({
         case 'cashu-request':
           rawAddressRef.current = initialValidatedData.request
           break
+        case 'my-wallet':
+          // The destination shows the wallet's plain display name (no '@' sigil),
+          // so without this latch the debounce detector would try to parse the
+          // label as an address on back-navigation and flag it unrecognized.
+          rawAddressRef.current = initialValidatedData.targetMintUrl
+          break
       }
     }
   }, [initialValidatedData])
 
   // Address book contacts (via ContactUseCase)
-  const { contacts, findByAddress } = useContacts()
+  const { contacts, isReady: contactsReady, findByAddress } = useContacts()
   const findContactDisplayName = useCallback(async (candidates: string[]): Promise<string | undefined> => {
     const uniqueCandidates = uniqueNonEmpty(candidates)
 
@@ -193,6 +214,7 @@ export function useSendInputValidation({
     detectedTypes?: string[]
     isPreValidating?: boolean
   }) => {
+    selectionEpochRef.current += 1
     cancelPendingValidation()
     rawAddressRef.current = options.rawAddress ?? null
     setDestination(options.destination)
@@ -223,6 +245,9 @@ export function useSendInputValidation({
     if (rawAddressRef.current || !destination.trim() || destination.startsWith('@')) return
 
     detectTimeoutRef.current = setTimeout(async () => {
+      // Captured before any await; a newer input/selection bumps the epoch and
+      // this run must then drop its late results instead of advancing stale.
+      const epoch = selectionEpochRef.current
       clearTimeout(autoAdvanceTimerRef.current)
       const detected = inputParser.detectAndClassify(destination)
       if (detected.type === 'nostr-direct') {
@@ -248,6 +273,9 @@ export function useSendInputValidation({
       }
 
       if (detected.type === 'bolt11') {
+        // Inline, at paste time — validateAsync rejects expired invoices, but
+        // without this the CTA stays enabled and the rejection has no voice.
+        if (detected.isExpired) setPreValidationError(t('errors.invoiceExpired'))
         setIsPreValidating(false)
         return
       }
@@ -255,6 +283,7 @@ export function useSendInputValidation({
       if (detected.type === 'cashu-request') {
         try {
           const validated = await inputParser.validateAsync(detected)
+          if (selectionEpochRef.current !== epoch) return
           if (onRedirect && resolveFlowTarget(validated.type) !== 'send') {
             setIsPreValidating(false)
             onRedirect(validated)
@@ -268,6 +297,7 @@ export function useSendInputValidation({
             const amt = validated.parsed?.amount
             if (amt && amt > 0 && destination !== lastAutoAdvancedInputRef.current) {
               const contactName = await findContactDisplayName(getContactLookupCandidates(destination, sendable))
+              if (selectionEpochRef.current !== epoch) return
               setIsPreValidating(false)
               lastAutoAdvancedInputRef.current = destination
               autoAdvanceTimerRef.current = setTimeout(() => {
@@ -305,7 +335,7 @@ export function useSendInputValidation({
     }, 500)
 
     return () => clearTimeout(detectTimeoutRef.current)
-  }, [destination, inputParser, t, onNext, onRedirect, addToast, findContactDisplayName])
+  }, [destination, detectNonce, inputParser, t, onNext, onRedirect, addToast, findContactDisplayName])
 
   // Cleanup auto-advance timer on unmount
   useEffect(() => () => clearTimeout(autoAdvanceTimerRef.current), [])
@@ -315,7 +345,19 @@ export function useSendInputValidation({
   const processExternalInput = useCallback(async (input: string, displayName?: string) => {
     const trimmed = input.trim()
     if (!trimmed) return false
+    // Show the replacement before the first await. The contact lookup is an
+    // IndexedDB round trip; leaving the old recipient on screen until it returns
+    // means Next re-validates that stale text and advances to the very recipient
+    // this call is replacing. Clearing the validation alone is not enough — the
+    // displayed destination is what Next re-reads. The contact name, once known,
+    // refines this below.
+    applyDestinationState({ destination: trimmed, rawAddress: null, validatedData: null, detectedTypes: [] })
+    // Captured after our own bump, like every branch below. The contact lookup is
+    // the one await that had no guard, so a paste parked here used to resume and
+    // overwrite whatever the user selected while it was in flight.
+    const entryEpoch = selectionEpochRef.current
     const initialContactName = displayName || await findContactDisplayName(getContactLookupCandidates(trimmed))
+    if (selectionEpochRef.current !== entryEpoch) return 'stale'
     const initialDestination = initialContactName || trimmed
     const hasInitialDisplayName = !!initialContactName
 
@@ -324,11 +366,20 @@ export function useSendInputValidation({
 
 
     if (inputType === 'unknown') {
-      // Check if input looks like a Cashu token but failed to parse
-      if (trimmed.startsWith('cashuA') || trimmed.startsWith('cashuB')) {
-        console.error('[SendInputStep] Invalid Cashu token format:', trimmed.slice(0, 50))
-        addToast({ type: 'error', message: t('send.destination.invalidCashuToken'), duration: 3000 })
-      }
+      // A replacement that fails must not leave the previous recipient armed —
+      // paste/scan call this bare, so returning before the reset would keep the
+      // old destination validated and sendable behind the new text.
+      applyDestinationState({
+        destination: initialDestination,
+        rawAddress: hasInitialDisplayName ? trimmed : null,
+        validatedData: null,
+        detectedTypes: [],
+      })
+      // The unrecognized / invalid-token voice stays with the debounce detector:
+      // paste and scan leave rawAddress null, so it runs and says it once. The
+      // callers that suppress the detector (contact row, deep link, submit)
+      // report `false` themselves.
+      setDetectNonce((n) => n + 1)
       return false
     }
 
@@ -340,6 +391,9 @@ export function useSendInputValidation({
         detectedTypes: hasInitialDisplayName ? [] : [trimmed.toLowerCase().startsWith('nprofile1') ? 'nprofile' : 'npub'],
         isPreValidating: true,
       })
+      // Epoch captured AFTER our own applyDestinationState bump — only a NEWER
+      // input/selection invalidates this run.
+      const nostrEpoch = selectionEpochRef.current
 
       let resolution: DirectPaymentResolution
       try {
@@ -348,12 +402,17 @@ export function useSendInputValidation({
           ownMintUrls: settings.mints,
           selectedMintUrl: mintUrl || null,
         })
-      } catch {
-        setPreValidationError(t('send.destination.ecashInfoNotFound'))
+      } catch (error) {
+        if (selectionEpochRef.current !== nostrEpoch) return 'stale'
+        // The lookup never completed, which says nothing about the recipient —
+        // telling the user "no ecash info" points them away from a retry.
+        console.error('[sendRoute] direct payment lookup failed:', error)
+        setPreValidationError(t(SEND_ROUTE_ERROR_I18N['lookup-failed']))
         setIsPreValidating(false)
         return 'handled-error'
       }
 
+      if (selectionEpochRef.current !== nostrEpoch) return 'stale'
       setIsPreValidating(false)
 
       if (resolution.status === 'ready') {
@@ -387,15 +446,20 @@ export function useSendInputValidation({
         detectedTypes: hasInitialDisplayName ? [] : ['email-address'],
         isPreValidating: true,
       })
+      // Epoch captured AFTER our own applyDestinationState bump — only a NEWER
+      // input/selection invalidates this run.
+      const emailEpoch = selectionEpochRef.current
 
       let validated: SendableValidatedData
       try {
         validated = await inputParser.validateAsync(detected) as SendableValidatedData
       } catch {
+        if (selectionEpochRef.current !== emailEpoch) return 'stale'
         setIsPreValidating(false)
         return 'validation-error'
       }
 
+      if (selectionEpochRef.current !== emailEpoch) return 'stale'
       setIsPreValidating(false)
 
       if (validated.type === 'email-address' && validated.nutzapInfo) {
@@ -454,17 +518,24 @@ export function useSendInputValidation({
       // Don't show type badge when selecting from contacts (displayName means contact)
       detectedTypes: hasInitialDisplayName ? [] : toBadgeTypes(detected),
     })
+    // Epoch captured AFTER our own applyDestinationState bump — only a NEWER
+    // input/selection invalidates this run.
+    const epoch = selectionEpochRef.current
 
 
-    // Full validation (async — network calls for lightning-address, lnurl, npub)
+    // Full validation (async — network calls for email-address, lnurl, npub)
     let validated
     try {
       validated = await inputParser.validateAsync(detected)
-    } catch {
-      // Format was recognized but remote validation failed — surface this distinctly from
-      // "unrecognized" (an unrecognized toast on an offline/server error is misleading).
+    } catch (err) {
+      if (selectionEpochRef.current !== epoch) return 'stale'
+      // Format was recognized but validation failed (expired invoice, dead LNURL,
+      // offline). Inline error here covers every caller — paste, scan, contact
+      // auto-validate — which previously discarded this result silently.
+      setPreValidationError(translateError(err, t))
       return 'validation-error'
     }
+    if (selectionEpochRef.current !== epoch) return 'stale'
     if (!['bolt11', 'email-address', 'lnurl-pay', 'cashu-request', 'my-wallet'].includes(validated.type)) {
       // Non-sendable types (cashu-token, amount, lnurl-withdraw) — hand off to the
       // universal router so the user lands on the right flow instead of seeing an error.
@@ -477,6 +548,7 @@ export function useSendInputValidation({
 
     const sendable = validated as SendableValidatedData
     const resolvedContactName = initialContactName || await findContactDisplayName(getContactLookupCandidates(trimmed, sendable))
+    if (selectionEpochRef.current !== epoch) return 'stale'
     const resolvedDestination = resolvedContactName || trimmed
     if (resolvedContactName && resolvedContactName !== initialContactName) {
       applyDestinationState({
@@ -511,7 +583,7 @@ export function useSendInputValidation({
       return 'auto-advanced'
     }
     return true
-  }, [onNext, inputParser, onRouteValidated, applyDestinationState, onRequestMintSelection, addToast, settings.mints, mintUrl, nostrDirectPayment, getDisplayName, t, findContactDisplayName])
+  }, [onNext, inputParser, onRouteValidated, applyDestinationState, onRequestMintSelection, settings.mints, mintUrl, nostrDirectPayment, getDisplayName, t, findContactDisplayName])
 
   // Validating state for loading indicator on next button
   const [isValidating, setIsValidating] = useState(false)
@@ -548,9 +620,11 @@ export function useSendInputValidation({
     // Already validated → proceed immediately
     if (validatedData) {
       setIsValidating(true)
+      const epoch = selectionEpochRef.current
       try {
         const addressToLookup = rawAddressRef.current || trimmed
         const contactName = await findContactDisplayName(getContactLookupCandidates(addressToLookup, validatedData))
+        if (selectionEpochRef.current !== epoch) return
         advanceWithData(contactName || trimmed, validatedData)
       } finally {
         setIsValidating(false)
@@ -566,14 +640,64 @@ export function useSendInputValidation({
     setIsValidating(false)
 
     if (ok === true && validatedDataRef.current) {
-      const contactName = await findContactDisplayName(getContactLookupCandidates(addressToValidate, validatedDataRef.current))
-      advanceWithData(contactName || displayName || addressToValidate, validatedDataRef.current)
+      const epoch = selectionEpochRef.current
+      const validatedNow = validatedDataRef.current
+      const contactName = await findContactDisplayName(getContactLookupCandidates(addressToValidate, validatedNow))
+      if (selectionEpochRef.current !== epoch) return
+      advanceWithData(contactName || displayName || addressToValidate, validatedNow)
     } else if (ok === 'validation-error') {
       addToast({ type: 'error', message: t('send.destination.validationFailed'), duration: 3000 })
     } else if (!ok) {
       addToast({ type: 'error', message: t('send.destination.unrecognized'), duration: 3000 })
     }
   }, [destination, validatedData, processExternalInput, advanceWithData, addToast, t, findContactDisplayName])
+
+  // My-wallet row click — the data is synchronous, so selection advances
+  // immediately. applyDestinationState bumps the selection epoch, so any
+  // in-flight contact validation or typed-input pre-validation drops its late
+  // continuation instead of double-advancing (latest gesture wins).
+  const selectMyWallet = useCallback((walletUrl: string, walletName: string) => {
+    const walletData: SendableValidatedData = {
+      type: 'my-wallet',
+      targetMintUrl: walletUrl,
+      targetMintName: walletName,
+    }
+    // Plain name display (the '@' was only a search sigil); the mint URL rides
+    // as rawAddress so the debounce detector skips this destination.
+    applyDestinationState({
+      destination: walletName,
+      rawAddress: walletUrl,
+      validatedData: walletData,
+      detectedTypes: ['my-wallet'],
+    })
+    onNext({ destination: walletName, validatedData: walletData })
+  }, [applyDestinationState, onNext])
+
+  // Address-book row click → validate then advance in one gesture (same path as
+  // the initialAddress deep-link below and handleNext's not-yet-validated
+  // branch). The address is known synchronously, so we skip the debounce and
+  // drive processExternalInput directly with the contact's display name.
+  const selectContact = useCallback(async (address: string, displayName: string) => {
+    if (selectingRef.current || isValidating) return
+    selectingRef.current = true
+    applyDestinationState({ destination: displayName, rawAddress: address, validatedData: null, detectedTypes: [] })
+    setIsValidating(true)
+    try {
+      const ok = await processExternalInput(address, displayName)
+      if (ok === true && validatedDataRef.current) {
+        advanceWithData(displayName, validatedDataRef.current)
+      } else if (ok === 'validation-error') {
+        addToast({ type: 'error', message: t('send.destination.validationFailed'), duration: 3000 })
+      } else if (ok === false) {
+        addToast({ type: 'error', message: t('send.destination.unrecognized'), duration: 3000 })
+      }
+      // 'needs-mint-selection' / 'routed' / 'auto-advanced' / 'handled-error'
+      // finish inside processExternalInput (sheet, router, timer, inline error).
+    } finally {
+      setIsValidating(false)
+      selectingRef.current = false
+    }
+  }, [isValidating, applyDestinationState, processExternalInput, advanceWithData, addToast, t])
 
   // Auto-validate when initialAddress is provided (from address book)
   // On success, auto-advance to amount step
@@ -588,11 +712,15 @@ export function useSendInputValidation({
         setIsValidating(false)
         if (ok === true && validatedDataRef.current) {
           advanceWithData(initialDestination || initialAddress, validatedDataRef.current)
+        } else if (ok === false) {
+          // Contact addresses skip the debounce detector (rawAddressRef set), so
+          // an unrecognized one would otherwise give zero feedback forever.
+          setPreValidationError(t('send.destination.unrecognized'))
         }
       })
       return () => cancelAnimationFrame(id)
     }
-  }, [initialAddress, initialDestination, initialValidatedData, processExternalInput, advanceWithData])
+  }, [initialAddress, initialDestination, initialValidatedData, processExternalInput, advanceWithData, t])
 
   return {
     destination,
@@ -603,8 +731,11 @@ export function useSendInputValidation({
     preValidationError,
     isValidating,
     contacts,
+    contactsReady,
     applyDestinationState,
     processExternalInput,
     handleNext,
+    selectContact,
+    selectMyWallet,
   }
 }

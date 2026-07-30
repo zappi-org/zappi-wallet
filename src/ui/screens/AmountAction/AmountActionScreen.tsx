@@ -58,14 +58,14 @@ export function AmountActionScreen({
   // If mode is set, we'll navigate away via useEffect — show minimal loading
   if (mode) {
     return (
-      <div className="h-dvh bg-background text-foreground font-primary flex flex-col pt-safe items-center justify-center">
+      <div className="h-full bg-background text-foreground font-primary flex flex-col pt-safe items-center justify-center">
         <p className="text-display font-bold font-display tracking-tight">{formatSats(amount)}</p>
       </div>
     )
   }
 
   return (
-    <div className="h-dvh bg-background text-foreground font-primary flex flex-col pt-safe">
+    <div className="h-full bg-background text-foreground font-primary flex flex-col pt-safe">
       {/* Header */}
       <header className="relative flex items-center justify-between px-4 py-3 border-b border-border-visible">
         <button

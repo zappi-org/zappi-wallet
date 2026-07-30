@@ -342,7 +342,10 @@ export class PaymentService implements PaymentUseCase {
         payload: { moduleId: adapter.moduleId, accountId: adapter.moduleId },
       })
 
-      return Ok(result)
+      // requestId must be the ledger tx id (txId), not the adapter's own —
+      // matches the idempotent branch above, so callers keying off it (e.g.
+      // reclaim's metadata stamp) find the real transaction.
+      return Ok({ ...result, requestId: txId })
     } catch (error) {
       return Err(toBaseError(error))
     }

@@ -111,14 +111,41 @@ export function wrapEvent(
   return nip17.wrapEvent(sk, { publicKey: recipientPubkeyHex }, content) as unknown as NostrEvent
 }
 
+const SEAL_KIND = 13
+
+/**
+ * Unwraps a gift wrap and returns an authenticated sender.
+ *
+ * nostr-tools' unwrapEvent only double-decrypts: it never checks the seal's
+ * signature, and the rumor inside is unsigned and may claim any author. The
+ * seal's signer is the only provable identity, so the rumor must match it —
+ * callers treat the sender as authenticated.
+ */
 export function unwrapEvent(
   event: NostrEvent,
   recipientPrivkeyHex: string,
 ): { content: string; sender: string } {
-  const sk = hexToBytes(recipientPrivkeyHex)
-  const unwrapped = nip17.unwrapEvent(event as Parameters<typeof nip17.unwrapEvent>[0], sk)
+  const seal = JSON.parse(
+    decrypt(event.content, getConversationKey(recipientPrivkeyHex, event.pubkey)),
+  ) as NostrEvent
+
+  if (seal.kind !== SEAL_KIND) {
+    throw new Error('Gift wrap does not contain a seal')
+  }
+  if (!verifyEventSignature(seal)) {
+    throw new Error('Gift wrap seal has an invalid signature')
+  }
+
+  const rumor = JSON.parse(
+    decrypt(seal.content, getConversationKey(recipientPrivkeyHex, seal.pubkey)),
+  ) as NostrEvent
+
+  if (!rumor.pubkey || rumor.pubkey !== seal.pubkey) {
+    throw new Error('Gift wrap rumor author does not match the seal signer')
+  }
+
   return {
-    content: unwrapped.content,
-    sender: unwrapped.pubkey,
+    content: rumor.content,
+    sender: rumor.pubkey,
   }
 }

@@ -1,8 +1,9 @@
-import { useState, useCallback } from 'react'
+import { useCallback } from 'react'
 import { X, Copy, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
 import { Button } from '@/ui/components/common/Button'
+import { useCopyFeedback } from '@/ui/hooks/use-copy-feedback'
 
 interface MintUrlQrModalProps {
   isOpen: boolean
@@ -12,22 +13,9 @@ interface MintUrlQrModalProps {
 
 export function MintUrlQrModal({ isOpen, url, onClose }: MintUrlQrModalProps) {
   const { t } = useTranslation()
-  const [copied, setCopied] = useState(false)
+  const { isCopied, copy } = useCopyFeedback()
 
-  const handleCopy = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(url)
-    } catch {
-      const ta = document.createElement('textarea')
-      ta.value = url
-      document.body.appendChild(ta)
-      ta.select()
-      document.execCommand('copy')
-      document.body.removeChild(ta)
-    }
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }, [url])
+  const handleCopy = useCallback(() => copy(url), [url, copy])
 
   if (!isOpen) return null
 
@@ -52,15 +40,15 @@ export function MintUrlQrModal({ isOpen, url, onClose }: MintUrlQrModalProps) {
           </button>
         </div>
 
-        {/* QR Code */}
-        <div className="flex justify-center px-8 py-4">
-          <QRCodeDisplay value={url} size={200} className="rounded-2xl" />
+        {/* QR Code — same px-6 gutter as the copy button below. */}
+        <div className="flex justify-center px-6 py-4">
+          <QRCodeDisplay value={url} className="rounded-2xl" />
         </div>
 
         {/* Copy button */}
         <div className="px-6 pb-app pt-2">
           <Button variant="brand" size="lg" onClick={handleCopy} className="w-full">
-            {copied ? (
+            {isCopied() ? (
               <><Check className="w-4 h-4 mr-2" /> {t('mintDetail.copied')}</>
             ) : (
               <><Copy className="w-4 h-4 mr-2" /> {t('mintDetail.copy')}</>

@@ -61,7 +61,8 @@ export interface PaymentMethodAdapter {
     handler: (result: ReceiveCompletedResult) => void,
   ): () => void
 
-  checkAlive?(params: CheckAliveParams): Promise<boolean>
+  // undefined = no verdict (local record pruned, transport unsure) — never expire on it
+  checkAlive?(params: CheckAliveParams): Promise<boolean | undefined>
 
   // ─── 받기 상태 조회 및 클레임 ───
   queryReceiveStatus?(params: CheckAliveParams): Promise<{ state: string }>

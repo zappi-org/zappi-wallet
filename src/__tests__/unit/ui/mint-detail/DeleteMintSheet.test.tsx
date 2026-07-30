@@ -92,4 +92,52 @@ describe('DeleteMintSheet', () => {
       expect(onDelete).toHaveBeenCalledWith('https://mint-a.test')
     })
   })
+
+  it('never offers a notation variant of the mint being deleted as its own swap destination', () => {
+    // Same mint, four legal notations — none of them is an "other" mint.
+    settingsState.mints = [
+      'https://mint-a.test',
+      'https://mint-a.test/',
+      'https://MINT-A.test',
+      'https://mint-a.test:443',
+    ]
+
+    render(
+      <DeleteMintSheet
+        isOpen
+        mint={{ url: 'https://mint-a.test', balance: 21, isOnline: true }}
+        onClose={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByText('mintDetail.emptyAndDeleteBtn')).not.toBeInTheDocument()
+    expect(screen.getByText('mintDetail.sendElsewhere')).toBeInTheDocument()
+  })
+
+  it('drains into the genuinely different mint when the list also holds a variant of the deleted one', async () => {
+    settingsState.mints = ['https://mint-a.test/', 'https://mint-b.test']
+    mintSwap.mockResolvedValue({ ok: true })
+    const onDelete = vi.fn().mockResolvedValue(undefined)
+
+    render(
+      <DeleteMintSheet
+        isOpen
+        mint={{ url: 'https://mint-a.test', balance: 21, isOnline: true }}
+        onClose={vi.fn()}
+        onDelete={onDelete}
+      />,
+    )
+
+    fireEvent.click(screen.getByText('mintDetail.emptyAndDeleteBtn'))
+
+    await waitFor(() => {
+      expect(mintSwap).toHaveBeenCalledWith(
+        'https://mint-a.test',
+        'https://mint-b.test',
+        21,
+        { drain: true },
+      )
+    })
+  })
 })

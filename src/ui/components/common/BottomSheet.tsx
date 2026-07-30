@@ -1,32 +1,92 @@
-import { type ReactNode, useCallback, useEffect, useRef } from 'react'
-import { motion, AnimatePresence, type PanInfo, useDragControls, useReducedMotion } from 'motion/react'
+import { type ReactNode, useCallback, useRef } from 'react'
+import {
+  motion,
+  AnimatePresence,
+  useDragControls,
+  useReducedMotion,
+  type PanInfo,
+  type Transition,
+} from 'motion/react'
+import { motionSafeTransition } from '@/ui/utils/motion'
+import { useEscapeDismiss } from '@/ui/hooks/use-escape-dismiss'
+import { useFocusTrap } from '@/ui/hooks/use-focus-trap'
 
 export interface BottomSheetProps {
   isOpen: boolean
   onClose: () => void
   title?: ReactNode
   children: ReactNode
+  /**
+   * Overlay positioning. 'fixed' (default) covers the viewport; 'absolute'
+   * confines the sheet to the nearest positioned ancestor so it can slide over
+   * an in-flow screen (e.g. the send confirm sheet over the amount step).
+   */
+  variant?: 'fixed' | 'absolute'
+  /** Tailwind z-index classes for backdrop/sheet, letting an in-flow sheet sit below app chrome. */
+  backdropZClass?: string
+  sheetZClass?: string
+  /** Backdrop base class (color); animates opacity to `backdropOpacity`. */
+  backdropClassName?: string
+  backdropOpacity?: number
+  /** Sheet surface class (bg / radius / padding / max-height / overflow). */
+  sheetClassName?: string
+  /** Enter/exit transition for the sheet slide. Overridden by a fade under reduced motion. */
+  transition?: Transition
+  /** Backdrop fade transition. Omitted → motion default (preserves legacy consumers). */
+  backdropTransition?: Transition
+  /** Disable drag-to-dismiss (sheets that must be dismissed via an explicit action). */
+  disableDrag?: boolean
+  /** Wrap children in a scrollable region (default). Set false for fixed-height content. */
+  scrollable?: boolean
+  /** Render the default drag handle (default). Set false to supply a custom one in `children`. */
+  showHandle?: boolean
+  /** Wire the dialog to a heading rendered inside `children` (id) for screen readers. */
+  ariaLabelledBy?: string
+  /**
+   * Lift the sheet off the viewport bottom by this many px — the soft-keyboard
+   * inset for sheets holding a text input (`bottom: 0` alone leaves the sheet
+   * behind the keyboard on iOS, where the layout viewport does not shrink).
+   */
+  bottomOffset?: number
 }
+
+const DEFAULT_SHEET_CLASS = 'bg-background-elevated rounded-t-lg max-h-[85vh] overflow-hidden'
+const DEFAULT_TRANSITION: Transition = { duration: 0.25, ease: 'easeOut' }
 
 /**
  * Bottom sheet component for scrollable lists and selection UI (Section 17.4)
- * Use for: mint list selection, relay list selection, transaction details
+ * Use for: mint list selection, relay list selection, transaction details.
+ *
+ * Defaults render a viewport-fixed, drag-to-dismiss sheet with a centered header.
+ * The optional props above let callers compose in-flow overlay variants (fixed
+ * vs absolute positioning, custom transition, no drag) without forking the
+ * backdrop / handle / dialog-a11y machinery.
  */
-export function BottomSheet({ isOpen, onClose, title, children }: BottomSheetProps) {
+export function BottomSheet({
+  isOpen,
+  onClose,
+  title,
+  children,
+  variant = 'fixed',
+  backdropZClass = 'z-[60]',
+  sheetZClass = 'z-[70]',
+  backdropClassName = 'bg-black',
+  backdropOpacity = 0.5,
+  sheetClassName = DEFAULT_SHEET_CLASS,
+  transition = DEFAULT_TRANSITION,
+  backdropTransition,
+  disableDrag = false,
+  scrollable = true,
+  showHandle = true,
+  ariaLabelledBy,
+  bottomOffset = 0,
+}: BottomSheetProps) {
+  const reduceMotion = useReducedMotion()
   const dragControls = useDragControls()
   const sheetRef = useRef<HTMLDivElement>(null)
-  const previousFocusRef = useRef<HTMLElement | null>(null)
-  const reducedMotion = useReducedMotion()
+  const backdropRef = useRef<HTMLDivElement>(null)
 
-  const handleFocusEntry = useCallback(() => {
-    previousFocusRef.current = document.activeElement as HTMLElement
-    sheetRef.current?.focus()
-  }, [])
-
-  const handleFocusReturn = useCallback(() => {
-    previousFocusRef.current?.focus()
-    previousFocusRef.current = null
-  }, [])
+  const { onEntryComplete, restoreFocus } = useFocusTrap(isOpen, sheetRef, backdropRef)
 
   const handleDragEnd = useCallback(
     (_: unknown, info: PanInfo) => {
@@ -41,32 +101,37 @@ export function BottomSheet({ isOpen, onClose, title, children }: BottomSheetPro
     dragControls.start(e)
   }, [dragControls])
 
-  useEffect(() => {
-    if (!isOpen) return
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', handleKey)
-    return () => document.removeEventListener('keydown', handleKey)
-  }, [isOpen, onClose])
+  useEscapeDismiss(isOpen, onClose)
 
-  const transition = reducedMotion
-    ? { duration: 0.01 }
-    : { duration: 0.25, ease: 'easeOut' as const }
+  const position = variant === 'absolute' ? 'absolute' : 'fixed'
+  const dragEnabled = !disableDrag && !reduceMotion
+  const dragProps = dragEnabled
+    ? {
+        drag: 'y' as const,
+        dragConstraints: { top: 0, bottom: 0 },
+        dragElastic: { top: 0, bottom: 0.6 },
+        dragControls,
+        // Drag starts from the handle only, so scrollable sheet content keeps its own gestures.
+        // Without a handle there is no such origin, so fall back to the whole surface.
+        dragListener: !showHandle,
+        onDragEnd: handleDragEnd,
+      }
+    : {}
 
   const titleId = title && typeof title === 'string' ? `${title.replace(/\s+/g, '-').toLowerCase()}-title` : undefined
 
   return (
-    <AnimatePresence onExitComplete={handleFocusReturn}>
+    <AnimatePresence onExitComplete={restoreFocus}>
       {isOpen && (
         <>
           {/* Backdrop */}
           <motion.div
+            ref={backdropRef}
             initial={{ opacity: 0 }}
-            animate={{ opacity: 0.5 }}
+            animate={{ opacity: backdropOpacity }}
             exit={{ opacity: 0 }}
-            transition={reducedMotion ? { duration: 0.01 } : { duration: 0.2 }}
-            className="fixed inset-0 bg-black z-[60]"
+            transition={motionSafeTransition(reduceMotion, backdropTransition)}
+            className={`${position} inset-0 ${backdropClassName} ${backdropZClass}`}
             style={{ isolation: 'isolate' }}
             onClick={onClose}
           />
@@ -77,28 +142,26 @@ export function BottomSheet({ isOpen, onClose, title, children }: BottomSheetPro
             role="dialog"
             aria-modal="true"
             aria-label={typeof title === 'string' ? title : undefined}
-            aria-labelledby={titleId}
+            aria-labelledby={ariaLabelledBy ?? titleId}
             tabIndex={-1}
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            drag="y"
-            dragConstraints={{ top: 0, bottom: 0 }}
-            dragElastic={{ top: 0, bottom: 0.6 }}
-            dragControls={dragControls}
-            dragListener={false}
-            onDragEnd={handleDragEnd}
-            transition={transition}
-            onAnimationComplete={handleFocusEntry}
-            className="fixed bottom-0 left-0 right-0 bg-background-elevated rounded-t-lg max-h-[85vh] overflow-hidden z-[70] outline-none"
+            initial={reduceMotion ? { opacity: 0 } : { y: '100%' }}
+            animate={reduceMotion ? { opacity: 1 } : { y: 0 }}
+            exit={reduceMotion ? { opacity: 0 } : { y: '100%' }}
+            {...dragProps}
+            transition={motionSafeTransition(reduceMotion, transition)}
+            onAnimationComplete={onEntryComplete}
+            className={`${position} left-0 right-0 ${sheetClassName} ${sheetZClass} outline-none`}
+            style={{ bottom: bottomOffset }}
           >
             {/* Handle */}
-            <div
-              className="flex justify-center py-2.5 cursor-grab active:cursor-grabbing touch-none"
-              onPointerDown={handlePointerDown}
-            >
-              <div className="w-10 h-1 bg-foreground-subtle rounded-full" />
-            </div>
+            {showHandle && (
+              <div
+                className="flex justify-center py-2.5 cursor-grab active:cursor-grabbing touch-none"
+                onPointerDown={dragEnabled ? handlePointerDown : undefined}
+              >
+                <div className="w-10 h-1 bg-foreground-subtle rounded-full" />
+              </div>
+            )}
 
             {/* Header */}
             {title && (
@@ -107,10 +170,12 @@ export function BottomSheet({ isOpen, onClose, title, children }: BottomSheetPro
               </div>
             )}
 
-            {/* Scrollable content area */}
-            <div className="overflow-y-auto max-h-[calc(85vh-60px)]">
-              {children}
-            </div>
+            {/* Content area */}
+            {scrollable ? (
+              <div className="overflow-y-auto max-h-[calc(85vh-60px)]">{children}</div>
+            ) : (
+              children
+            )}
           </motion.div>
         </>
       )}
@@ -142,7 +207,10 @@ export function BottomSheetItem({
     <button
       onClick={onClick}
       disabled={disabled}
-      aria-selected={selected}
+      // aria-selected is not allowed on a plain button (AT drops it), and the
+      // check glyph below is decorative — aria-pressed is what actually
+      // announces "선택됨" here.
+      aria-pressed={selected}
       className={`
         w-full flex items-center gap-3 px-5 py-3 min-h-[48px] text-left
         active:scale-95 active:opacity-80 transition-all duration-100

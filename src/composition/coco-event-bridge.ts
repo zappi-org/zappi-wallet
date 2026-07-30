@@ -24,7 +24,10 @@ export function connectCocoEventBridge(
   }
 
   // Proof 변경 → balance:changed
-  for (const event of ['proofs:saved', 'proofs:state-changed', 'proofs:deleted', 'proofs:wiped'] as const) {
+  // proofs:released is the corrective event after a fee-estimation/rollback
+  // lock window — without it a refresh that lands mid-lock persists a dipped
+  // balance until some unrelated trigger, which users see as "잔액이 사라졌다".
+  for (const event of ['proofs:saved', 'proofs:state-changed', 'proofs:deleted', 'proofs:wiped', 'proofs:released'] as const) {
     unsubscribers.push(manager.on(event, emitBalanceChanged))
   }
 

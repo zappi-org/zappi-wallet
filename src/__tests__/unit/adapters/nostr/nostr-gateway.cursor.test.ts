@@ -30,14 +30,28 @@ vi.mock('nostr-tools', () => ({
   nip19: { npubEncode: vi.fn(), nprofileEncode: vi.fn(), decode: vi.fn() },
   nip17: {
     wrapEvent: vi.fn().mockReturnValue({ id: 'wrapped', kind: 1059 }),
-    unwrapEvent: vi.fn().mockReturnValue({ content: 'hello', pubkey: 'sender-pubkey' }),
   },
 }))
 
 vi.mock('@noble/hashes/utils.js', () => ({ hexToBytes: vi.fn().mockReturnValue(new Uint8Array(32)) }))
-vi.mock('nostr-tools/nip44', () => ({
-  v2: { utils: { getConversationKey: vi.fn() }, encrypt: vi.fn(), decrypt: vi.fn() },
-}))
+// Unwrapping decrypts twice — wrap → seal, then seal → rumor — and the rumor's
+// author must match the seal's signer. These stubs stand in for that chain so
+// the cursor assertions below see a delivered message.
+vi.mock('nostr-tools/nip44', () => {
+  const seal = JSON.stringify({
+    id: 'seal', kind: 13, pubkey: 'sender-pubkey', created_at: 0, tags: [], content: 'sealed', sig: 'sig',
+  })
+  const rumor = JSON.stringify({
+    id: 'rumor', kind: 14, pubkey: 'sender-pubkey', created_at: 0, tags: [], content: 'hello', sig: '',
+  })
+  return {
+    v2: {
+      utils: { getConversationKey: vi.fn() },
+      encrypt: vi.fn(),
+      decrypt: vi.fn((payload: string) => (payload === 'sealed' ? rumor : seal)),
+    },
+  }
+})
 
 import { NostrGatewayAdapter, CURSOR_EOSE_TIMEOUT_MS } from '@/adapters/nostr/nostr-gateway'
 import type { GiftwrapCursorStore } from '@/core/ports/driven/giftwrap-cursor-store.port'
@@ -158,6 +172,7 @@ describe('NostrGatewayAdapter cursor wiring', () => {
       await vi.waitFor(() =>
         expect(store.markRelayEose).toHaveBeenCalledWith(KEY, 'wss://a', expect.any(Number)),
       )
+      await new Promise((r) => setTimeout(r, 10))
       expect(store.markFullSync).not.toHaveBeenCalled()
     })
 
@@ -170,6 +185,7 @@ describe('NostrGatewayAdapter cursor wiring', () => {
 
       relays.get('wss://a')!.subscribeCalls[0].opts.oneose!()
       await vi.waitFor(() => expect(store.markRelayEose).toHaveBeenCalled())
+      await new Promise((r) => setTimeout(r, 10))
       expect(store.markFullSync).not.toHaveBeenCalled()
     })
 
@@ -208,7 +224,7 @@ describe('NostrGatewayAdapter cursor wiring', () => {
       expect(handler).toHaveBeenCalledTimes(1)
 
       call.opts.oneose!()
-      await vi.waitFor(() => expect(store.markRelayEose).toHaveBeenCalled())
+      await new Promise((r) => setTimeout(r, 10))
       expect(store.markFullSync).not.toHaveBeenCalled()
 
       resolveHandler()
@@ -266,8 +282,7 @@ describe('NostrGatewayAdapter cursor wiring', () => {
     it('unsubscribe before async setup completes prevents the subscription', async () => {
       const store = makeCursorStore(recordWithFullSync())
       let resolveLoad!: (r: GiftwrapCursorRecord) => void
-      const loadPromise = new Promise<GiftwrapCursorRecord>((resolve) => { resolveLoad = resolve })
-      store.load.mockReturnValue(loadPromise)
+      store.load.mockImplementation(() => new Promise((resolve) => { resolveLoad = resolve }))
       const { gateway, relays } = await connectedGateway(store, ['wss://a'])
 
       const unsubscribe = gateway.subscribeGiftWraps(
@@ -278,7 +293,7 @@ describe('NostrGatewayAdapter cursor wiring', () => {
       await vi.waitFor(() => expect(store.load).toHaveBeenCalled())
       unsubscribe()
       resolveLoad(recordWithFullSync())
-      await loadPromise
+      await new Promise((r) => setTimeout(r, 10))
 
       expect(relays.get('wss://a')!.relay.subscribe).not.toHaveBeenCalled()
     })

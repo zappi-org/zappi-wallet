@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, act } from '@testing-library/react'
+import { render, screen, act, fireEvent } from '@testing-library/react'
 
 import { SendInputStep } from '@/ui/screens/Send/steps/SendInputStep'
 import type { Contact } from '@/core/types/contact'
@@ -46,7 +46,7 @@ vi.mock('@/ui/hooks/use-mint-metadata', () => ({
 }))
 
 vi.mock('@/ui/hooks/use-contacts', () => ({
-  useContacts: () => ({ contacts: mockContacts, findByAddress: mockFindByAddress }),
+  useContacts: () => ({ contacts: mockContacts, isReady: true, findByAddress: mockFindByAddress }),
 }))
 
 vi.mock('@/ui/utils/haptic', () => ({
@@ -73,6 +73,7 @@ vi.mock('@/ui/components/icons/CameraFilled', () => ({
 const defaultProps = {
   onBack: vi.fn(),
   onNext: vi.fn(),
+  onDirectTransfer: vi.fn(),
   onRedirect: vi.fn(),
   mintUrl: 'https://source.mint',
 }
@@ -103,6 +104,7 @@ describe('SendInputStep selection flows', () => {
     mockNostrDirectPayment.resolve.mockReset()
     defaultProps.onBack.mockReset()
     defaultProps.onNext.mockReset()
+    defaultProps.onDirectTransfer.mockReset()
     defaultProps.onRedirect.mockReset()
     stableAddToast.mockReset()
     mockFindByAddress.mockClear()
@@ -120,6 +122,26 @@ describe('SendInputStep selection flows', () => {
     vi.useRealTimers()
   })
 
+  it('back-navigation from a my-wallet selection shows no unrecognized error', async () => {
+    // The input shows the wallet's plain display name (no '@' sigil), so the
+    // debounce detector must be latched off by the restored my-wallet data —
+    // otherwise it parses the label as an address and flags it unrecognized.
+    renderStep({
+      initialDestination: 'Target Wallet',
+      initialValidatedData: {
+        type: 'my-wallet',
+        targetMintUrl: 'https://target.mint',
+        targetMintName: 'Target Wallet',
+      },
+    } as Partial<typeof defaultProps>)
+
+    await act(async () => {
+      vi.advanceTimersByTime(1000) // past the 500ms detector debounce
+    })
+    expect(screen.queryByText('send.destination.unrecognized')).not.toBeInTheDocument()
+    expect(mockDetectAndClassify).not.toHaveBeenCalled()
+  })
+
   it('shows the address book tab before my wallets', () => {
     mockContacts.push({
       id: 'contact-1',
@@ -132,10 +154,22 @@ describe('SendInputStep selection flows', () => {
 
     renderStep()
 
-    const contactsTab = screen.getByRole('button', { name: 'contacts.title' })
-    const walletsTab = screen.getByRole('button', { name: 'send.myWalletList' })
+    const contactsTab = screen.getByRole('tab', { name: 'contacts.title' })
+    const walletsTab = screen.getByRole('tab', { name: 'send.myWalletList' })
 
     expect(contactsTab.compareDocumentPosition(walletsTab) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('omits a notation variant of the source mint from my wallets', () => {
+    // A ':443' / case variant is the same wallet — listing it offers a transfer
+    // to yourself, which no route can settle.
+    stableStore.settings.mints = ['https://source.mint', 'https://Source.Mint:443/', 'https://target.mint']
+
+    renderStep()
+
+    expect(screen.getByText('Target Wallet')).toBeInTheDocument()
+    expect(screen.queryByText('https://Source.Mint:443/')).not.toBeInTheDocument()
+    expect(screen.queryByText('Source Wallet')).not.toBeInTheDocument()
   })
 
   it('contact selection clears stale error, skips label revalidation, and advances with the raw address', async () => {
@@ -174,20 +208,13 @@ describe('SendInputStep selection flows', () => {
     await act(async () => {
       screen.getByText('contacts.title').click()
     })
+    // Selecting the contact validates the raw address and advances in one gesture.
     await act(async () => {
       screen.getByText('Alice').click()
     })
 
     expect(screen.queryByText('send.destination.unrecognized')).not.toBeInTheDocument()
-    expect(screen.getByDisplayValue('Alice')).toBeInTheDocument()
-
-    await act(async () => { vi.advanceTimersByTime(500) })
-    expect(mockDetectAndClassify).toHaveBeenCalledTimes(1)
-
-    await act(async () => {
-      screen.getByRole('button', { name: 'send.next' }).click()
-    })
-
+    // Only the initial typed detection + the contact-address validation ran.
     expect(mockDetectAndClassify).toHaveBeenLastCalledWith('alice@example.com')
     expect(defaultProps.onNext).toHaveBeenCalledWith({
       destination: 'Alice',
@@ -199,33 +226,27 @@ describe('SendInputStep selection flows', () => {
     })
   })
 
-  it('my-wallet selection clears stale error and proceeds without revalidation', async () => {
+  it('my-wallet selection clears stale error and auto-advances without revalidation', async () => {
     renderStep()
     typeIntoInput('not-an-address')
 
     await act(async () => { vi.advanceTimersByTime(500) })
     expect(screen.getByText('send.destination.unrecognized')).toBeInTheDocument()
 
+    // Wallet pick advances straight to the amount step, showing the plain name.
     await act(async () => {
       screen.getByText('Target Wallet').click()
     })
 
     expect(screen.queryByText('send.destination.unrecognized')).not.toBeInTheDocument()
-    expect(screen.getByDisplayValue('@Target Wallet')).toBeInTheDocument()
-
-    await act(async () => {
-      screen.getByRole('button', { name: 'send.next' }).click()
-    })
-
     expect(mockValidateAsync).not.toHaveBeenCalled()
     expect(defaultProps.onNext).toHaveBeenCalledWith({
-      destination: '@Target Wallet',
+      destination: 'Target Wallet',
       validatedData: {
         type: 'my-wallet',
         targetMintUrl: 'https://target.mint',
         targetMintName: 'Target Wallet',
       },
-      amountFromInvoice: undefined,
     })
   })
 
@@ -360,5 +381,124 @@ describe('SendInputStep selection flows', () => {
       }),
       amountFromInvoice: undefined,
     })
+  })
+
+  it('wallet click during in-flight contact validation wins — single advance with the wallet', async () => {
+    mockContacts.push({
+      id: 'contact-1',
+      name: 'Alice',
+      address: 'alice@example.com',
+      addressType: 'lightning',
+      createdAt: 1,
+      updatedAt: 1,
+    })
+    mockDetectAndClassify.mockReturnValue({ type: 'email-address', address: 'alice@example.com' })
+    let resolveValidate!: (v: ValidatedData) => void
+    mockValidateAsync.mockReturnValue(new Promise<ValidatedData>((resolve) => { resolveValidate = resolve }))
+
+    renderStep()
+
+    // Contact click starts async validation and parks on the deferred promise.
+    await act(async () => {
+      screen.getByText('Alice').click()
+    })
+    expect(defaultProps.onNext).not.toHaveBeenCalled()
+
+    // Wallet click preempts — synchronous data, advances immediately.
+    await act(async () => {
+      // Radix tab triggers activate on mousedown, not click.
+      fireEvent.mouseDown(screen.getByRole('tab', { name: 'send.myWalletList' }))
+    })
+    await act(async () => {
+      screen.getByText('Target Wallet').click()
+    })
+    expect(defaultProps.onNext).toHaveBeenCalledTimes(1)
+
+    // The contact validation resolving late is a stale epoch — no second advance.
+    await act(async () => {
+      resolveValidate({
+        type: 'email-address',
+        address: 'alice@example.com',
+        lnurlParams: {
+          callback: '',
+          minSendable: 0,
+          maxSendable: 100000,
+          metadata: '',
+          tag: 'payRequest',
+          domain: 'example.com',
+        },
+      } as ValidatedData)
+    })
+    expect(defaultProps.onNext).toHaveBeenCalledTimes(1)
+    expect(defaultProps.onNext).toHaveBeenCalledWith({
+      destination: 'Target Wallet',
+      validatedData: {
+        type: 'my-wallet',
+        targetMintUrl: 'https://target.mint',
+        targetMintName: 'Target Wallet',
+      },
+    })
+    expect(stableAddToast).not.toHaveBeenCalled()
+  })
+
+  it('typed cashu-request pre-validation resolving after a wallet click schedules no stale auto-advance', async () => {
+    mockDetectAndClassify.mockReturnValue({ type: 'cashu-request', request: 'creqAdemo' })
+    let resolveValidate!: (v: ValidatedData) => void
+    mockValidateAsync.mockReturnValue(new Promise<ValidatedData>((resolve) => { resolveValidate = resolve }))
+
+    renderStep()
+    typeIntoInput('creqAdemo')
+
+    // Debounce fires and parks on the deferred validateAsync.
+    await act(async () => { vi.advanceTimersByTime(500) })
+    expect(mockValidateAsync).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      screen.getByText('Target Wallet').click()
+    })
+    expect(defaultProps.onNext).toHaveBeenCalledTimes(1)
+
+    // Late resolution carries an embedded amount — without the epoch guard this
+    // would schedule a 300ms auto-advance with the stale typed request.
+    await act(async () => {
+      resolveValidate({
+        type: 'cashu-request',
+        request: 'creqAdemo',
+        parsed: {
+          id: 'r1',
+          unit: 'sat',
+          mints: ['https://source.mint'],
+          transports: [],
+          hasNostrTransport: true,
+          nostrTarget: 'npub1x',
+          hasPostTransport: false,
+          sameMintOnly: false,
+          amount: 21,
+        },
+      } as unknown as ValidatedData)
+    })
+    await act(async () => { vi.advanceTimersByTime(300) })
+    expect(defaultProps.onNext).toHaveBeenCalledTimes(1)
+    expect(defaultProps.onNext).toHaveBeenCalledWith(
+      expect.objectContaining({ destination: 'Target Wallet' }),
+    )
+  })
+
+  it('shows the direct-transfer CTA when the input is empty and fires onDirectTransfer', () => {
+    renderStep()
+    const cta = screen.getByRole('button', { name: 'send.direct.cta' })
+    act(() => {
+      cta.click()
+    })
+    expect(defaultProps.onDirectTransfer).toHaveBeenCalledOnce()
+    expect(defaultProps.onNext).not.toHaveBeenCalled()
+  })
+
+  it('switches the CTA to Next once a destination is entered', () => {
+    renderStep()
+    expect(screen.getByRole('button', { name: 'send.direct.cta' })).toBeInTheDocument()
+    typeIntoInput('npub1xxx')
+    expect(screen.getByRole('button', { name: 'send.next' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'send.direct.cta' })).not.toBeInTheDocument()
   })
 })

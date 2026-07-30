@@ -8,9 +8,13 @@ import { hapticTap } from "@/ui/utils/haptic";
 import { useAppStore } from "@/store";
 import { LIMITS } from "@/core/constants";
 import cardLogo from "@/assets/card-logo.svg";
-import cardBg from "@/assets/card-bg.png";
-import cardNoise from "@/assets/card-noise.png";
-import zappiLogo from "@/assets/zappi.png";
+import cardBg from "@/assets/card-bg.webp";
+import cardNoise from "@/assets/card-noise.webp";
+import zappiLogo from "@/assets/zappi.webp";
+
+// The noise asset was one 860x540 sheet stretched to 200% of the card; it is now a 128px
+// tile drawn from the same grain distribution, so it repeats at 1:1 instead of stretching.
+const NOISE_TILE_SIZE = "128px 128px";
 
 export type MintCardVariant =
   | "light" | "medium" | "dark" | "darker"
@@ -255,7 +259,7 @@ export function MintCard({
           <div
             aria-hidden="true"
             className="absolute inset-0 opacity-5 pointer-events-none"
-            style={{ backgroundImage: `url('${cardNoise}')`, backgroundSize: '200% 200%', backgroundPosition: 'top left' }}
+            style={{ backgroundImage: `url('${cardNoise}')`, backgroundSize: NOISE_TILE_SIZE, backgroundPosition: 'top left' }}
           />
         </>
       )}
@@ -274,7 +278,7 @@ export function MintCard({
           <div
             aria-hidden="true"
             className="absolute inset-0 opacity-[0.04] pointer-events-none"
-            style={{ backgroundImage: `url('${cardNoise}')`, backgroundSize: '200% 200%', backgroundPosition: 'top left' }}
+            style={{ backgroundImage: `url('${cardNoise}')`, backgroundSize: NOISE_TILE_SIZE, backgroundPosition: 'top left' }}
           />
         )}
 

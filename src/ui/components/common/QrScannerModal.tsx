@@ -79,16 +79,17 @@ export function QrScannerModal({
     <div className="fixed inset-0 z-50 flex pb-4 items-end" onClick={onClose}>
       <div className="absolute inset-0 bg-black/60" />
       <div
-        className="relative bg-background rounded-2xl mx-3 w-full overflow-hidden animate-slideInUp shadow-[0_-8px_40px_rgba(0,0,0,0.12)]"
+        className="relative bg-background rounded-2xl mx-3 w-full overflow-hidden animate-slideInUp shadow-sheet"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="relative flex items-center justify-center px-5 py-6">
-          <h2 className="text-[14px] leading-normal font-semibold">
+          <h2 className="text-subtitle font-semibold">
             {t("scanner.title")}
           </h2>
           <button
             onClick={onClose}
-            className="absolute right-5 w-9 h-9 flex items-center justify-center rounded-full bg-white shadow-sm text-foreground-muted active:bg-neutral-100 transition-colors"
+            aria-label={t('common.close')}
+            className="absolute right-5 w-11 h-11 flex items-center justify-center rounded-full bg-white shadow-sm text-foreground-muted active:bg-neutral-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
           >
             <X className="w-4 h-4" />
           </button>
@@ -107,14 +108,14 @@ export function QrScannerModal({
           />
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-white border border-foreground-muted text-foreground-muted rounded-card font-medium text-[11px] leading-normal shadow-sm active:scale-[0.98] transition-transform"
+            className="flex-1 flex items-center justify-center gap-1.5 py-3.5 bg-white border border-foreground-muted text-foreground-muted rounded-card font-semibold text-caption whitespace-nowrap shadow-sm active:scale-[0.98] transition-transform"
           >
             <Image className="w-5 h-5" strokeWidth={1.8} />
             {t("scanner.loadFromPhoto")}
           </button>
           <button
             onClick={handlePaste}
-            className="flex-2 flex items-center justify-center gap-2 py-3 bg-brand text-white rounded-card font-medium text-[11px] leading-normal shadow-lg active:scale-[0.98] transition-transform"
+            className="flex-2 flex items-center justify-center gap-1.5 py-3.5 bg-brand text-white rounded-card font-semibold text-caption whitespace-nowrap shadow-lg active:scale-[0.98] transition-transform"
           >
             <ClipboardPaste className="w-5 h-5" strokeWidth={1.8} />
             {t("scanner.paste")}

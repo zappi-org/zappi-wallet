@@ -562,3 +562,52 @@ export async function cleanAndRecoverStaleMintOps(): Promise<{ recovered: number
 
   return { recovered, abandoned, failed }
 }
+
+// ─── Stale 'prepared' operation sweep ───
+
+/**
+ * Crash-leftover 'prepared' send/melt ops hold proof reservations forever:
+ * coco recovery only logs them ("user can rollback manually") and its orphan
+ * cleanup skips non-terminal ops, so `spendable` stays depressed for good.
+ *
+ * Safe by construction: live flows never park an op in 'prepared' across a
+ * user wait (every prepare is followed by execute or rollback in the same
+ * call), and created-but-unclaimed tokens are 'pending', never 'prepared' —
+ * this sweep cannot reclaim redeemable money. The age cutoff (ops touched
+ * before this process started) plus the once-per-process guard keep it away
+ * from anything a live flow in this process prepares.
+ */
+const PROCESS_STARTED_AT = Date.now()
+let preparedSweepDone = false
+
+export async function sweepStalePreparedOps(): Promise<void> {
+  if (preparedSweepDone) return
+  preparedSweepDone = true
+  try {
+    const manager = await getCocoManager()
+    const [sends, melts] = await Promise.all([
+      manager.ops.send.listPrepared(),
+      manager.ops.melt.listPrepared(),
+    ])
+    for (const op of sends) {
+      if (op.updatedAt >= PROCESS_STARTED_AT) continue
+      try {
+        await manager.ops.send.cancel(op.id)
+        logger.warn('[recovery] cancelled stale prepared send op', { id: op.id })
+      } catch (error) {
+        logger.warn('[recovery] stale prepared send cancel failed', { id: op.id, error })
+      }
+    }
+    for (const op of melts) {
+      if (op.updatedAt >= PROCESS_STARTED_AT) continue
+      try {
+        await manager.ops.melt.cancel(op.id, 'stale_prepared_sweep')
+        logger.warn('[recovery] cancelled stale prepared melt op', { id: op.id })
+      } catch (error) {
+        logger.warn('[recovery] stale prepared melt cancel failed', { id: op.id, error })
+      }
+    }
+  } catch (error) {
+    logger.warn('[recovery] stale prepared sweep failed', { error })
+  }
+}

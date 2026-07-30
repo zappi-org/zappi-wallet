@@ -10,6 +10,7 @@ import type { EventBus } from '@/core/events/event-bus'
 import { useAppStore } from '@/store'
 import { broadcastSync } from '@/utils/cross-tab-sync'
 import i18n from '@/i18n'
+import { translateError } from '@/ui/utils/error-i18n'
 import { satUnit, formatSats } from '@/utils/format'
 import { toNumber } from '@/core/domain/amount'
 import { createThrottledAsync } from '@/utils/throttled-async'
@@ -18,7 +19,8 @@ import type { ReceiveRequestUseCase } from '@/core/ports/driving/receive-request
 export interface EventStoreBridgeOptions {
   handleBalance?: boolean
   balanceRefresh?: () => Promise<void>
-  receiveRequest?: Pick<ReceiveRequestUseCase, 'settleByPaymentRef'>
+  receiveRequest?: Pick<ReceiveRequestUseCase, 'settleByPaymentRef'> &
+    Partial<Pick<ReceiveRequestUseCase, 'findByRequestId'>>
 }
 
 export function connectEventStoreBridge(
@@ -225,11 +227,19 @@ export function connectEventStoreBridge(
           })
         }
       } else {
-        addToast({
-          type: 'success',
-          message: i18n.t('toast.transferSettled'),
-          duration: 4000,
-        })
+        // Outgoing cashu-token claims are owned by useGlobalTokenClaimToast
+        // (the specific "token claimed" toast). transportRef.type tags it:
+        // 'ecash-token' → 'ecash', 'bolt11-melt' → 'bolt11'. Suppress only ecash
+        // here; bolt11 (and any other outgoing) keeps the generic toast.
+        const ref = transfer.transportRef as { type?: string; protocol?: string } | undefined
+        const protocol = ref?.protocol || ref?.type?.split('-')[0]
+        if (protocol !== 'ecash') {
+          addToast({
+            type: 'success',
+            message: i18n.t('toast.transferSettled'),
+            duration: 4000,
+          })
+        }
       }
 
       triggerTxRefresh()
@@ -241,12 +251,20 @@ export function connectEventStoreBridge(
   unsubscribers.push(
     eventBus.on('transfer:reclaimed', (event) => {
       const { removeTransfer, addToast, triggerTxRefresh } = useAppStore.getState()
-      removeTransfer(event.payload.transfer.id)
-      addToast({
-        type: 'success',
-        message: i18n.t('toast.transferReclaimed'),
-        duration: 4000,
-      })
+      const transfer = event.payload.transfer
+      removeTransfer(transfer.id)
+      // Outgoing ecash reclaims are owned by the UI reclaim hook (useReclaim
+      // reclaimSuccess) — suppress the generic toast here to avoid a double, the
+      // same way transfer:settled defers outgoing-ecash claims to its hook.
+      const ref = transfer.transportRef as { type?: string; protocol?: string } | undefined
+      const protocol = ref?.protocol || ref?.type?.split('-')[0]
+      if (!(transfer.direction === 'outgoing' && protocol === 'ecash')) {
+        addToast({
+          type: 'success',
+          message: i18n.t('toast.transferReclaimed'),
+          duration: 4000,
+        })
+      }
       triggerTxRefresh()
       broadcastSync('balance_changed')
     }),
@@ -257,11 +275,33 @@ export function connectEventStoreBridge(
     eventBus.on('transfer:failed', (event) => {
       const { addOrUpdateTransfer, addToast } = useAppStore.getState()
       addOrUpdateTransfer(event.payload.transfer)
-      addToast({
-        type: 'error',
-        message: event.payload.reason,
-        duration: 5000,
-      })
+      // reason is a machine string — never show it verbatim to the user
+      const reason = event.payload.reason
+      const message =
+        reason === 'app-crashed-during-execution'
+          ? i18n.t('toast.transferInterrupted')
+          : reason === 'terminal-failure'
+            ? i18n.t('toast.transferFailed')
+            : translateError(reason, i18n.t)
+      void (async () => {
+        // A spent-token failure on a request delivery is usually the SECOND
+        // copy of a payment we already received (multi-relay/transport) — if
+        // the request is fulfilled, the money story ended well; don't alarm.
+        const ref = event.payload.transfer.transportRef as { requestId?: string } | undefined
+        if (
+          ref?.requestId &&
+          /token[_ -]?spent|already spent|proof spent/i.test(reason) &&
+          options.receiveRequest?.findByRequestId
+        ) {
+          const request = await options.receiveRequest.findByRequestId(ref.requestId).catch(() => null)
+          if (request?.fulfillmentStatus === 'fulfilled') return
+        }
+        addToast({
+          type: 'error',
+          message,
+          duration: 5000,
+        })
+      })()
     }),
   )
 

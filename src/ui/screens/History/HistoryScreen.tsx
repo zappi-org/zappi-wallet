@@ -1,6 +1,6 @@
 import { txSourceKey } from '@/ui/utils/tx-source'
 import type { TFunction } from 'i18next'
-import { lazy, Suspense, useCallback, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, X, Search, Banknote, Calendar, CreditCard, Download, FileSpreadsheet, ListFilter } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useVirtualizer } from '@tanstack/react-virtual'
@@ -11,15 +11,27 @@ import { toNumber } from '@/core/domain/amount'
 import type { MintInfo } from '@/core/types'
 import { useAppStore } from '@/store'
 import { useWallet, useMintMetadata } from '@/ui/hooks'
-import { getMintBalance, stripTrailingSlash } from '@/utils/url'
-import { getLocaleCode } from '@/utils/format'
+import { getMintBalance, isSameMintUrl, mintUrlKey } from '@/utils/url'
+import { getLocaleCode, useFormatSats } from '@/utils/format'
+import type { PendingItem } from '@/core/ports/driving/pending-items.usecase'
+import { isSendToken, type TokenDetails } from '@/ui/types/pending-item-details'
+import { useAllPendingItems } from '@/ui/hooks/usePendingItems'
+import { useCopyFeedback } from '@/ui/hooks/use-copy-feedback'
+import { useReclaimFees } from '@/ui/hooks/useReclaimFees'
+import { useTokenReclaim } from '@/ui/hooks/use-token-reclaim'
+import { ServiceContext } from '@/ui/hooks/service-context-value'
+import { PendingItemsList } from '@/ui/components/wallet/PendingItemsList'
+import type { PendingItemDetailCallbacks } from '@/ui/screens/MintDetail/PendingItemDetailScreen'
+import { ReclaimableSection } from '@/ui/screens/Token/components/ReclaimableSection'
+import { ReclaimSheet } from '@/ui/screens/Token/components/ReclaimSheet'
+import type { PendingTokenView } from '@/ui/screens/Token/types'
 import { EmptyState } from '@/ui/components/common/EmptyState'
 import { TransactionListSkeleton } from '@/ui/components/common/Skeleton'
 import { DateFilterSheet } from '@/ui/components/common/DateFilterSheet'
 import { MintFilterSheet } from '@/ui/components/common/MintFilterSheet'
 import { BottomSheet, BottomSheetItem } from '@/ui/components/common/BottomSheet'
 import { type DateFilterValue, computeDateCutoff, getDateFilterLabel, isDateFilterActive } from '@/ui/utils/dateFilter'
-import { getTitle } from '@/ui/components/wallet/transactionHelpers'
+import { collectReclaimCompanionSendIds, getTitle, getTypeLabel } from '@/ui/components/wallet/transactionHelpers'
 import { getMintFilterLabel } from '@/ui/hooks/useAvailableMints'
 import { exportTransactionsCsv } from '@/ui/utils/exportTransactions'
 import { FilterChip } from '@/ui/components/common/FilterChip'
@@ -28,6 +40,11 @@ import { groupTransactionsForTimeline, type TimelineGroup, type TimelineKind } f
 import { HistoryTimelineRow } from './components/HistoryTimelineRow'
 
 const TransactionDetailScreen = lazy(() => import('@/ui/screens/TransactionDetail/TransactionDetailScreen'))
+// Lazy like the tx detail — a direct import would drag the cashu module chain
+// into every consumer of this screen.
+const PendingItemDetailScreen = lazy(() =>
+  import('@/ui/screens/MintDetail/PendingItemDetailScreen').then((m) => ({ default: m.PendingItemDetailScreen })),
+)
 
 // ─── Types ───
 
@@ -41,6 +58,8 @@ export interface HistoryScreenProps {
   isLoading?: boolean
   initialFilter?: FilterType
   initialMintUrls?: string[]
+  pendingItemCallbacks?: PendingItemDetailCallbacks
+  /** Rendered inside the home history sheet: close affordance instead of back. */
   isSheet?: boolean
 }
 
@@ -128,6 +147,7 @@ export function HistoryScreen({
   isLoading = false,
   initialFilter,
   initialMintUrls,
+  pendingItemCallbacks,
   isSheet,
 }: HistoryScreenProps) {
   'use no memo' // useVirtualizer returns mutable functions incompatible with React Compiler
@@ -137,6 +157,7 @@ export function HistoryScreen({
   const [searchQuery, setSearchQuery] = useState('')
   const [openSheet, setOpenSheet] = useState<OpenSheet>(null)
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
+  const [selectedPendingItem, setSelectedPendingItem] = useState<PendingItem | null>(null)
   const [selectedMintUrls, setSelectedMintUrls] = useState<Set<string>>(
     () => new Set(initialMintUrls ?? []),
   )
@@ -174,6 +195,205 @@ export function HistoryScreen({
     }))
   }, [settings.mints, settings.mintAliases, balance.byMint, getDisplayName, getIconUrl])
 
+  // ─── Pending ecash (the dismantled ecash tab's reclaimable section) ───
+  // Nullable on purpose: the screen renders without a provider (tests, pre-boot)
+  // and simply skips reconciliation.
+  const registry = useContext(ServiceContext)
+  const triggerTxRefresh = useAppStore((s) => s.triggerTxRefresh)
+  const formatSats = useFormatSats()
+  const { isShared, share } = useCopyFeedback()
+
+  // Local reconciliation on view — remote settlement is the watcher/bridge's job.
+  // Pacing lives in the service (reconcileGate, 10s): view-entry callers don't throttle.
+  useEffect(() => {
+    if (!registry?.recoveryScheduler) return
+    registry.recoveryScheduler.reconcile()
+      .then(() => {
+        triggerTxRefresh()
+      })
+      .catch((err) => {
+        console.warn('[HistoryScreen] reconcile failed:', err)
+      })
+  }, [registry, triggerTxRefresh])
+
+  const transactionById = useMemo(() => new Map(transactions.map((tx) => [tx.id, tx])), [transactions])
+  // From the unfiltered set — a filter or search that hides a legacy reclaim's
+  // companion receive row must not turn its send half back into a 되찾음.
+  const reclaimCompanionSendIds = useMemo(
+    () => collectReclaimCompanionSendIds(transactions),
+    [transactions],
+  )
+
+  const { items: pendingItemsRaw, isLoading: isPendingLoading, refresh: refreshPendingItems } = useAllPendingItems(settings.mints)
+  const pendingSendItems = useMemo(
+    () => pendingItemsRaw.filter(isSendToken),
+    [pendingItemsRaw],
+  )
+  const pendingTxIds = useMemo(
+    () => pendingSendItems.map((i) => i.id),
+    [pendingSendItems],
+  )
+  const { fees: reclaimFees, isLoading: reclaimFeesLoading, retry: retryReclaimFees } = useReclaimFees(pendingTxIds)
+
+
+  const pendingTokens: PendingTokenView[] = useMemo(() => {
+    return pendingSendItems.map((item: PendingItem<TokenDetails>) => ({
+      id: item.id,
+      createdAt: item.createdAt,
+      amount: item.amount,
+      memo: item.memo ?? '',
+      mintUrl: item.accountId,
+      tokenString: item.details?.token,
+      reclaimFee: reclaimFees.get(item.id),
+    }))
+  }, [pendingSendItems, reclaimFees])
+
+  // Pending is outstanding value, not history: the screen's mint scope applies,
+  // but search and type/date filters don't — searching simply hides the block.
+  const visiblePendingTokens = useMemo(() => {
+    if (selectedMintUrls.size === 0) return pendingTokens
+    const selected = Array.from(selectedMintUrls)
+    return pendingTokens.filter(
+      (tk) => tk.mintUrl && selected.some((url) => isSameMintUrl(url, tk.mintUrl!)),
+    )
+  }, [pendingTokens, selectedMintUrls])
+  const showPending = searchQuery === '' && visiblePendingTokens.length > 0
+
+  // Receive-side pendings (unpaid requests, unredeemed incoming tokens) live
+  // here too — home and mint detail already show them; history must not hide them.
+  const visibleIncomingItems = useMemo(() => {
+    const incoming = pendingItemsRaw.filter((item) => !isSendToken(item))
+    if (selectedMintUrls.size === 0) return incoming
+    const selected = Array.from(selectedMintUrls)
+    return incoming.filter(
+      (item) => item.accountId && selected.some((url) => isSameMintUrl(url, item.accountId)),
+    )
+  }, [pendingItemsRaw, selectedMintUrls])
+  const showIncoming = searchQuery === '' && visibleIncomingItems.length > 0
+
+  const { reclaimMultiple } = useTokenReclaim()
+  // Ids, not snapshots: the sheet derives its tokens live so late fee quotes
+  // and mid-sheet settlements flow into the totals.
+  const [reclaimTargetIds, setReclaimTargetIds] = useState<Set<string> | null>(null)
+  const reclaimTargets = useMemo(
+    () => (reclaimTargetIds ? pendingTokens.filter((tk) => reclaimTargetIds.has(tk.id)) : null),
+    [reclaimTargetIds, pendingTokens],
+  )
+  const openReclaimAll = useCallback(() => {
+    if (visiblePendingTokens.length === 0) return
+    setReclaimTargetIds(new Set(visiblePendingTokens.map((tk) => tk.id)))
+  }, [visiblePendingTokens])
+  const openReclaimOne = useCallback((token: PendingTokenView) => {
+    setReclaimTargetIds(new Set([token.id]))
+  }, [])
+  const closeReclaim = useCallback(() => setReclaimTargetIds(null), [])
+  const confirmReclaim = useCallback(
+    async (tokens: PendingTokenView[]) => {
+      await reclaimMultiple(
+        tokens.map((tk) => tk.id),
+        {
+          onSuccess: () => setReclaimTargetIds(null),
+          onError: () => setReclaimTargetIds(null),
+        },
+      )
+    },
+    [reclaimMultiple],
+  )
+
+  const handleSharePending = useCallback(
+    async (token: PendingTokenView) => {
+      const shareText = token.tokenString
+        ? token.tokenString
+        : t('token.reclaimable.shareText', {
+            memo: token.memo,
+            amount: formatSats(token.amount),
+          })
+      await share(shareText, token.id)
+    },
+    [share, formatSats, t],
+  )
+
+  // Monotonic guard: two quick taps race their async lookups — only the
+  // latest tap may set the detail, or a slow lookup lands the wrong screen.
+  // Every selection change (normal rows and back included) bumps it, so a
+  // late pending lookup can never clobber what the user now sees.
+  const pendingSelectSeq = useRef(0)
+  const selectTransaction = useCallback((tx: Transaction | null) => {
+    pendingSelectSeq.current += 1
+    setSelectedTransaction(tx)
+  }, [])
+  const openPendingById = useCallback(
+    async (id: string) => {
+      const seq = ++pendingSelectSeq.current
+      // The transactions prop is a 100-row window; a weeks-old pending token
+      // can outlive it, and legacy pending rows may have no transaction at all.
+      const inWindow = transactionById.get(id)
+      if (inWindow) {
+        setSelectedTransaction(inWindow)
+        return
+      }
+      const fetched = registry?.transactionMgmt
+        ? await registry.transactionMgmt.getById(id).catch(() => null)
+        : null
+      if (seq !== pendingSelectSeq.current) return
+      if (fetched) {
+        setSelectedTransaction(fetched)
+      } else {
+        addToast({ type: 'error', message: t('txDetail.recordMissing') })
+      }
+    },
+    [transactionById, registry, addToast, t],
+  )
+
+  const handleSelectPending = useCallback(
+    (token: PendingTokenView) => openPendingById(token.id),
+    [openPendingById],
+  )
+
+  // Out-of-window detail rows never refresh via transactionById — refetch the
+  // open detail whenever a transaction change lands, so external claims settle
+  // it live just like in-window rows.
+  const txRefreshTrigger = useAppStore((s) => s.txRefreshTrigger)
+  useEffect(() => {
+    const current = selectedTransaction
+    if (!current || transactionById.has(current.id) || !registry?.transactionMgmt) return
+    let cancelled = false
+    registry.transactionMgmt.getById(current.id)
+      .then((fresh) => {
+        if (!cancelled && fresh) {
+          setSelectedTransaction((prev) => (prev && prev.id === fresh.id ? fresh : prev))
+        }
+      })
+      .catch(() => { /* keep the snapshot */ })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [txRefreshTrigger])
+
+  // The pending block sits in normal flow above the virtualized timeline inside
+  // the same scroll element — its height must feed the virtualizer as
+  // scrollMargin or the visible-range math treats it as scrolled-past content.
+  // Callback ref, not an effect: the block mounts/unmounts through several
+  // branches (loading, detail early-return), and the observer must follow the
+  // actual DOM node, not a hand-picked dependency list.
+  const [listScrollMargin, setListScrollMargin] = useState(0)
+  const marginObserverRef = useRef<ResizeObserver | null>(null)
+  const setPendingBlock = useCallback((node: HTMLDivElement | null) => {
+    marginObserverRef.current?.disconnect()
+    marginObserverRef.current = null
+    if (!node) {
+      setListScrollMargin(0)
+      return
+    }
+    const measure = () => setListScrollMargin(node.getBoundingClientRect().height)
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(node)
+    marginObserverRef.current = observer
+  }, [])
+  useEffect(() => () => marginObserverRef.current?.disconnect(), [])
+
   // ─── Date filter cutoff ───
   const dateCutoff = useMemo(() => computeDateCutoff(dateFilter), [dateFilter])
 
@@ -187,8 +407,10 @@ export function HistoryScreen({
       .sort((a, b) => b.createdAt - a.createdAt)
 
     if (selectedMintUrls.size > 0) {
-      const normalizedSet = new Set(Array.from(selectedMintUrls).map(stripTrailingSlash))
-      filtered = filtered.filter((tx) => normalizedSet.has(stripTrailingSlash(tx.accountId)))
+      // Key by the domain identity, not a trailing slash — a row stored under
+      // another benign variant (case, explicit :443) would drop out otherwise.
+      const selectedKeys = new Set(Array.from(selectedMintUrls).map(mintUrlKey))
+      filtered = filtered.filter((tx) => Boolean(tx.accountId) && selectedKeys.has(mintUrlKey(tx.accountId)))
     }
 
     if (dateCutoff) {
@@ -209,18 +431,20 @@ export function HistoryScreen({
       filtered = filtered.filter((tx) => {
         const memo = tx.memo?.toLowerCase() || ''
         const mint = tx.accountId.toLowerCase()
-        const typeLabel = getTitle(tx, t).toLowerCase()
+        // Title is now the act (받음/보냄); search must also match the means
+        // (e.g. Lightning) so a means query doesn't silently return nothing.
+        const title = getTitle(tx, t, reclaimCompanionSendIds.has(tx.id)).toLowerCase()
+        const means = getTypeLabel(tx, t).toLowerCase()
         const txMeta = getTxMeta(tx)
         const source = txMeta.source ? t(txSourceKey(txMeta.source)).toLowerCase() : ''
         return memo.includes(query) || mint.includes(query)
-          || typeLabel.includes(query) || source.includes(query)
+          || title.includes(query) || means.includes(query) || source.includes(query)
           || String(toNumber(tx.amount)).includes(query)
       })
     }
 
     return filtered
-  }, [transactions, filter, dateCutoff, searchQuery, selectedMintUrls, t])
-  const transactionById = useMemo(() => new Map(transactions.map((tx) => [tx.id, tx])), [transactions])
+  }, [transactions, reclaimCompanionSendIds, filter, dateCutoff, searchQuery, selectedMintUrls, t])
 
   const timelineGroups = useMemo(
     () => groupTransactionsForTimeline(filteredTransactions),
@@ -230,7 +454,6 @@ export function HistoryScreen({
 
   // ─── Virtualizer ───
   const scrollContainerRef = useRef<HTMLDivElement>(null)
-  // eslint-disable-next-line react-hooks/incompatible-library -- useVirtualizer is known-incompatible with React Compiler; 'use no memo' above opts out
   const virtualizer = useVirtualizer({
     count: timelineGroups.length,
     getScrollElement: () => scrollContainerRef.current,
@@ -240,6 +463,7 @@ export function HistoryScreen({
       return group ? estimateTimelineGroupSize(group) : 80
     },
     overscan: 10,
+    scrollMargin: listScrollMargin,
   })
 
   // ─── Filter labels ───
@@ -278,25 +502,46 @@ export function HistoryScreen({
     addToast({ message: t('history.exportSuccess'), type: 'success' })
   }, [filteredTransactions, getDisplayName, addToast, t])
 
-  if (selectedTransaction) {
+  if (selectedPendingItem) {
+    // Receive-side pendings (requests, unclaimed tokens) have no transaction
+    // record to open — they get the same item detail as the mint screen.
     return (
-      <Suspense fallback={<div className="h-dvh flex items-center justify-center bg-background"><Spinner /></div>}>
+      <Suspense fallback={<div className="h-full flex items-center justify-center bg-background"><Spinner /></div>}>
+        <PendingItemDetailScreen
+          item={selectedPendingItem}
+          onBack={() => setSelectedPendingItem(null)}
+          callbacks={pendingItemCallbacks}
+          onItemRemoved={() => refreshPendingItems()}
+        />
+      </Suspense>
+    )
+  }
+
+  if (selectedTransaction) {
+    // Prefer the refreshed row over the tap-time snapshot: an external claim
+    // or reclaim can settle the tx while the detail is open. The status/outcome
+    // key remounts the detail so its local lifecycle state can't go stale.
+    const liveTx = transactionById.get(selectedTransaction.id) ?? selectedTransaction
+    return (
+      <Suspense fallback={<div className="h-full flex items-center justify-center bg-background"><Spinner /></div>}>
         <TransactionDetailScreen
-          transaction={selectedTransaction}
-          onBack={() => setSelectedTransaction(null)}
+          key={`${liveTx.id}-${liveTx.status}-${liveTx.outcome ?? ''}`}
+          transaction={liveTx}
+          onBack={() => selectTransaction(null)}
           mintUrls={settings.mints}
         />
       </Suspense>
     )
   }
 
+  // h-full in both modes: the stack container and the sheet body both supply a definite height.
   return (
-    <div className={`${isSheet ? 'h-full' : 'h-dvh'} bg-background text-foreground flex flex-col font-primary relative overflow-hidden z-[60] pt-safe`}>
+    <div className="h-full bg-background text-foreground flex flex-col font-primary relative overflow-hidden z-[60] pt-safe">
       {/* Header */}
       <header className="relative flex items-center justify-between px-5 h-14 shrink-0 z-50">
         <button
           onClick={onBack}
-          aria-label={t('common.back')}
+          aria-label={isSheet ? t('common.close') : t('common.back')}
           className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors z-10"
         >
           {isSheet ? (
@@ -358,7 +603,44 @@ export function HistoryScreen({
       <div ref={scrollContainerRef} data-scroll-container className="mt-2 flex-1 min-h-0 overflow-y-auto px-5 pb-app">
         {isLoading ? (
           <TransactionListSkeleton count={6} />
-        ) : timelineGroups.length === 0 ? (
+        ) : (
+          <>
+        {(showPending || showIncoming) && (
+          <div ref={setPendingBlock} className="flex flex-col gap-3 pb-6">
+            {showPending && (
+              <ReclaimableSection
+                tokens={visiblePendingTokens}
+                onShare={handleSharePending}
+                sharedId={(token) => isShared(token.id)}
+                onReclaim={openReclaimOne}
+                onSelect={handleSelectPending}
+                onReclaimAll={openReclaimAll}
+              />
+            )}
+            {showIncoming && (
+              <section className="flex flex-col gap-3">
+                <h3 className="text-subtitle font-semibold text-foreground">
+                  {t('mintDetail.pendingItems')}
+                </h3>
+                {/* Same card skin as the reclaimable tokens above — one pending
+                    block, one shape. */}
+                <div className="rounded-[20px] bg-background-card border border-border">
+                  <PendingItemsList
+                    items={visibleIncomingItems}
+                    maxItems={visibleIncomingItems.length}
+                    showDate
+                    onItemClick={(item) => setSelectedPendingItem(item)}
+                  />
+                </div>
+              </section>
+            )}
+          </div>
+        )}
+        {timelineGroups.length === 0 ? (
+          // No flash while pending loads; no empty state under an unfiltered
+          // pending block. A zero-result type/date filter still shows it —
+          // otherwise the filtered list would look silently blank.
+          isPendingLoading || ((showPending || showIncoming) && !isTypeFiltered && !isDateFiltered) ? null : (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -370,6 +652,7 @@ export function HistoryScreen({
               description={t('history.noTransactionsDesc')}
             />
           </motion.div>
+          )
         ) : (
           <AnimatePresence mode="wait">
             <motion.div
@@ -390,7 +673,9 @@ export function HistoryScreen({
                     ref={virtualizer.measureElement}
                     style={{
                       position: 'absolute',
-                      top: virtualRow.start,
+                      // start includes scrollMargin (the pending block above);
+                      // subtract it to position within this relative container.
+                      top: virtualRow.start - listScrollMargin,
                       left: 0,
                       width: '100%',
                     }}
@@ -412,8 +697,9 @@ export function HistoryScreen({
                             key={tx.id}
                             transaction={tx}
                             linkedTransaction={tx.linkedTxId ? transactionById.get(tx.linkedTxId) : null}
+                            hasCompanionReceive={reclaimCompanionSendIds.has(tx.id)}
                             groupKind={group.kind}
-                            onClick={() => setSelectedTransaction(tx)}
+                            onClick={() => selectTransaction(tx)}
                             getMintName={getDisplayName}
                           />
                         ))}
@@ -427,6 +713,8 @@ export function HistoryScreen({
               {t('history.endOfList')}
             </p>
           </AnimatePresence>
+        )}
+          </>
         )}
       </div>
 
@@ -482,6 +770,16 @@ export function HistoryScreen({
           </button>
         </div>
       </BottomSheet>
+
+      {/* Reclaim Confirmation Sheet (pending ecash) */}
+      <ReclaimSheet
+        isOpen={reclaimTargets !== null}
+        onClose={closeReclaim}
+        tokens={reclaimTargets ?? []}
+        quoting={reclaimFeesLoading}
+        onRetryFees={retryReclaimFees}
+        onConfirm={confirmReclaim}
+      />
     </div>
   )
 }

@@ -13,7 +13,10 @@ import type { EventBus } from "@/core/events/event-bus";
 import type { TransactionRepository } from "@/core/ports/driven/transaction.repository.port";
 import {
   createTransaction,
+  failTransaction,
+  isReclaimableSend,
   settleAsDelivered,
+  settleAsReclaimed,
 } from "@/core/domain/transaction";
 import type { PendingTransfer } from "@/core/domain/pending-transfer";
 import { sat } from "@/core/domain/amount";
@@ -64,7 +67,8 @@ function extractAmountFromTransfer(transfer: PendingTransfer): number {
  */
 async function updatePendingSendIfMatched(
   txRepo: TransactionRepository,
-  receivedToken: string
+  receivedToken: string,
+  receivedTxId: string
 ): Promise<void> {
   try {
     // 1. 모든 pending send 조회 (unclaimed 상태)
@@ -93,14 +97,14 @@ async function updatePendingSendIfMatched(
 
         // 3. pending send를 claimed 상태로 업데이트
         const claimedTx = {
-          ...pendingTx,
-          status: "settled" as const,
-          outcome: "claimed" as const,
-          completedAt: Date.now(),
+          ...settleAsDelivered(pendingTx),
           metadata: {
             ...pendingTx.metadata,
             tokenState: "spent",
-            linkedTxId: receivedToken, // 받은 transaction과 연결
+            // The receive row that claimed this send. Rows resolve it with
+            // transactionById.get(), so it must be a tx id — and it must sit in
+            // metadata, the only channel repo.update() persists it through.
+            linkedTxId: receivedTxId,
           },
         };
 
@@ -168,6 +172,8 @@ export function connectTransferTxBridge(
                   preimage?: string;
                   feeReserve?: number;
                   effectiveFee?: number;
+                  destination?: string;
+                  memo?: string;
                 }
               | undefined;
             const baseTx = createTransaction({
@@ -177,24 +183,22 @@ export function connectTransferTxBridge(
               protocol: "bolt11",
               amount: sat(amount),
               accountId: mint,
-              // fee: bolt11Ref?.feeReserve
-              //   ? {
-              //       quoted: sat(bolt11Ref.feeReserve),
-              //     }
-              //   : undefined,
               fee:
                 bolt11Ref?.effectiveFee != null
                   ? {
                       quoted: sat(bolt11Ref.feeReserve ?? 0),
                       effective: sat(bolt11Ref.effectiveFee),
                     }
-                  : bolt11Ref?.feeReserve
+                  : bolt11Ref?.feeReserve != null
                   ? { quoted: sat(bolt11Ref.feeReserve) }
                   : undefined,
+              ...(bolt11Ref?.memo ? { memo: bolt11Ref.memo } : {}),
               metadata: {
                 operationId: bolt11Ref?.operationId,
                 bolt11: bolt11Ref?.request,
                 preimage: bolt11Ref?.preimage,
+                // The human target — the detail's 받는이 row reads this.
+                ...(bolt11Ref?.destination ? { destination: bolt11Ref.destination } : {}),
                 direction: transfer.direction,
               },
             });
@@ -208,6 +212,8 @@ export function connectTransferTxBridge(
               | {
                   token?: string
                   fee?: number
+                  operationId?: string
+                  memo?: string
                 }
               | undefined;
             const baseTx = createTransaction({
@@ -218,10 +224,15 @@ export function connectTransferTxBridge(
               amount: sat(amount),
               accountId: mint,
               outcome: "unclaimed", // ← 이캐시 탭에서 "대기중"으로 표시되려면 필요!
-              ...(ecashRef?.fee != null && ecashRef.fee > 0
+              ...(ecashRef?.fee != null
                 ? { fee: { quoted: sat(ecashRef.fee) } }
                 : {}),
+              // Recipient-claim toast and receipt/detail views read tx.memo directly.
+              ...(ecashRef?.memo ? { memo: ecashRef.memo } : {}),
               metadata: {
+                // Reclaim cancels the coco send op via this id (rollback → returns
+                // proofs, no false claim). token stays as display/legacy fallback.
+                operationId: ecashRef?.operationId,
                 token: ecashRef?.token,
                 tokenState: "unspent", // ← list() 필터에서 필요!
                 direction: transfer.direction,
@@ -310,11 +321,15 @@ export function connectTransferTxBridge(
                 },
               };
             } else {
+              // A settled ecash send is terminal: a reclaim spends the same
+              // proofs a claim does, so a late poll can report 'settled' for
+              // money that came back to us. Never relabel it as claimed.
+              // (bolt11 above is exempt — its settle still carries fee/preimage.)
+              if (tx.status === "settled") {
+                return;
+              }
               tx = {
-                ...tx,
-                status: "settled",
-                outcome: "claimed",
-                completedAt: Date.now(),
+                ...settleAsDelivered(tx),
                 metadata: {
                   ...tx.metadata,
                   tokenState: "spent", // ← 업데이트!
@@ -420,7 +435,11 @@ export function connectTransferTxBridge(
             | undefined;
           const receivedToken = ref?.token ?? ref?.content;
           if (receivedToken) {
-            await updatePendingSendIfMatched(deps.txRepo, receivedToken);
+            await updatePendingSendIfMatched(
+              deps.txRepo,
+              receivedToken,
+              transfer.txId
+            );
             deps.triggerTxRefresh?.();
           }
         }
@@ -448,11 +467,16 @@ export function connectTransferTxBridge(
           return;
         }
 
+        // Only a send still awaiting claim can be reclaimed. A late or duplicate
+        // event must never relabel a send the recipient actually claimed — the
+        // same rule ReclaimService.markSendReclaimed enforces. On the normal
+        // path that service already wrote this exact state and the guard skips.
+        if (!isReclaimableSend(tx)) {
+          return;
+        }
+
         const reclaimedTx = {
-          ...tx,
-          status: "settled" as const,
-          outcome: "reclaimed" as const,
-          completedAt: Date.now(),
+          ...settleAsReclaimed(tx),
           metadata: {
             ...tx.metadata,
             tokenState: "spent", // ← reclaim도 spent로 처리
@@ -521,30 +545,20 @@ export function connectTransferTxBridge(
             accountId: mint,
             metadata,
           });
-          tx = {
-            ...baseTx,
-            status: "failed" as const,
-            completedAt: Date.now(),
-            metadata: {
-              ...metadata,
-              error: event.payload.reason,
-            },
-          };
+          tx = failTransaction(baseTx, event.payload.reason);
           await deps.txRepo.save(tx);
           console.log(
             "[TransferTxBridge] Transaction created for failed:",
             transfer.txId
           );
         } else {
-          const failedTx = {
-            ...tx,
-            status: "failed" as const,
-            completedAt: Date.now(),
-            metadata: {
-              ...tx.metadata,
-              error: event.payload.reason,
-            },
-          };
+          // A late/duplicate transfer:failed must not clobber a tx that already
+          // settled successfully (reclaimed/claimed/settled) — the failure is
+          // stale. A genuinely-failing tx is still 'pending' at this point.
+          if (tx.status === "settled") {
+            return;
+          }
+          const failedTx = failTransaction(tx, event.payload.reason);
           await deps.txRepo.update(transfer.txId, failedTx);
           console.log("[TransferTxBridge] Transaction failed:", transfer.txId);
         }

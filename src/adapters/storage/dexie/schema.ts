@@ -147,6 +147,7 @@ export interface ReceiveRequestRecord {
   mintUrl: string
   createdAt: number
   expiresAt: number             // unix ms
+  memo?: string
   paymentMethods?: ReceiveRequestPaymentMethodRecord[]
 
   // Lightning payment method

@@ -11,7 +11,7 @@
  * txIds that settle out of the list are never re-queried.
  */
 
-import { useContext, useEffect, useState } from 'react'
+import { useCallback, useContext, useEffect, useState } from 'react'
 import { ServiceContext } from '@/ui/hooks/service-context-value'
 import { toNumber } from '@/core/domain/amount'
 
@@ -26,7 +26,12 @@ export function clearReclaimFeeCache(): void {
 export function useReclaimFees(transactionIds: string[]) {
   const registry = useContext(ServiceContext)
   const [fees, setFees] = useState<Map<string, number>>(new Map())
+  const [failedIds, setFailedIds] = useState<Set<string>>(new Set())
   const [isLoading, setIsLoading] = useState(false)
+  // A failed quote must not dead-end the reclaim UI — retry re-runs the effect
+  // for every id the cache doesn't cover.
+  const [retryNonce, setRetryNonce] = useState(0)
+  const retry = useCallback(() => setRetryNonce((n) => n + 1), [])
   const idsKey = transactionIds.join(',')
 
   useEffect(() => {
@@ -52,6 +57,7 @@ export function useReclaimFees(transactionIds: string[]) {
 
     // Apply cache hits immediately — zero network
     setFees(new Map(cached))
+    setFailedIds(new Set())
     if (toQuote.length === 0) return
 
     setIsLoading(true)
@@ -70,13 +76,17 @@ export function useReclaimFees(transactionIds: string[]) {
       .then((results) => {
         if (cancelled) return
         const next = new Map(cached)
-        for (const entry of results) {
+        const failed = new Set<string>()
+        results.forEach((entry, i) => {
           if (entry) {
             next.set(entry[0], entry[1])
             feeCache.set(entry[0], { fee: entry[1], at: Date.now() })
+          } else {
+            failed.add(toQuote[i])
           }
-        }
+        })
         setFees(next)
+        setFailedIds(failed)
       })
       .finally(() => {
         if (!cancelled) setIsLoading(false)
@@ -86,7 +96,7 @@ export function useReclaimFees(transactionIds: string[]) {
       cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idsKey, registry])
+  }, [idsKey, registry, retryNonce])
 
-  return { fees, isLoading }
+  return { fees, isLoading, failedIds, retry }
 }

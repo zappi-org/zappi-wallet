@@ -1,12 +1,12 @@
-import { useState, useCallback } from 'react'
+import { useCallback } from 'react'
 import { Copy, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { SettingsDetailPage } from '../components/SettingsDetailPage'
 import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
 import { Button } from '@/ui/components/common/Button'
+import { useCopyFeedback } from '@/ui/hooks/use-copy-feedback'
 import { useAppStore } from '@/store'
 import { useCrypto } from '@/ui/hooks/use-crypto'
-import { hapticTap } from '@/ui/utils/haptic'
 
 interface NpubDetailPageProps {
   onBack: () => void
@@ -15,38 +15,23 @@ interface NpubDetailPageProps {
 export function NpubDetailPage({ onBack }: NpubDetailPageProps) {
   const { t } = useTranslation()
   const nostrPubkey = useAppStore((s) => s.nostrPubkey)
-  const addToast = useAppStore((s) => s.addToast)
   const crypto = useCrypto()
-  const [copied, setCopied] = useState(false)
+  const { isCopied, copy } = useCopyFeedback()
 
   const npub = nostrPubkey ? crypto.encodeNpub(nostrPubkey) : ''
 
-  const handleCopy = useCallback(async () => {
-    hapticTap()
-    try {
-      await navigator.clipboard.writeText(npub)
-    } catch {
-      const ta = document.createElement('textarea')
-      ta.value = npub
-      document.body.appendChild(ta)
-      ta.select()
-      document.execCommand('copy')
-      document.body.removeChild(ta)
-    }
-    setCopied(true)
-    addToast({ type: 'success', message: t('toast.copied'), duration: 1500 })
-    setTimeout(() => setCopied(false), 2000)
-  }, [npub, addToast, t])
+  const handleCopy = useCallback(() => copy(npub), [npub, copy])
 
   return (
     <SettingsDetailPage title="Nostr" onBack={onBack}>
       <div className="flex flex-col items-center px-6 pt-8">
-        {/* QR Code — tappable to copy */}
+        {/* QR Code — tappable to copy. Framing (bg/padding/shadow) lives on
+            QRCodeDisplay itself; a second frame here would double it up. */}
         <button
           onClick={handleCopy}
-          className="bg-white p-4 rounded-2xl shadow-sm active:scale-[0.97] transition-transform"
+          className="w-full max-w-[360px] active:scale-[0.97] transition-transform"
         >
-          <QRCodeDisplay value={npub} size={200} className="rounded-xl" />
+          <QRCodeDisplay value={npub} className="rounded-xl" />
         </button>
 
         {/* Address text */}
@@ -56,7 +41,7 @@ export function NpubDetailPage({ onBack }: NpubDetailPageProps) {
 
         {/* Copy button */}
         <Button variant="brand" size="lg" onClick={handleCopy} className="w-full max-w-[320px] mt-6">
-          {copied ? (
+          {isCopied() ? (
             <><Check className="w-4 h-4 mr-2" /> {t('common.copied')}</>
           ) : (
             <><Copy className="w-4 h-4 mr-2" /> {t('common.copy')}</>

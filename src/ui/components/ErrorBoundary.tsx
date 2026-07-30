@@ -34,7 +34,7 @@ export class ErrorBoundary extends Component<Props, State> {
       const t = (key: TranslationKey) => i18n.t(key)
 
       return (
-        <div className="h-dvh bg-background text-foreground font-primary flex flex-col items-center justify-center p-6 pt-safe">
+        <div className="h-full bg-background text-foreground font-primary flex flex-col items-center justify-center p-6 pt-safe">
           <div className="flex flex-col items-center gap-4 text-center max-w-xs">
             <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center text-title font-bold">
               !

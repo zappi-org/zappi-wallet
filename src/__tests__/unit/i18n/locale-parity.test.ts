@@ -37,10 +37,9 @@ const BASE = flatten(en as Tree)
 const OTHERS = { ko, ja, es, id } as const
 
 // Keys where the consumer branches by locale so the variable set intentionally
-// differs (token-view-model's ko/ja month-name branch makes en's '{{monthName}}'
-// unreachable). New entries require a rationale comment — unjustified additions
+// differs. New entries require a rationale comment — unjustified additions
 // defeat this gate.
-const INTERPOLATION_ALLOWLIST = new Set(['token.history.anchor.monthSameYear'])
+const INTERPOLATION_ALLOWLIST = new Set<string>([])
 
 describe('locale parity (en baseline)', () => {
   it.each(Object.keys(OTHERS) as Array<keyof typeof OTHERS>)(

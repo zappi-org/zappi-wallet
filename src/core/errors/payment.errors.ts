@@ -62,6 +62,20 @@ export class ReceiveRequestInvalidError extends BaseError {
 }
 
 /**
+ * The token was minted but no transport could hand it to the payee.
+ * Distinct from a generic send failure: the wallet worked, the recipient
+ * could not be reached.
+ */
+export class PaymentDeliveryFailedError extends BaseError {
+  readonly code = 'PAYMENT_DELIVERY_FAILED' as const
+  readonly isRetryable = true
+
+  constructor(message = 'Could not deliver the payment to the recipient', cause?: unknown) {
+    super(message, cause)
+  }
+}
+
+/**
  * Plain error shape for Result<T, PaymentError> usage
  * @deprecated Use BaseError subclasses instead
  */

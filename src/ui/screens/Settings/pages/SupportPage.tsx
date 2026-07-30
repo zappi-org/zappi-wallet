@@ -20,7 +20,9 @@ import {
   getLatestSupportMessageAt,
   getSupportKind,
   isIdeaCategory,
+  isRenderableAttachmentImage,
   isSupportTicketTerminal,
+  safeAttachmentMime,
   type SupportAttachment,
   type SupportAttachmentUpload,
   type SupportCategory,
@@ -369,7 +371,7 @@ export function SupportPage({ onBack }: SupportPageProps) {
       if (!message.attachments) continue
       for (const attachment of message.attachments) {
         if (
-          attachment.mime.startsWith('image/') &&
+          isRenderableAttachmentImage(attachment.mime) &&
           attachment.state === 'available' &&
           !imageCacheRef.current.has(attachment.id)
         ) {
@@ -395,7 +397,7 @@ export function SupportPage({ onBack }: SupportPageProps) {
             downloaded.data.byteOffset,
             downloaded.data.byteOffset + downloaded.data.byteLength,
           ) as ArrayBuffer
-          const blob = new Blob([arrayBuffer], { type: downloaded.mime })
+          const blob = new Blob([arrayBuffer], { type: safeAttachmentMime(downloaded.mime) })
           const url = URL.createObjectURL(blob)
           setImageCache((prev) => {
             if (cancelled) {
@@ -1502,7 +1504,7 @@ async function filesToSupportAttachments(files: File[]): Promise<SupportAttachme
 }
 
 function saveDownloadedAttachment(data: Uint8Array, mime: string, name?: string): void {
-  const blob = new Blob([toArrayBuffer(data)], { type: mime })
+  const blob = new Blob([toArrayBuffer(data)], { type: safeAttachmentMime(mime) })
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url

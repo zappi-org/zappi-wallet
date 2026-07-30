@@ -1,7 +1,7 @@
 /**
  * payment-event-consumers — module-level coordination for payment:completed UI.
  *
- * When a full-screen UI (e.g. TokenCreate/CreatedStep) is active for a specific
+ * When a full-screen UI (e.g. Send/DirectReceiptStep) is active for a specific
  * transaction, it "owns" the UX feedback for that tx's completion event. The
  * global `useGlobalTokenClaimToast` subscriber checks ownership and skips its
  * toast, so the user doesn't see a redundant notification on top of the

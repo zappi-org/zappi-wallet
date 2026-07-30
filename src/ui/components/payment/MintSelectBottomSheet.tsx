@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'motion/react'
 import { hapticTap } from '@/ui/utils/haptic'
 import { useAppStore } from '@/store'
@@ -8,6 +9,7 @@ import { useWallet } from '@/ui/hooks/use-wallet'
 import { useMintHealth } from '@/ui/hooks/use-mint-health'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { useCarouselScroll } from '@/ui/hooks/use-carousel-scroll'
+import { useKeyboardInset } from '@/ui/hooks/use-keyboard-inset'
 import { MintCard, resolveMintColor } from '@/ui/components/wallet/MintCard'
 import { Button } from '@/ui/components/common/Button'
 import type { MintInfo } from '@/core/types'
@@ -57,6 +59,10 @@ function MintSelectBottomSheetInner({
   const settings = useAppStore((state) => state.settings)
   const { getCachedStatus } = useMintHealth()
   const { getDisplayName, getIconUrl } = useMintMetadata(settings.mints)
+  // Lift the sheet above the soft keyboard: this sheet opens from flows where a
+  // text input may still be focused (npub needs-mint-selection, ContactsScreen),
+  // and bottom:0 alone leaves it behind the keyboard on iOS (viewport-only resize).
+  const keyboardInset = useKeyboardInset()
 
   // Build mint list (memoized to avoid rebuild on carousel scroll)
   const mints: MintInfo[] = useMemo(() =>
@@ -111,7 +117,10 @@ function MintSelectBottomSheetInner({
     }
   }, [localSelected, allowEmpty, selectedHasBalance, onSelect, onClose])
 
-  return (
+  // Portaled: inside a transformed Stackflow activity, `fixed` is trapped in
+  // the activity's stacking context, so the root-level tab dock (z-50) paints
+  // over the sheet on tab screens. body-level rendering restores true stacking.
+  return createPortal(
     <>
       {/* Backdrop */}
       <motion.div
@@ -131,7 +140,10 @@ function MintSelectBottomSheetInner({
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
         transition={{ duration: 0.25, ease: 'easeOut' }}
-        className="fixed bottom-0 left-0 right-0 bg-background-card border-t border-border rounded-t-[20px] z-[70]"
+        // transition-[bottom] eases the keyboard-inset ride (motion only
+        // animates the y transform, so bottom would otherwise snap).
+        className="fixed left-0 right-0 bg-background-card border-t border-border rounded-t-[20px] z-[70] transition-[bottom] duration-200 ease-out motion-reduce:transition-none"
+        style={{ bottom: keyboardInset }}
       >
         {/* Handle */}
         <div className="flex justify-center py-2">
@@ -190,8 +202,9 @@ function MintSelectBottomSheetInner({
           </p>
         )}
 
-        {/* Confirm Button */}
-        <div className="px-5 pt-4 pb-4">
+        {/* Confirm Button — pb-app keeps it clear of the home indicator now that
+            viewport-fit=cover extends the sheet to the physical screen edge. */}
+        <div className="px-5 pt-4 pb-app">
           <Button
             variant="brand"
             size="xl"
@@ -203,6 +216,7 @@ function MintSelectBottomSheetInner({
           </Button>
         </div>
       </motion.div>
-    </>
+    </>,
+    document.body,
   )
 }

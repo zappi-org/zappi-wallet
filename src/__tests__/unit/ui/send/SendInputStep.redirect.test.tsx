@@ -42,7 +42,7 @@ vi.mock('@/ui/hooks/use-mint-metadata', () => ({
 }))
 
 vi.mock('@/ui/hooks/use-contacts', () => ({
-  useContacts: () => ({ contacts: mockContacts, findByAddress: mockFindByAddress }),
+  useContacts: () => ({ contacts: mockContacts, isReady: true, findByAddress: mockFindByAddress }),
 }))
 
 vi.mock('@/ui/utils/haptic', () => ({
@@ -71,6 +71,7 @@ vi.mock('@/ui/components/icons/CameraFilled', () => ({
 const defaultProps = {
   onBack: vi.fn(),
   onNext: vi.fn(),
+  onDirectTransfer: vi.fn(),
   onRedirect: vi.fn(),
   onRouteValidated: vi.fn(),
   mintUrl: 'https://mint.example.com',

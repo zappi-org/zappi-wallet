@@ -1,6 +1,23 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useAppStore } from '@/store'
-import { formatFiatAmount, formatTransactionFiat } from '@/utils/format'
+import { formatFiatAmount, formatTransactionFiat, getLocaleCode } from '@/utils/format'
+
+describe('getLocaleCode', () => {
+  it('maps a bare language tag', () => {
+    expect(getLocaleCode('ko')).toBe('ko-KR')
+  })
+
+  // The browser detector hands i18next 'ko-KR', which used to fall through to
+  // en-US and print English dates inside a Korean UI.
+  it('maps a region-tagged language by its base', () => {
+    expect(getLocaleCode('ko-KR')).toBe('ko-KR')
+    expect(getLocaleCode('es-MX')).toBe('es-ES')
+  })
+
+  it('falls back to en-US for anything unknown', () => {
+    expect(getLocaleCode('zz')).toBe('en-US')
+  })
+})
 
 describe('formatTransactionFiat', () => {
   beforeEach(() => {

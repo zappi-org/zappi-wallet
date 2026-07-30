@@ -5,8 +5,8 @@ import type { FeeEstimator } from '@/core/ports/driven/fee-estimator.port'
 
 function createMockFeeEstimator(): FeeEstimator {
   return {
-    estimateRouteFee: vi.fn().mockResolvedValue({ fee: 10, totalNeeded: 1010 }),
-    estimateMyWalletFee: vi.fn().mockResolvedValue({ fee: 5, totalNeeded: 1005 }),
+    estimateRouteFee: vi.fn().mockResolvedValue({ fee: 10, totalNeeded: 1010, availableBalance: 5000 }),
+    estimateMyWalletFee: vi.fn().mockResolvedValue({ fee: 5, totalNeeded: 1005, availableBalance: 5000 }),
   }
 }
 
@@ -34,7 +34,7 @@ describe('RoutingService', () => {
     const fe = createMockFeeEstimator()
     const svc = new RoutingService(fe)
     const result = await svc.estimateRouteFee(PaymentRoute.MELT_TO_LN, 'https://mint', 1000)
-    expect(result).toEqual({ fee: 10, totalNeeded: 1010 })
+    expect(result).toEqual({ fee: 10, totalNeeded: 1010, availableBalance: 5000 })
     expect(fe.estimateRouteFee).toHaveBeenCalledWith(PaymentRoute.MELT_TO_LN, 'https://mint', 1000, undefined, undefined)
   })
 
@@ -65,7 +65,7 @@ describe('RoutingService', () => {
 
     it('concurrent identical estimates share one in-flight call', async () => {
       const fe = createMockFeeEstimator()
-      let resolveEstimate!: (v: { fee: number; totalNeeded: number }) => void
+      let resolveEstimate!: (v: { fee: number; totalNeeded: number; availableBalance: number }) => void
       vi.mocked(fe.estimateRouteFee).mockImplementation(
         () => new Promise((resolve) => { resolveEstimate = resolve }),
       )
@@ -73,7 +73,7 @@ describe('RoutingService', () => {
 
       const a = svc.estimateRouteFee(PaymentRoute.MELT_TO_LN, 'https://src', 1000)
       const b = svc.estimateRouteFee(PaymentRoute.MELT_TO_LN, 'https://src', 1000)
-      resolveEstimate({ fee: 7, totalNeeded: 1007 })
+      resolveEstimate({ fee: 7, totalNeeded: 1007, availableBalance: 5000 })
 
       const [ra, rb] = await Promise.all([a, b])
       expect(fe.estimateRouteFee).toHaveBeenCalledTimes(1)
@@ -86,7 +86,7 @@ describe('RoutingService', () => {
         const fe = createMockFeeEstimator()
         vi.mocked(fe.estimateRouteFee)
           .mockRejectedValueOnce(new Error('mint down'))
-          .mockResolvedValueOnce({ fee: 3, totalNeeded: 1003 })
+          .mockResolvedValueOnce({ fee: 3, totalNeeded: 1003, availableBalance: 5000 })
         const svc = new RoutingService(fe)
 
         await expect(
@@ -103,7 +103,7 @@ describe('RoutingService', () => {
         await vi.advanceTimersByTimeAsync(5_001)
         await expect(
           svc.estimateRouteFee(PaymentRoute.MELT_TO_LN, 'https://src', 1000),
-        ).resolves.toEqual({ fee: 3, totalNeeded: 1003 })
+        ).resolves.toEqual({ fee: 3, totalNeeded: 1003, availableBalance: 5000 })
         expect(fe.estimateRouteFee).toHaveBeenCalledTimes(2)
       } finally {
         vi.useRealTimers()

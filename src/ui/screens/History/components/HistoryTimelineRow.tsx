@@ -8,7 +8,7 @@ import { toNumber } from '@/core/domain/amount'
 import { useFormatSats, useFormatFiat, formatTransactionFiat } from '@/utils/format'
 import { formatMintHost } from '@/utils/url'
 import { cn } from '@/ui/lib/utils'
-import { getTitle, getTypeLabel } from '@/ui/components/wallet/transactionHelpers'
+import { getTitle, getTypeLabel, isReclaimRow } from '@/ui/components/wallet/transactionHelpers'
 import type { TimelineKind } from '@/ui/hooks/use-transaction-history'
 
 export interface HistoryTimelineRowProps {
@@ -17,6 +17,8 @@ export interface HistoryTimelineRowProps {
   groupKind: TimelineKind
   onClick?: () => void
   getMintName?: (url: string) => string
+  /** This send's reclaim is booked on a companion receive row (legacy token path). */
+  hasCompanionReceive?: boolean
 }
 
 function formatRowTime(
@@ -40,6 +42,7 @@ export function HistoryTimelineRow({
   groupKind,
   onClick,
   getMintName,
+  hasCompanionReceive = false,
 }: HistoryTimelineRowProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
@@ -52,6 +55,7 @@ export function HistoryTimelineRow({
   const isSwap = txType === 'swap'
   const isPending = tx.status === 'pending'
   const isFailed = tx.status === 'failed'
+  const isReclaim = isReclaimRow(tx, hasCompanionReceive)
   const resolveName = (url: string) => getMintName ? getMintName(url) : formatMintHost(url)
 
   const swapFromUrl = meta.fromMintUrl ?? linkedMeta?.fromMintUrl ?? (tx.direction === 'send' ? tx.accountId : undefined)
@@ -60,10 +64,10 @@ export function HistoryTimelineRow({
     ? `${resolveName(swapFromUrl)} → ${resolveName(swapToUrl)}`
     : null
 
-  const title = swapRoute ?? getTitle(tx, t)
+  const title = swapRoute ?? getTitle(tx, t, hasCompanionReceive)
   const typeLabel = getTypeLabel(tx, t)
   const time = formatRowTime(t, tx.createdAt, groupKind)
-  const defaultSubtitle = title === typeLabel ? time : `${time} · ${typeLabel}`
+  const defaultSubtitle = `${time} · ${typeLabel}`
 
   let subtitle: string
   if (isSwap && swapRoute) {
@@ -78,14 +82,18 @@ export function HistoryTimelineRow({
   }
 
   const amountSats = toNumber(getTotalCost(tx))
-  const amountPrefix = isReceive ? '+ ' : '- '
+  // A reclaim moved nothing in or out — the money simply came back, so it gets
+  // no sign at all ('-' would read as spent, '+' as earned) and a neutral tone.
+  const amountPrefix = isReclaim ? '' : isReceive ? '+ ' : '- '
   const amountColor = isFailed
     ? 'line-through text-foreground-muted'
-    : isPending
-      ? cn(isReceive ? 'text-primary' : 'text-foreground', 'opacity-60')
-      : isReceive
-        ? 'text-primary'
-        : 'text-foreground'
+    : isReclaim
+      ? 'text-foreground-muted'
+      : isPending
+        ? cn(isReceive ? 'text-primary' : 'text-foreground', 'opacity-60')
+        : isReceive
+          ? 'text-primary'
+          : 'text-foreground'
   const fiatStr = formatTransactionFiat(tx.displaySnapshot, amountSats, formatFiat)
 
   const iconClasses = isFailed
@@ -96,7 +104,7 @@ export function HistoryTimelineRow({
         ? 'bg-primary/10 text-primary'
         : 'bg-foreground/[0.06] text-foreground'
 
-  const icon = meta.reclaimedFrom ? (
+  const icon = isReclaim ? (
     <Undo2 className="size-4" strokeWidth={2.5} />
   ) : isSwap ? (
     <RefreshCw className="size-4" strokeWidth={2.5} />
@@ -118,6 +126,8 @@ export function HistoryTimelineRow({
       <div className="flex flex-1 items-start justify-between gap-2 min-w-0">
         <div className="flex flex-col gap-0.5 min-w-0">
           <span className="text-caption font-bold text-foreground truncate">
+            {/* Line-through + dot color are invisible to screen readers — failure must be spoken too. */}
+            {isFailed && <span className="sr-only">{t('history.failedStatus')} · </span>}
             {title}
           </span>
           <span className="text-overline text-foreground-muted truncate">
@@ -126,7 +136,7 @@ export function HistoryTimelineRow({
         </div>
         <div className="flex flex-col gap-0.5 items-end text-right shrink-0">
           <div className="flex items-center gap-1.5">
-            {isPending && <span className="w-1.5 h-1.5 rounded-full bg-status-pending animate-pulse" />}
+            {isPending && <span className="w-1.5 h-1.5 rounded-full bg-status-pending animate-pulse motion-reduce:animate-none" />}
             {isFailed && <span className="w-1.5 h-1.5 rounded-full bg-accent-danger" />}
             <span className={cn('text-body font-bold text-foreground', amountColor)}>
               {amountPrefix}{formatSats(amountSats)}

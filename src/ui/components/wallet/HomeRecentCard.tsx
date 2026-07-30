@@ -2,11 +2,8 @@ import { memo } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { ArrowDownLeft, ArrowUpRight, ChevronUp } from 'lucide-react'
-import type { Transaction } from '@/core/domain/transaction'
-import { getTransactionType, getTxMeta, getTotalCost } from '@/core/domain/transaction'
-import { toNumber } from '@/core/domain/amount'
 import { useFormatSats } from '@/utils/format'
-import { getTypeLabel } from './transactionHelpers'
+import type { HomeRecentRow } from './homeRecentRow'
 import { cn } from '@/ui/lib/utils'
 
 const SECOND = 1000
@@ -24,14 +21,14 @@ function getRelativeTime(ts: number, t: TFunction): string {
 }
 
 export interface HomeRecentCardProps {
-  transaction: Transaction
+  row: HomeRecentRow
   onPress?: () => void
   onSeeAll?: () => void
   className?: string
 }
 
 export const HomeRecentCard = memo(function HomeRecentCard({
-  transaction: tx,
+  row,
   onPress,
   onSeeAll,
   className,
@@ -39,15 +36,12 @@ export const HomeRecentCard = memo(function HomeRecentCard({
   const { t } = useTranslation()
   const formatSats = useFormatSats()
 
-  const txType = getTransactionType(tx)
-  const meta = getTxMeta(tx)
-  const isReceive = tx.direction === 'receive'
-  const isPending = tx.status === 'pending'
-  const isFailed = tx.status === 'failed'
-  const typeLabel = getTypeLabel(tx, t)
-  const relativeTime = getRelativeTime(tx.createdAt, t)
+  const isReceive = row.isReceive
+  const isPending = row.state === 'pending'
+  const isFailed = row.state === 'failed'
+  const relativeTime = getRelativeTime(row.createdAt, t)
 
-  const amountSats = toNumber(getTotalCost(tx))
+  const amountSats = row.amountSats
 
   const amountPrefix = isReceive ? '' : '-'
   const amountColor = isFailed
@@ -58,22 +52,13 @@ export const HomeRecentCard = memo(function HomeRecentCard({
         ? 'text-[#648B59]'
         : 'text-foreground'
 
-  const isSwap = txType === 'swap'
-  const swapFromUrl = meta.fromMintUrl ?? (tx.direction === 'send' ? tx.accountId : undefined)
-  const swapToUrl = meta.toMintUrl ?? (tx.direction === 'receive' ? tx.accountId : undefined)
-  const swapActive = isSwap && swapFromUrl && swapToUrl
-
-  const displayTitle = swapActive
-    ? typeLabel
-    : (tx.memo || typeLabel)
-
   return (
     <div className={cn('shrink-0 pb-app-nav px-4 w-full max-w-sm mx-auto', className)}>
       <div className="relative flex items-center mb-2 px-5">
         {onSeeAll && (
           <button
             onClick={onSeeAll}
-            className="absolute left-1/2 -translate-x-1/2 active:opacity-60 transition-opacity"
+            className="absolute left-1/2 -translate-x-1/2 -translate-y-1 flex h-11 w-11 items-center justify-center rounded-lg active:opacity-60 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
             aria-label={t('home.seeAll')}
           >
             <ChevronUp className="w-4 h-4 text-foreground-muted" strokeWidth={2.5} />
@@ -86,7 +71,7 @@ export const HomeRecentCard = memo(function HomeRecentCard({
         {onSeeAll && (
           <button
             onClick={onSeeAll}
-            className="text-label text-foreground active:opacity-60 transition-opacity"
+            className="-mr-2 flex min-h-11 items-center rounded-lg px-2 text-label text-foreground active:opacity-60 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
           >
             {t('home.seeAll')}
           </button>
@@ -112,7 +97,7 @@ export const HomeRecentCard = memo(function HomeRecentCard({
 
         <div className="flex flex-col min-w-0 flex-1">
           <span className="text-label text-foreground truncate">
-            {displayTitle}
+            {row.title}
           </span>
           <span className="text-label text-foreground truncate">
             {relativeTime}

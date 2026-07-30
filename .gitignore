@@ -26,6 +26,11 @@ dist-ssr
 # Pipeline artifacts (local only)
 .pipeline/
 .opencode/
+.superpowers/
+
+# Local design references and agent-generated planning documents
+docs/sample/
+docs/superpowers/
 
 # Local HTTPS dev certificates (mkcert-generated, never commit)
 certs/
@@ -35,3 +40,13 @@ coverage/
 docs/design/
 docs/audit/
 tasks/
+
+# Agent/browser verification screenshots — local working artifacts
+screenshots/
+.playwright-mcp/
+
+# Local wallet fixture — never commit (contains keys)
+.wallet.json
+
+# Local security notes — never commit
+.private-notes/

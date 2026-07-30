@@ -63,6 +63,7 @@ describe('MintInfoSheet', () => {
     render(
       <MintInfoSheet
         isOpen
+        section="settings"
         mint={{
           url: 'https://mint-a.test',
           name: 'Alpha',
@@ -76,7 +77,8 @@ describe('MintInfoSheet', () => {
       />,
     )
 
-    fireEvent.click(screen.getAllByText('Alpha')[0])
+    // Role query skips the aria-hidden live card preview, which also renders the name.
+    fireEvent.click(screen.getByRole('button', { name: 'Alpha' }))
 
     const input = screen.getByDisplayValue('Alpha')
     fireEvent.change(input, { target: { value: 'Beta' } })

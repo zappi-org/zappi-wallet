@@ -3,6 +3,9 @@ import { AnimatePresence, motion, useDragControls, useReducedMotion } from 'moti
 import { useTranslation } from 'react-i18next'
 import { LoadingFallback } from '@/ui/components/common/LoadingFallback'
 import type { Transaction } from '@/core/domain/transaction'
+import { useEscapeDismiss } from '@/ui/hooks/use-escape-dismiss'
+import { useFocusTrap } from '@/ui/hooks/use-focus-trap'
+import type { PendingItemDetailCallbacks } from '@/ui/screens/MintDetail/PendingItemDetailScreen'
 
 const HistoryScreen = lazy(() => import('@/ui/screens/History/HistoryScreen'))
 
@@ -11,6 +14,8 @@ export interface HistorySheetOverlayProps {
   onClose: () => void
   transactions: Transaction[]
   initialMintUrls?: string[]
+  /** Forwarded so pending items are actionable here too, not just in the stack route. */
+  pendingItemCallbacks?: PendingItemDetailCallbacks
 }
 
 export function HistorySheetOverlay({
@@ -18,14 +23,17 @@ export function HistorySheetOverlay({
   onClose,
   transactions,
   initialMintUrls,
+  pendingItemCallbacks,
 }: HistorySheetOverlayProps) {
   const { t } = useTranslation()
   const sheetRef = useRef<HTMLDivElement>(null)
+  const backdropRef = useRef<HTMLDivElement>(null)
   const dragControls = useDragControls()
   const dismissLock = useRef(false)
   const hasScrolledRef = useRef(false)
-  const previousFocusRef = useRef<HTMLElement | null>(null)
   const reducedMotion = useReducedMotion()
+
+  const { onEntryComplete, restoreFocus } = useFocusTrap(open, sheetRef, backdropRef)
 
   const HEADER_ZONE_HEIGHT = 200
 
@@ -58,16 +66,10 @@ export function HistorySheetOverlay({
   )
 
   useEffect(() => {
-    if (!open) {
-      hasScrolledRef.current = false
-      return
-    }
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') doClose()
-    }
-    document.addEventListener('keydown', handleKey)
-    return () => document.removeEventListener('keydown', handleKey)
-  }, [open, doClose])
+    if (!open) hasScrolledRef.current = false
+  }, [open])
+
+  useEscapeDismiss(open, doClose)
 
   useEffect(() => {
     if (!open || !sheetRef.current) return
@@ -112,16 +114,6 @@ export function HistorySheetOverlay({
     }
   }, [open])
 
-  const handleFocusEntry = useCallback(() => {
-    previousFocusRef.current = document.activeElement as HTMLElement
-    sheetRef.current?.focus()
-  }, [])
-
-  const handleFocusReturn = useCallback(() => {
-    previousFocusRef.current?.focus()
-    previousFocusRef.current = null
-  }, [])
-
   const springTransition = reducedMotion
     ? { duration: 0.01 }
     : { type: 'spring' as const, damping: 25, stiffness: 200 }
@@ -131,11 +123,12 @@ export function HistorySheetOverlay({
     : { duration: 0.2 }
 
   return (
-    <AnimatePresence onExitComplete={handleFocusReturn}>
+    <AnimatePresence onExitComplete={restoreFocus}>
       {open && (
         <>
           <motion.div
             key="history-backdrop"
+            ref={backdropRef}
             initial={{ opacity: 0 }}
             animate={{ opacity: 0.5 }}
             exit={{ opacity: 0 }}
@@ -156,7 +149,7 @@ export function HistorySheetOverlay({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={springTransition}
-            onAnimationComplete={handleFocusEntry}
+            onAnimationComplete={onEntryComplete}
             drag="y"
             dragSnapToOrigin
             dragConstraints={{ top: 0, bottom: 500 }}
@@ -177,6 +170,7 @@ export function HistorySheetOverlay({
                   onBack={doClose}
                   transactions={transactions}
                   initialMintUrls={initialMintUrls}
+                  pendingItemCallbacks={pendingItemCallbacks}
                   isSheet
                 />
               </Suspense>

@@ -9,6 +9,8 @@ interface PendingItemsListProps {
   items: PendingItem[]
   maxItems?: number
   showDate?: boolean
+  /** Gutterless rows — for lists whose siblings manage their own inset. */
+  flush?: boolean
   onItemClick?: (item: PendingItem) => void
 }
 
@@ -19,7 +21,8 @@ function getItemTypeLabel(item: PendingItem, t: TFunction): string {
 }
 
 function getItemTitle(item: PendingItem, t: TFunction): string {
-  return item.memo || getItemTypeLabel(item, t)
+  const label = getItemTypeLabel(item, t)
+  return item.memo ? `${label} · ${item.memo}` : label
 }
 
 function formatExpiry(expiresAt: number): string | null {
@@ -31,7 +34,7 @@ function formatExpiry(expiresAt: number): string | null {
   return `${minutes}m`
 }
 
-export function PendingItemsList({ items, maxItems = 5, showDate = false, onItemClick }: PendingItemsListProps) {
+export function PendingItemsList({ items, maxItems = 5, showDate = false, flush = false, onItemClick }: PendingItemsListProps) {
   const { t, i18n } = useTranslation()
   const formatSats = useFormatSats()
   const locale = getLocaleCode(i18n.language)
@@ -51,7 +54,6 @@ export function PendingItemsList({ items, maxItems = 5, showDate = false, onItem
       {displayed.map((item, index) => {
         const isSend = item.direction === 'send'
         const title = getItemTitle(item, t)
-        const typeLabel = getItemTypeLabel(item, t)
         const date = new Date(item.createdAt)
         const timeOnly = date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
         const timeStr = showDate ? `${formatMD(date)} ${timeOnly}` : timeOnly
@@ -60,14 +62,14 @@ export function PendingItemsList({ items, maxItems = 5, showDate = false, onItem
 
         // Subtitle: "10:35 | Unclaimed token" or "10:35 | Unclaimed token · expires 2h 30m"
         const subtitle = expiryStr
-          ? `${timeStr} | ${typeLabel} · ${t('mintDetail.pendingExpiry')} ${expiryStr}`
-          : `${timeStr} | ${typeLabel}`
+          ? `${timeStr} · ${t('mintDetail.pendingExpiry')} ${expiryStr}`
+          : timeStr
 
         return (
           <div key={item.id}>
             <button
               onClick={() => onItemClick?.(item)}
-              className="w-full flex items-center justify-between py-3.5 px-4 min-h-[44px] cursor-pointer active:bg-foreground/[0.02] transition-colors"
+              className={cn('w-full flex items-center justify-between py-3.5 min-h-[44px] cursor-pointer active:bg-foreground/[0.02] transition-colors', flush ? 'px-0.5' : 'px-4')}
             >
               {/* Left: title + subtitle */}
               <div className="flex flex-col gap-0.5 text-left min-w-0 flex-1 mr-4">
@@ -78,12 +80,12 @@ export function PendingItemsList({ items, maxItems = 5, showDate = false, onItem
               {/* Right: amount + status */}
               <div className="flex flex-col items-end gap-0.5 shrink-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-status-pending animate-pulse" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-status-pending animate-pulse motion-reduce:animate-none" />
                   <span className={cn(
                     'text-amount font-semibold font-display leading-normal opacity-60',
                     isSend ? 'text-foreground' : 'text-primary',
                   )}>
-                    {isSend ? `-${formatSats(item.amount)}` : formatSats(item.amount)}
+                    {isSend ? `-${formatSats(item.amount)}` : `+${formatSats(item.amount)}`}
                   </span>
                 </div>
                 <span className="text-label font-medium text-foreground-muted leading-normal">
@@ -91,7 +93,7 @@ export function PendingItemsList({ items, maxItems = 5, showDate = false, onItem
                 </span>
               </div>
             </button>
-            {!isLast && <div className="h-px bg-border/30 mx-4" />}
+            {!isLast && <div className={cn('h-px bg-border/30', flush ? '' : 'mx-4')} />}
           </div>
         )
       })}

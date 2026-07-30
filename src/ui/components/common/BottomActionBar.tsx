@@ -22,7 +22,9 @@ export function BottomActionBar({
 }: BottomActionBarProps) {
   return (
     <div
-      className={cn('px-2 pb-app shrink-0 flex flex-col', GAP_CLASS[gap], className)}
+      // px-6 is the app's content gutter — the old px-2 default made the CTA
+      // overhang the column above it by 16px on each side.
+      className={cn('px-6 pb-app shrink-0 flex flex-col', GAP_CLASS[gap], className)}
     >
       {children}
     </div>

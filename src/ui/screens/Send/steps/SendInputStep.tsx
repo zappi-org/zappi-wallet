@@ -12,22 +12,24 @@
  */
 
 import { useState, useCallback, useRef, useMemo } from 'react'
-import { Zap, Hash, Link } from 'lucide-react'
+import { flushSync } from 'react-dom'
+import { AnimatePresence, motion, useReducedMotion, useIsPresent } from 'motion/react'
 import { CameraFilled } from '@/ui/components/icons/CameraFilled'
 import cardLogo from '@/assets/card-logo.svg'
-import { getInputTypeLabel } from '@/ui/utils/inputTypeLabel'
 import { useTranslation } from 'react-i18next'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { useAppStore } from '@/store'
+import { isSameMintUrl } from '@/utils/url'
 import { hapticTap } from '@/ui/utils/haptic'
 import { Button } from '@/ui/components/common/Button'
-import { Spinner } from '@/ui/components/common/Spinner'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { QrScannerModal } from '@/ui/components/common/QrScannerModal'
 import { SegmentControl } from '@/ui/components/common/SegmentControl'
 import type { ValidatedData } from '@/core/domain/input-types'
-import type { ContactAddressType } from '@/core/types'
 import type { SendableValidatedData } from '../SendFlow'
+import { ContactAddressIcon } from '@/ui/components/payment/RecipientEndpointIcon'
+import { SEND_RECIPIENT_LAYOUT_ID, recipientMorphTransition } from '../sendMorph'
+import { fadeTransition } from '@/ui/utils/motion'
 import { useSendInputValidation } from './use-send-input-validation'
 
 interface SendDestinationStepProps {
@@ -38,6 +40,8 @@ interface SendDestinationStepProps {
     amountFromInvoice?: number
     mintUrl?: string
   }) => void
+  /** Fired when the input is empty and the user chooses to create a bearer token instead. */
+  onDirectTransfer: () => void
   onRedirect?: (validatedData: ValidatedData) => void
   initialDestination?: string
   initialAddress?: string
@@ -58,6 +62,7 @@ interface SendDestinationStepProps {
 export function SendInputStep({
   onBack,
   onNext,
+  onDirectTransfer,
   onRedirect,
   initialDestination = '',
   initialAddress,
@@ -68,24 +73,43 @@ export function SendInputStep({
   onRequestMintSelection,
 }: SendDestinationStepProps) {
   const { t } = useTranslation()
+  const reduceMotion = useReducedMotion()
   const settings = useAppStore((s) => s.settings)
   const { getDisplayName, getIconUrl } = useMintMetadata(settings.mints)
+
+  // Text-morph handoff: on advance, swap the input for a static text stand-in
+  // committed in the same frame (flushSync) so only the TEXT — not the pill —
+  // pairs with the amount scene's recipient via layoutId
+  const [leaving, setLeaving] = useState(false)
+  const advanceWithTextMorph = useCallback(
+    (data: {
+      destination: string
+      validatedData?: SendableValidatedData
+      amountFromInvoice?: number
+      mintUrl?: string
+    }) => {
+      flushSync(() => setLeaving(true))
+      onNext(data)
+    },
+    [onNext],
+  )
 
   // Validation state/logic — owned by the hook (no network while typing, validate on submit)
   const {
     destination,
     updateDestination,
-    detectedTypes,
     validatedData,
     isPreValidating,
     preValidationError,
     isValidating,
     contacts,
-    applyDestinationState,
+    contactsReady,
     processExternalInput,
     handleNext,
+    selectContact,
+    selectMyWallet,
   } = useSendInputValidation({
-    onNext,
+    onNext: advanceWithTextMorph,
     onRedirect,
     initialDestination,
     initialAddress,
@@ -96,19 +120,50 @@ export function SendInputStep({
     getDisplayName,
   })
 
+  // If the advance is rejected upstream (offline/route/validation toast) while
+  // this scene is still active, bring the input back. Render-phase adjustment
+  // (react.dev: "adjusting state when a prop changes") — an effect here would
+  // cascade renders. isPresent blocks the reset while the scene exits after a
+  // SUCCESSFUL advance; resetting there would yank the morph source mid-flight.
+  const isPresent = useIsPresent()
+  const busy = isLoading || isValidating
+  const [prevBusy, setPrevBusy] = useState(busy)
+  if (prevBusy !== busy) {
+    setPrevBusy(busy)
+    if (!busy && leaving && isPresent) setLeaving(false)
+  }
+
   const [showScanner, setShowScanner] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  // Empty input → offer bearer-token creation instead of Next (direct-transfer branch)
+  const hasDestination = destination.trim().length > 0
+
+  // Blur BEFORE advancing so keyboard retraction gets a head start on the
+  // scene morph instead of running on top of it (PWA: viewport-only resize)
+  const submitDestination = useCallback(() => {
+    inputRef.current?.blur()
+    handleNext()
+  }, [handleNext])
+  const startDirectTransfer = useCallback(() => {
+    inputRef.current?.blur()
+    onDirectTransfer()
+  }, [onDirectTransfer])
 
   const showMyWallets = useMemo(() => {
     const trimmed = destination.trim()
     if (!trimmed || !trimmed.startsWith('@')) return false
-    if (validatedData?.type === 'my-wallet' && destination === `@${validatedData.targetMintName}`) return false
+    // A picked wallet shows as its plain name, so the @-prefix check above hides
+    // the dropdown for it already; this only guards a wallet whose name itself
+    // begins with '@'.
+    if (validatedData?.type === 'my-wallet' && destination === validatedData.targetMintName) return false
     return true
   }, [destination, validatedData])
 
   const myWallets = useMemo(() => {
     return settings.mints
-      .filter((url) => url !== mintUrl)
+      // Notation variants of the source mint are the same wallet — a raw string
+      // compare would offer it as a destination for a transfer to itself.
+      .filter((url) => !isSameMintUrl(url, mintUrl))
       .map((url) => ({
         url,
         name: getDisplayName(url),
@@ -119,8 +174,7 @@ export function SendInputStep({
   // Segment: contacts vs wallets — default tab is derived (contacts if any exist,
   // else wallets if you have other wallets); an explicit user choice takes priority.
   const [userListTab, setUserListTab] = useState<'wallets' | 'contacts' | null>(null)
-  const listTab = userListTab
-    ?? (contacts.length > 0 ? 'contacts' : myWallets.length > 0 ? 'wallets' : 'contacts')
+  const listTab = userListTab ?? (contacts.length > 0 ? 'contacts' : myWallets.length > 0 ? 'wallets' : 'contacts')
   const setListTab = useCallback((tab: 'wallets' | 'contacts') => {
     setUserListTab(tab)
   }, [])
@@ -132,91 +186,119 @@ export function SendInputStep({
     return myWallets.filter((w) => w.name.toLowerCase().includes(query))
   }, [myWallets, destination])
 
-  const handleSelectMyWallet = useCallback((walletUrl: string, walletName: string) => {
-    hapticTap()
-    applyDestinationState({
-      destination: `@${walletName}`,
-      rawAddress: null,
-      validatedData: {
-        type: 'my-wallet',
-        targetMintUrl: walletUrl,
-        targetMintName: walletName,
-      },
-      detectedTypes: ['my-wallet'],
-    })
-  }, [applyDestinationState])
+  const handleSelectMyWallet = useCallback(
+    (walletUrl: string, walletName: string) => {
+      if (leaving) return
+      hapticTap()
+      // Selection + immediate advance live in the hook (selectMyWallet) so the
+      // epoch bump that cancels racing async validations is shared with the
+      // contact path; 다음 stays as a fallback for the typed path.
+      selectMyWallet(walletUrl, walletName)
+    },
+    [leaving, selectMyWallet],
+  )
 
-  const handleScan = useCallback((result: string) => {
-    setShowScanner(false)
-    processExternalInput(result)
-  }, [processExternalInput])
+  const handleScan = useCallback(
+    (result: string) => {
+      setShowScanner(false)
+      processExternalInput(result)
+    },
+    [processExternalInput],
+  )
 
   return (
-    <div className="flex flex-col h-full bg-background">
+    <div className="flex flex-col h-full">
       <ScreenHeader title={t('send.title')} onBack={onBack} />
 
-      <div className="flex-1 overflow-y-auto px-6 pt-6">
-        <h2 className="text-heading font-semibold text-foreground break-keep">
+      {/* Scene content fades here (not on the SendFlow scene wrapper) so the
+          layoutId morph text is never dimmed by an animating ancestor */}
+      <motion.div
+        layoutScroll
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0, pointerEvents: 'none' }}
+        transition={{ duration: 0.15, ease: 'easeOut' }}
+        className="flex-1 overflow-y-auto px-6 pt-20"
+      >
+        <h2 className="text-title font-medium text-foreground break-keep text-center leading-snug">
           {t('send.destination.whoToSend')}
         </h2>
-        {/* Destination input — placeholder smaller than title */}
-        <div className="mt-6">
-          <div className="flex items-center border-b border-border focus-within:border-foreground/20 transition-colors">
-            <input
-              ref={inputRef}
-              type="text"
-              value={destination}
-              onChange={(e) => updateDestination(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleNext() } }}
-              onPaste={(e) => {
-                e.preventDefault()
-                const text = e.clipboardData.getData('text')
-                if (text) processExternalInput(text)
-              }}
-              placeholder={t('send.destination.placeholder')}
-              // Lock input during submit validation: since every submit now makes a
-              // remote round-trip, typing mid-validation could be overwritten by the
-              // applyDestinationState on completion, widening the window to proceed with a stale address
-              readOnly={isValidating}
-              className="flex-1 min-w-0 bg-transparent py-1.5 text-title font-medium text-foreground placeholder:text-foreground-muted placeholder:font-medium focus:outline-none"
-            />
-            <button
-              onClick={() => setShowScanner(true)}
-              aria-label={t('scanner.title')}
-              className="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors shrink-0"
-            >
-              <CameraFilled className="text-foreground-muted" />
-            </button>
-          </div>
-
-          {/* Detected type badge — fixed space below underline */}
-          <div className="h-7 flex items-center mt-1">
-            {isPreValidating ? (
-              <Spinner size="sm" color="muted" />
+        {/* Destination input — pill style. The pill itself stays put and fades
+            with the scene; on advance the input is swapped for a text stand-in
+            (layoutId) so only the TEXT morphs to the amount scene's recipient. */}
+        <div className="relative flex items-center gap-1 rounded-2xl border border-border bg-background-card px-4 focus-within:border-brand transition-colors mt-7">
+          <div className="flex-1 min-w-0 flex flex-col">
+            {/* The stand-in unmounts the moment the scene starts exiting
+                (!isPresent) — motion then snapshots it and the amount-scene
+                text flies SOLO from that box. Keeping it mounted would pair
+                the two into motion's auto-crossfade, which dims the flight. */}
+            {leaving && !isPresent ? (
+              <span aria-hidden className="block py-3.5 text-body font-medium text-transparent select-none">
+                {destination || ' '}
+              </span>
+            ) : leaving ? (
+              <motion.span
+                layoutId={SEND_RECIPIENT_LAYOUT_ID}
+                transition={recipientMorphTransition(reduceMotion)}
+                className="self-start max-w-full truncate py-3.5 text-body font-medium text-foreground"
+              >
+                {destination}
+              </motion.span>
             ) : (
-              detectedTypes.length > 0 && !detectedTypes.includes('my-wallet') && (
-                <div className="flex gap-1.5">
-                  {detectedTypes.map((badge) => (
-                    <span key={badge} className="inline-block text-label font-medium px-2.5 py-0.5 rounded-full bg-brand/10 text-brand">
-                      {getInputTypeLabel(badge)}
-                    </span>
-                  ))}
-                </div>
-              )
+              <input
+                ref={inputRef}
+                type="text"
+                value={destination}
+                onChange={(e) => updateDestination(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    submitDestination()
+                  }
+                }}
+                onPaste={(e) => {
+                  e.preventDefault()
+                  const text = e.clipboardData.getData('text')
+                  if (text) processExternalInput(text)
+                }}
+                placeholder={t('send.destination.placeholder')}
+                // The CTA no longer lifts above the keyboard, so the return key
+                // has to read as the submit affordance while the keyboard is up.
+                enterKeyHint="go"
+                // Lock input during submit validation: since every submit now makes a
+                // remote round-trip, typing mid-validation could be overwritten by the
+                // applyDestinationState on completion, widening the window to proceed with a stale address
+                readOnly={isValidating}
+                className="w-full min-w-0 bg-transparent text-body font-medium text-foreground placeholder:text-foreground-muted placeholder:font-medium focus:outline-none truncate py-3.5"
+              />
             )}
           </div>
-          <div className="h-5 flex items-center" data-testid="pre-validation-error-area">
-            {preValidationError && (
-              <p className="text-xs text-destructive">{preValidationError}</p>
-            )}
-          </div>
+          <button
+            onClick={() => setShowScanner(true)}
+            aria-label={t('scanner.title')}
+            className="relative w-11 h-11 -mr-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+          >
+            <CameraFilled className="text-foreground-muted" />
+          </button>
+        </div>
 
+        {/* Reserved space so the error message pops in without shifting the tabs */}
+        <div className="h-5 flex items-center mt-1.5" data-testid="pre-validation-error-area">
+          {preValidationError && <p className="text-label text-accent-danger">{preValidationError}</p>}
         </div>
 
         {/* My wallets dropdown — @ search mode */}
-        {showMyWallets && (
-          <div className="mt-4">
-            <p className="text-body font-semibold text-foreground mb-3">{t('send.myWalletList')}</p>
+        <AnimatePresence initial={false} mode="sync">
+          {showMyWallets && (
+            <motion.div
+              key="wallet-search-results"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={fadeTransition(reduceMotion, 0.16)}
+            className="mt-4"
+          >
+            <p className="text-caption font-medium text-foreground-muted mb-3">{t('send.myWalletList')}</p>
             {filteredWallets.length > 0 ? (
               filteredWallets.map((wallet) => (
                 <button
@@ -230,23 +312,29 @@ export function SendInputStep({
                     className="w-9 h-9 rounded-full object-contain shrink-0 bg-foreground/[0.04]"
                   />
                   <div className="flex-1 min-w-0 text-left">
-                    <p className="text-subtitle font-medium text-foreground truncate">{wallet.name}</p>
+                    <p className="text-body font-medium text-foreground truncate">{wallet.name}</p>
                   </div>
-                  </button>
+                </button>
               ))
             ) : (
-              <p className="text-caption text-foreground-muted py-3">
-                {t('send.noOtherWallets')}
-              </p>
+              <p className="text-caption text-foreground-muted py-3">{t('send.noOtherWallets')}</p>
             )}
-          </div>
-        )}
+            </motion.div>
+          )}
 
-        {!showMyWallets && (
-          <div className="mt-4">
+          {!showMyWallets && contactsReady && (
+            <motion.div
+              key="destination-lists"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={fadeTransition(reduceMotion, 0.16)}
+            className="mt-4"
+          >
             <SegmentControl
               value={listTab}
               onChange={setListTab}
+              tone="quiet"
               options={[
                 { value: 'contacts' as const, label: t('contacts.title') },
                 { value: 'wallets' as const, label: t('send.myWalletList') },
@@ -266,66 +354,70 @@ export function SendInputStep({
                         src={wallet.iconUrl || cardLogo}
                         alt=""
                         className="w-9 h-9 rounded-full object-contain shrink-0 bg-foreground/[0.04]"
-                        onError={(e) => { (e.target as HTMLImageElement).src = cardLogo }}
+                        onError={(e) => {
+                          ;(e.target as HTMLImageElement).src = cardLogo
+                        }}
                       />
                       <div className="flex-1 min-w-0 text-left">
-                        <p className="text-subtitle font-medium text-foreground truncate">{wallet.name}</p>
+                        <p className="text-body font-medium text-foreground truncate">{wallet.name}</p>
                       </div>
                     </button>
                   ))
                 ) : (
                   <p className="text-caption text-foreground-muted py-6 text-center">{t('send.noOtherWallets')}</p>
                 )
+              ) : contacts.length > 0 ? (
+                contacts.map((contact) => (
+                  <button
+                    key={contact.id}
+                    onClick={() => {
+                      hapticTap()
+                      // Validate + advance in one gesture (see selectContact).
+                      void selectContact(contact.address, contact.name)
+                    }}
+                    className="w-full flex items-center gap-3 py-3 border-b border-border/40 transition-colors active:bg-foreground/[0.03]"
+                  >
+                    {/* Same glyphs as the 주소록 tab — one identity per contact everywhere. */}
+                    <div className="w-9 h-9 flex items-center justify-center shrink-0">
+                      <ContactAddressIcon type={contact.addressType} />
+                    </div>
+                    <div className="flex-1 min-w-0 text-left">
+                      <p className="text-body font-medium text-foreground truncate">{contact.name}</p>
+                      <p className="text-label text-foreground-muted truncate">{contact.address}</p>
+                    </div>
+                  </button>
+                ))
               ) : (
-                contacts.length > 0 ? (
-                  contacts.map((contact) => {
-                    const iconMap: Record<ContactAddressType, typeof Zap> = { lightning: Zap, npub: Hash, custom: Link }
-                    const Icon = iconMap[contact.addressType]
-                    return (
-                      <button
-                        key={contact.id}
-                        onClick={() => {
-                          hapticTap()
-                          applyDestinationState({
-                            destination: contact.name,
-                            rawAddress: contact.address,
-                            validatedData: null,
-                            detectedTypes: [],
-                          })
-                        }}
-                        className="w-full flex items-center gap-3 py-3 border-b border-border/40 transition-colors active:bg-foreground/[0.03]"
-                      >
-                        <div className="w-9 h-9 rounded-full bg-brand/8 flex items-center justify-center shrink-0">
-                          <Icon className="w-4 h-4 text-brand" />
-                        </div>
-                        <div className="flex-1 min-w-0 text-left">
-                          <p className="text-subtitle font-medium text-foreground truncate">{contact.name}</p>
-                          <p className="text-caption text-foreground-muted truncate">{contact.address}</p>
-                        </div>
-                      </button>
-                    )
-                  })
-                ) : (
-                  <p className="text-caption text-foreground-muted py-6 text-center">{t('contacts.emptyTitle')}</p>
-                )
+                <p className="text-caption text-foreground-muted py-6 text-center">{t('contacts.emptyTitle')}</p>
               )}
             </div>
-          </div>
-        )}
-      </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
 
-      <div className="px-6 pb-app shrink-0">
-        <Button
-          variant="brand"
-          size="xl"
-          onClick={handleNext}
-          loading={isLoading || isValidating || isPreValidating}
-          disabled={!destination.trim() || !!preValidationError}
-          className="w-full"
-        >
-          {t('send.next')}
-        </Button>
-      </div>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0, pointerEvents: 'none' }}
+        transition={{ duration: 0.15, ease: 'easeOut' }}
+        className="shrink-0"
+      >
+        {/* Pinned to the bottom: riding the keyboard inset animated badly on
+            device, and the return key submits, so the CTA never gates the flow */}
+        <div className="px-6 pb-app">
+          <Button
+            variant="brand"
+            size="xl"
+            onClick={hasDestination ? submitDestination : startDirectTransfer}
+            loading={hasDestination && (isLoading || isValidating || isPreValidating)}
+            disabled={hasDestination && !!preValidationError}
+            className="w-full"
+          >
+            {hasDestination ? t('send.next') : t('send.direct.cta')}
+          </Button>
+        </div>
+      </motion.div>
 
       <QrScannerModal isOpen={showScanner} onClose={() => setShowScanner(false)} onScan={handleScan} />
     </div>

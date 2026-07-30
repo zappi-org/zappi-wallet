@@ -11,6 +11,9 @@ import type {
   LnurlAuthResult,
 } from '@/core/ports/driven/lnurl-gateway.port'
 
+/** BOLT11 default when an invoice carries no `x` (expiry) tag. */
+const DEFAULT_EXPIRY_SECONDS = 3600
+
 export class DirectLnurlAdapter implements LnurlGateway {
   private readonly timeout: number
 
@@ -149,6 +152,7 @@ export class DirectLnurlAdapter implements LnurlGateway {
       throw new Error('No payment request returned from LNURL service')
     }
 
+    this.assertInvoiceMatchesRequest(data.pr, amountMsat)
     await this.verifyDescriptionHash(data.pr, params.metadata)
 
     return {
@@ -261,6 +265,48 @@ export class DirectLnurlAdapter implements LnurlGateway {
     return {
       status: data.status === 'OK' ? 'OK' : 'ERROR',
       reason: data.reason,
+    }
+  }
+
+  // ── Returned invoice must match what we asked for ──
+
+  /**
+   * The invoice — not the requested amount — is what actually gets paid, so a
+   * server that returns a different (or open-ended) invoice must be rejected
+   * before it reaches the melt. Undecodable means unverifiable, so it fails too.
+   */
+  private assertInvoiceMatchesRequest(invoice: string, amountMsat: number): void {
+    let sections: Array<{ name: string; value?: unknown }>
+    try {
+      sections = decode(invoice).sections as Array<{ name: string; value?: unknown }>
+    } catch {
+      throw new Error('LNURL service returned an undecodable invoice')
+    }
+
+    const amountSection = sections.find((s) => s.name === 'amount')
+    if (!amountSection) {
+      // An amountless invoice lets the payee decide how much to take.
+      throw new Error('LNURL service returned an invoice without an amount')
+    }
+
+    const invoiceMsat = Number(amountSection.value)
+    if (!Number.isFinite(invoiceMsat) || invoiceMsat !== amountMsat) {
+      throw new Error(
+        `Invoice amount (${invoiceMsat} msat) does not match the requested amount (${amountMsat} msat)`,
+      )
+    }
+
+    // light-bolt11-decoder's own `expiry` getter is shadowed by its tag getters
+    // and yields the raw delta, so derive the absolute deadline from sections.
+    const timestamp = Number(sections.find((s) => s.name === 'timestamp')?.value)
+    // An invoice without an `x` tag is not exempt from the check: BOLT11 says it
+    // then expires 3600s after its timestamp.
+    const expirySection = sections.find((s) => s.name === 'expiry')
+    const expiryDelta = expirySection ? Number(expirySection.value) : DEFAULT_EXPIRY_SECONDS
+    if (Number.isFinite(timestamp) && Number.isFinite(expiryDelta)) {
+      if (Date.now() / 1000 >= timestamp + expiryDelta) {
+        throw new Error('LNURL service returned an already-expired invoice')
+      }
     }
   }
 

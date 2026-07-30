@@ -1,0 +1,416 @@
+/**
+ * ReceiveRequestStep — request-QR screen: unified/cashu/lightning QR hero,
+ * protocol tabs, a summary card, and payment detection across all three
+ * transports. Detection effects (Lightning quote settlement, Nostr NUT-18,
+ * HTTP poll fallback) are ported verbatim from ReceiveQRStep — battle-tested,
+ * do not rewrite. First detection across all three wins; the rest are cancelled.
+ */
+
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
+import { Copy, Check, Share2, SquarePen, MessageSquare } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
+import { DirectionalTabPanel } from '@/ui/components/common/DirectionalTabPanel'
+import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
+import { Button } from '@/ui/components/common/Button'
+import { MintIcon } from '@/ui/components/common/MintIcon'
+import { useAppStore } from '@/store'
+import { hapticTap, hapticSuccess } from '@/ui/utils/haptic'
+import { useFormatSats, getLocaleCode } from '@/utils/format'
+import { useCopyFeedback } from '@/ui/hooks/use-copy-feedback'
+import { usePaymentRequest } from '@/ui/hooks/use-payment-request'
+import { SegmentControl } from '@/ui/components/common/SegmentControl'
+
+type ReceiveQrProtocol = 'unified' | 'cashu' | 'lightning'
+
+interface ProtocolOption {
+  id: ReceiveQrProtocol
+  label: string
+  value: string
+}
+
+export interface ReceiveRequestStepProps {
+  onBack: () => void
+  onEdit: () => void
+  onRegenerate: () => void
+  isRegenerating?: boolean
+  amount: number
+  mintUrl: string
+  mintDisplayName: string
+  mintIconUrl?: string | null
+  memo: string
+  // Lightning
+  invoice: string | null
+  quoteId: string | null
+  // Ecash
+  ecashRequest: string | null
+  ecashRequestId: string | null
+  httpEndpoint: string | null
+  /**
+   * Absolute deadline (epoch ms) for the underlying payment request.
+   * Forwarded to the HTTP poller so it self-stops at expiry instead of
+   * continuing to hit the mint until the 30-min max-duration timeout fires.
+   */
+  expiresAt?: number | null
+  onPaymentDetected: (amount: number, method: 'bolt11' | 'ecash', wasRequestFulfilled?: boolean) => void
+  /**
+   * Process an incoming token that fulfills our ReceiveRequest.
+   * Caller wires this to the domain use case (incomingPayment.processIncoming).
+   * `paymentRef` is the requestId returned by the transport — used downstream
+   * for ReceiveRequest matching and idempotency.
+   */
+  onReceiveRequestFulfilled?: (token: string, paymentRef: string) => Promise<{ amount: number; requestFulfilled?: boolean }>
+}
+
+// Static flow mark — the QR is the only thing that should move on this screen.
+function FlowArrow() {
+  const dots = (offset: number) =>
+    [0, 1, 2, 3].map((i) => (
+      <span key={offset + i} className="h-1 w-1 rounded-full bg-brand/50" />
+    ))
+  return (
+    <span className="flex items-center justify-center gap-1" aria-hidden>
+      {dots(0)}
+      <span className="mx-0.5 text-brand/70">→</span>
+      {dots(4)}
+    </span>
+  )
+}
+
+// HH:MM in the viewer's locale — the always-visible expiry line reads a clock
+// time, not a countdown, until the final minute.
+function formatTime(ts: number, language: string): string {
+  return new Date(ts).toLocaleTimeString(getLocaleCode(language), { hour: '2-digit', minute: '2-digit' })
+}
+
+// Owns the 1s tick so the parent (QR hero + detection effects) doesn't
+// re-render every second; switches from an absolute time to a seconds
+// countdown only in the final minute, like the old inline line.
+function ExpiryCountdown({ expiresAt }: { expiresAt: number }) {
+  const { t, i18n } = useTranslation()
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [])
+  const remainingMs = expiresAt - now
+  // Same clamp the summary card and the action row use, so the whole block
+  // below the QR is evenly spaced on both branches.
+  const line = 'mt-flow text-caption'
+  if (remainingMs >= 60_000) {
+    return (
+      <p className={`${line} text-foreground-muted`}>
+        {t('receive.request.expiresAtTime', { time: formatTime(expiresAt, i18n.language) })}
+      </p>
+    )
+  }
+  return (
+    <p className={`${line} text-foreground-muted`}>
+      {t('receive.request.expiresIn', { seconds: Math.max(0, Math.ceil(remainingMs / 1000)) })}
+    </p>
+  )
+}
+
+export function ReceiveRequestStep({
+  onBack,
+  onEdit,
+  onRegenerate,
+  isRegenerating = false,
+  amount,
+  mintUrl,
+  mintDisplayName,
+  mintIconUrl,
+  memo,
+  invoice,
+  quoteId,
+  ecashRequest,
+  ecashRequestId,
+  httpEndpoint,
+  expiresAt,
+  onPaymentDetected,
+  onReceiveRequestFulfilled,
+}: ReceiveRequestStepProps) {
+  const { t } = useTranslation()
+  const formatSats = useFormatSats()
+  const paymentReq = usePaymentRequest()
+  const { isCopied, isShared, copy, share } = useCopyFeedback()
+
+  const setPendingEcashRequestId = useAppStore((s) => s.setPendingEcashRequestId)
+
+  // Expiry is a single deadline crossing, not a ticking clock: one setTimeout
+  // armed at expiresAt keeps the per-second re-render (and the QR + detection
+  // effects with it) out of this component. The visible countdown line ticks
+  // inside ExpiryCountdown instead. State stores WHICH deadline passed, so a
+  // regenerated expiresAt reads as not-expired without any reset logic.
+  const [passedDeadline, setPassedDeadline] = useState<number | null>(() =>
+    expiresAt != null && expiresAt - Date.now() <= 0 ? expiresAt : null,
+  )
+  useEffect(() => {
+    if (expiresAt == null) return
+    const id = setTimeout(() => setPassedDeadline(expiresAt), Math.max(0, expiresAt - Date.now()))
+    return () => clearTimeout(id)
+  }, [expiresAt])
+  const expired = expiresAt != null && passedDeadline === expiresAt
+
+  // Register/unregister pending ecash request ID for GiftWrapListener matching
+  useEffect(() => {
+    if (ecashRequestId) {
+      setPendingEcashRequestId(ecashRequestId)
+    }
+    return () => {
+      setPendingEcashRequestId(null)
+    }
+  }, [ecashRequestId, setPendingEcashRequestId])
+
+  // Shared payment detection guard — first detection wins
+  const paymentDetectedRef = useRef(false)
+
+  const protocolOptions = useMemo<ProtocolOption[]>(() => {
+    const options: ProtocolOption[] = []
+
+    if (invoice && ecashRequest) {
+      options.push({
+        id: 'unified',
+        label: t('receive.qr.protocols.unified'),
+        value: paymentReq.buildUnifiedBitcoinUri({
+          lightningInvoice: invoice,
+          cashuRequest: ecashRequest,
+        }),
+      })
+    }
+
+    if (ecashRequest) {
+      options.push({
+        id: 'cashu',
+        label: t('receive.qr.protocols.cashu'),
+        value: ecashRequest,
+      })
+    }
+
+    if (invoice) {
+      options.push({
+        id: 'lightning',
+        label: t('receive.qr.protocols.lightning'),
+        value: invoice.toUpperCase(),
+      })
+    }
+
+    return options
+  }, [ecashRequest, invoice, paymentReq, t])
+
+  const [selectedProtocol, setSelectedProtocol] = useState<ReceiveQrProtocol>('unified')
+  const activeProtocol = protocolOptions.some((option) => option.id === selectedProtocol)
+    ? selectedProtocol
+    : protocolOptions[0]?.id ?? 'unified'
+  const selectedOption = protocolOptions.find((option) => option.id === activeProtocol) ?? protocolOptions[0] ?? null
+  const qrValue = selectedOption?.value ?? null
+  const shareText = selectedOption?.value ?? null
+
+  // ======= Lightning payment detection (via Coco MintQuoteWatcher → store) =======
+  const lastRedeemedQuoteId = useAppStore((s) => s.lastRedeemedQuoteId)
+  const lastRedeemedQuoteAmount = useAppStore((s) => s.lastRedeemedQuoteAmount)
+  const setLastRedeemedQuote = useAppStore((s) => s.setLastRedeemedQuote)
+
+  // No expiry gate: this is an exact quote-ID match, so it can't false-fire.
+  // A payment settling seconds after the countdown hits zero must still surface.
+  useEffect(() => {
+    if (!quoteId || !lastRedeemedQuoteId) return
+    if (paymentDetectedRef.current) return
+
+    if (lastRedeemedQuoteId === quoteId) {
+      paymentDetectedRef.current = true
+      setLastRedeemedQuote(null, 0)
+      hapticSuccess()
+      onPaymentDetected(lastRedeemedQuoteAmount ?? amount, 'bolt11')
+    }
+  }, [quoteId, lastRedeemedQuoteId, lastRedeemedQuoteAmount, setLastRedeemedQuote, amount, onPaymentDetected, ecashRequestId])
+
+  // ======= Ecash NUT-18 payment detection (Nostr) =======
+  const lastReceivedRequestId = useAppStore((s) => s.lastReceivedRequestId)
+  const lastReceivedAmount = useAppStore((s) => s.lastReceivedAmount)
+  const setLastReceivedPayment = useAppStore((s) => s.setLastReceivedPayment)
+
+  // No expiry gate: exact request-ID match, so a settlement just past the
+  // countdown must still surface instead of being silently dropped.
+  useEffect(() => {
+    if (!ecashRequestId || !lastReceivedRequestId) return
+    if (paymentDetectedRef.current) return
+
+    if (lastReceivedRequestId === ecashRequestId) {
+      paymentDetectedRef.current = true
+      hapticSuccess()
+      onPaymentDetected(lastReceivedAmount, 'ecash')
+      setLastReceivedPayment(null, 0)
+    }
+  }, [ecashRequestId, lastReceivedRequestId, lastReceivedAmount, setLastReceivedPayment, onPaymentDetected])
+
+  // ======= Ecash NUT-18 HTTP polling (fallback) =======
+  const httpPollerRef = useRef<{ stop: () => void } | null>(null)
+
+  // Keep the expiry gate here: the poller keeps hitting the mint, so once the
+  // request has expired we stop it rather than let it run to the max-duration.
+  useEffect(() => {
+    if (expired) return
+    if (!httpEndpoint || !ecashRequestId) return
+
+    const poller = paymentReq.startHttpPoller({
+      endpoint: httpEndpoint,
+      requestId: ecashRequestId,
+      expiresAt: expiresAt ?? undefined,
+    })
+
+    httpPollerRef.current = poller
+
+    poller.onPayment(async (payload) => {
+      if (paymentDetectedRef.current) return
+      paymentDetectedRef.current = true
+
+      console.log(`[ReceiveQR] HTTP payment received for ${payload.requestId}`)
+
+      try {
+        const result = onReceiveRequestFulfilled
+          ? await onReceiveRequestFulfilled(payload.token, payload.requestId)
+          : { amount: 0, requestFulfilled: false }
+        hapticSuccess()
+        onPaymentDetected(result.amount, 'ecash', result.requestFulfilled)
+      } catch (error) {
+        console.error('[ReceiveQR] HTTP token processing error:', error)
+        hapticSuccess()
+        onPaymentDetected(amount, 'ecash')
+      }
+    })
+
+    poller.onError((error) => {
+      console.warn('[ReceiveQR] HTTP poll error:', error.message)
+    })
+
+    return () => {
+      poller.stop()
+      httpPollerRef.current = null
+    }
+  }, [expired, httpEndpoint, ecashRequestId, amount, mintUrl, expiresAt, onPaymentDetected, onReceiveRequestFulfilled, paymentReq])
+
+  // Cancel HTTP poller when payment detected via Nostr
+  useEffect(() => {
+    if (paymentDetectedRef.current && httpPollerRef.current) {
+      httpPollerRef.current.stop()
+      httpPollerRef.current = null
+    }
+  }, [lastReceivedRequestId])
+
+  // ======= Actions =======
+
+  const handleCopy = useCallback(() => copy(shareText ?? ''), [shareText, copy])
+  const handleShare = useCallback(() => share(shareText ?? ''), [shareText, share])
+
+  return (
+    <div className="flex flex-col h-full bg-background">
+      <ScreenHeader title={t('receive.qr.title')} onBack={onBack} />
+
+      {/* Center the QR + tabs + summary + actions as one block so leftover
+          height splits evenly top/bottom, instead of pooling into a flat band
+          below the actions that read as a distinct empty area (siblings like
+          the receipt step center their content the same way). Centering via an
+          inner my-auto (not justify-center) so overflow on short viewports
+          scrolls instead of clipping the top of the block. */}
+      <div className="flex-1 min-h-0 flex flex-col overflow-y-auto px-6">
+        <div className="my-auto flex w-full shrink-0 flex-col items-center pt-6 pb-16">
+        {/* QR Code — stays the first paint. Only this subtree swaps per protocol;
+            detection effects and the summary card live outside the animation. */}
+        {qrValue && (
+          <DirectionalTabPanel
+            tabKey={activeProtocol}
+            tabIndex={protocolOptions.findIndex((option) => option.id === activeProtocol)}
+            className="w-full max-w-qr"
+          >
+            <button
+              type="button"
+              aria-label={t('common.copy')}
+              onClick={handleCopy}
+              className={`w-full cursor-pointer active:scale-95 motion-reduce:active:scale-100 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-2xl ${expired ? 'blur-sm opacity-40 pointer-events-none' : ''}`}
+            >
+              <QRCodeDisplay
+                value={qrValue}
+                className="rounded-2xl shadow-card"
+              />
+            </button>
+          </DirectionalTabPanel>
+        )}
+
+        {/* Protocol tabs below the QR */}
+        {protocolOptions.length > 1 && (
+          <SegmentControl
+            value={activeProtocol}
+            onChange={setSelectedProtocol}
+            options={protocolOptions.map((option) => ({ value: option.id, label: option.label }))}
+            className="mt-flow w-full max-w-qr"
+          />
+        )}
+
+        {/* Summary card */}
+        <div className="mt-flow w-full max-w-qr rounded-card bg-background-card px-5 py-4 shadow-raised">
+          <div className="flex items-center justify-between">
+            <span className="text-caption text-foreground-muted">{t('receive.request.summary')}</span>
+            <button
+              type="button"
+              onClick={() => { hapticTap(); onEdit() }}
+              aria-label={t('common.edit')}
+              className="-m-2.5 flex h-11 w-11 items-center justify-center rounded-lg text-foreground-muted active:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+            >
+              <SquarePen className="w-4 h-4" />
+            </button>
+          </div>
+          {/* 1fr/auto/1fr grid: the flow arrow sits at the card's true center
+              regardless of how wide the amount and mint labels are. */}
+          <div className="mt-2 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+            <span className="justify-self-start text-title-sm font-bold">{formatSats(amount)}</span>
+            <FlowArrow />
+            <span className="flex min-w-0 items-center justify-self-end gap-1.5 text-body font-medium">
+              <MintIcon iconUrl={mintIconUrl ?? undefined} imgSize="w-5 h-5" className="w-5 h-5 shrink-0" circle />
+              <span className="truncate">{mintDisplayName}</span>
+            </span>
+          </div>
+          {memo && (
+            <div className="mt-2 flex items-center gap-1.5 text-caption text-foreground-muted">
+              <MessageSquare className="w-3.5 h-3.5" />
+              <span className="truncate">{memo}</span>
+            </div>
+          )}
+        </div>
+
+        {expired ? (
+          <div className="mt-4 flex flex-col items-center gap-3">
+            <p className="text-body text-foreground-muted">{t('receive.request.expired')}</p>
+            <Button variant="brand" size="lg" loading={isRegenerating} onClick={() => { hapticTap(); onRegenerate() }}>
+              {t('receive.request.regenerate')}
+            </Button>
+          </div>
+        ) : (
+          <>
+            {/* Action buttons — minimal text style. Copy left, share right,
+                the app-wide order for this pair. */}
+            <div className="flex gap-10 mt-flow">
+              <button
+                onClick={handleCopy}
+                className="flex min-h-11 items-center gap-1.5 rounded-lg px-3 -mx-3 text-subtitle font-medium text-foreground-muted active:text-foreground active:scale-95 motion-reduce:active:scale-100 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+              >
+                {isCopied() ? <Check className="w-5 h-5 text-brand" /> : <Copy className="w-5 h-5" />}
+                {isCopied() ? t('common.copied') : t('common.copy')}
+              </button>
+              <button
+                onClick={handleShare}
+                className="flex min-h-11 items-center gap-1.5 rounded-lg px-3 -mx-3 text-subtitle font-medium text-foreground-muted active:text-foreground active:scale-95 motion-reduce:active:scale-100 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+              >
+                {isShared() ? <Check className="w-5 h-5 text-brand" /> : <Share2 className="w-5 h-5" />}
+                {t('receive.qr.share')}
+              </button>
+            </div>
+
+            {expiresAt != null && <ExpiryCountdown expiresAt={expiresAt} />}
+          </>
+        )}
+        </div>
+      </div>
+    </div>
+  )
+}

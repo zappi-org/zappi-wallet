@@ -1,49 +1,53 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useCarouselScroll } from "@/ui/hooks/use-carousel-scroll";
 import { usePullToRefresh } from "@/ui/hooks/use-pull-to-refresh";
-import { Plus, LoaderCircle, ArrowDown, Eye, EyeOff, CircleUserRound, Copy, Check } from "lucide-react";
+import { Plus, LoaderCircle, ArrowDown, Eye, EyeOff, User } from "lucide-react";
 import { motion, type PanInfo } from "motion/react";
+import { tabGlassClass } from "@/ui/components/layout/TabToolbar/styles";
 
 import { useTranslation } from "react-i18next";
-import { CameraFilled } from "@/ui/components/icons/CameraFilled";
 import { hapticTap } from "@/ui/utils/haptic";
 import { MintCard, resolveMintColor } from "../../components/wallet/MintCard";
 import { HomeRecentCard } from "../../components/wallet/HomeRecentCard";
-import { BottomSheet } from "@/ui/components/common/BottomSheet";
-import { Button } from "@/ui/components/common/Button";
-import { QRCodeDisplay } from "@/ui/components/common/QRCodeDisplay";
+import {
+  pendingItemToRecentRow,
+  toRecentRow,
+} from "../../components/wallet/homeRecentRow";
 import { useWallet, useMintHealth, useMintMetadata } from "@/ui/hooks";
-import { useCrypto } from "@/ui/hooks/use-crypto";
+import { useAllPendingItems, type PendingItem } from "@/ui/hooks/usePendingItems";
 import { useAppStore } from "@/store";
 import { useSatUnit, useFormatFiat } from "@/utils/format";
-import { getMintBalance } from "@/utils/url";
+import { getMintBalance, isSameMintUrl } from "@/utils/url";
 import type { MintInfo } from "@/core/types";
+import { isReclaimableSend } from "@/core/domain/transaction";
 import type { Transaction } from "@/core/domain/transaction";
 // Transaction loading via props or store — no direct repo access in UI
 
 export interface HomeScreenProps {
   onSettings?: () => void;
+  onProfile: () => void;
   onNotifications?: () => void;
   onTransactions?: (mintUrl?: string) => void;
   onAddMint?: () => void;
   onMintDetails?: (mint: MintInfo, index: number) => void;
   onSend?: (activeMintUrl?: string) => void;
   onReceive?: (activeMintUrl?: string) => void;
-  onScan?: () => void;
   onSelectTransaction?: (tx: Transaction) => void;
+  onSelectPendingItem?: (item: PendingItem) => void;
   onSaveSettings?: (settings: Record<string, unknown>) => Promise<void>;
   onRefresh?: () => Promise<void>;
   transactions?: Transaction[];
 }
 
 export function HomeScreen({
+  onProfile,
   onTransactions,
   onAddMint,
   onMintDetails,
   onSend,
   onReceive,
-  onScan,
   onSelectTransaction,
+  onSelectPendingItem,
   onSaveSettings,
   onRefresh,
   transactions: propTransactions,
@@ -52,8 +56,6 @@ export function HomeScreen({
   const unit = useSatUnit();
   const toFiat = useFormatFiat();
   const [activeMintIndex, setActiveMintIndex] = useState(0);
-  const [profileSheetOpen, setProfileSheetOpen] = useState(false);
-  const [profileCopied, setProfileCopied] = useState(false);
 
   const transactions = useMemo(
     () => propTransactions ?? [],
@@ -64,9 +66,6 @@ export function HomeScreen({
   const { checkAllMints, getCachedStatus } = useMintHealth();
   const settings = useAppStore((state) => state.settings);
   const updateSettings = useAppStore((state) => state.updateSettings);
-  const nostrPubkey = useAppStore((state) => state.nostrPubkey);
-  const addToast = useAppStore((state) => state.addToast);
-  const crypto = useCrypto();
   const { getDisplayName, getOriginalName, getIconUrl } = useMintMetadata(
     settings?.mints || []
   );
@@ -113,10 +112,6 @@ export function HomeScreen({
   ]);
 
   const totalBalance = balance.total;
-  const npub = useMemo(
-    () => (nostrPubkey ? crypto.encodeNpub(nostrPubkey) : ""),
-    [crypto, nostrPubkey]
-  );
 
   const { carouselRef, cardRefs, handleScroll } = useCarouselScroll({
     itemCount: mints.length,
@@ -128,23 +123,71 @@ export function HomeScreen({
   const clampedMintIndex =
     mints.length === 0 ? 0 : Math.min(activeMintIndex, mints.length - 1);
 
+  // Pending items (open requests, unclaimed incoming tokens, unclaimed sent
+  // tokens) for the selected card — same mint filter as the transaction list
+  // below them. Sent-but-unclaimed money rides here instead of in the ledger
+  // list (filteredTransactions excludes it once its pending row has loaded)
+  // so it isn't shown twice.
+  const { items: pendingItemsRaw } = useAllPendingItems(settings.mints);
+
+  // The sent-token pending item's id equals the tx's id (composition/pending-items.ts) —
+  // used below to gate the reclaimable-send exclusion on that row actually being loaded.
+  const pendingItemIds = useMemo(
+    () => new Set(pendingItemsRaw.map((item) => item.id)),
+    [pendingItemsRaw]
+  );
+
   const filteredTransactions = useMemo(() => {
     const selectedMint = mints[clampedMintIndex];
     if (!selectedMint) return transactions;
     const url = selectedMint.url;
-    const normalized = url.endsWith("/") ? url.slice(0, -1) : url;
+    // Boolean-returning wrapper: isReclaimableSend's `tx is Transaction` type
+    // guard would otherwise narrow tx to `never` in the branch below (its
+    // input is already typed Transaction, so the false branch collapses).
+    const isReclaimable = (tx: Transaction): boolean => isReclaimableSend(tx);
     return transactions.filter((tx) => {
       if (tx.status === "failed") return false;
-      const txUrl = tx.accountId?.endsWith("/")
-        ? tx.accountId.slice(0, -1)
-        : tx.accountId;
-      return txUrl === normalized || txUrl === url;
+      // Only hide once its pending row is actually loaded — the pending query
+      // is async and independent, so hiding unconditionally would vanish this
+      // money from both lists on first paint or if that query comes back empty.
+      if (isReclaimable(tx) && pendingItemIds.has(tx.id)) return false;
+      // Domain equality, not a slash strip: a row stored under any notation
+      // variant (host case, :443) is still this mint's money and must show.
+      return Boolean(tx.accountId) && isSameMintUrl(tx.accountId, url);
     });
-  }, [transactions, mints, clampedMintIndex]);
+  }, [transactions, mints, clampedMintIndex, pendingItemIds]);
+
+  const pendingItems = useMemo(() => {
+    const selectedMint = mints[clampedMintIndex];
+    if (!selectedMint) return pendingItemsRaw;
+    const url = selectedMint.url;
+    return pendingItemsRaw.filter(
+      (item) => Boolean(item.accountId) && isSameMintUrl(item.accountId, url)
+    );
+  }, [pendingItemsRaw, mints, clampedMintIndex]);
 
   const recentTransaction = useMemo(() => {
     return filteredTransactions.length > 0 ? filteredTransactions[0] : null
   }, [filteredTransactions]);
+
+  // One history area, one row: money still in motion outranks the last settled
+  // entry, so a pending item takes the card instead of stacking above it.
+  const recent = useMemo(() => {
+    const pending = pendingItems[0];
+    if (pending) {
+      return {
+        row: pendingItemToRecentRow(pending, t),
+        onPress: () => onSelectPendingItem?.(pending),
+      };
+    }
+    if (recentTransaction) {
+      return {
+        row: toRecentRow(recentTransaction, t),
+        onPress: () => onSelectTransaction?.(recentTransaction),
+      };
+    }
+    return null;
+  }, [pendingItems, recentTransaction, t, onSelectPendingItem, onSelectTransaction]);
 
   const handleSwipeUp = useCallback((_: PointerEvent, info: PanInfo) => {
     if (info.point.y > window.innerHeight - 100) return
@@ -161,36 +204,10 @@ export function HomeScreen({
     onSaveSettings?.({ ...settings, ...updated });
   }, [onSaveSettings, settings, updateSettings]);
 
-  const handleProfileOpen = useCallback(() => {
-    hapticTap();
-    setProfileCopied(false);
-    setProfileSheetOpen(true);
-  }, []);
-
-  const handleProfileCopy = useCallback(async () => {
-    if (!npub) return;
-    hapticTap();
-
-    try {
-      await navigator.clipboard.writeText(npub);
-    } catch {
-      const ta = document.createElement("textarea");
-      ta.value = npub;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand("copy");
-      document.body.removeChild(ta);
-    }
-
-    setProfileCopied(true);
-    addToast({ type: "success", message: t("toast.copied"), duration: 1500 });
-    setTimeout(() => setProfileCopied(false), 2000);
-  }, [addToast, npub, t]);
-
   return (
     <motion.div
       ref={scrollContainerRef as React.RefObject<HTMLDivElement>}
-      className="h-dvh bg-background text-foreground font-primary overflow-hidden flex flex-col pt-safe"
+      className="h-full bg-background text-foreground font-primary overflow-hidden flex flex-col pt-safe"
       style={{ overscrollBehaviorY: "contain" }}
       onPanEnd={handleSwipeUp}
     >
@@ -210,29 +227,23 @@ export function HomeScreen({
         )}
       </div>
 
-      {/* Header — profile + scan */}
+      {/* Header — profile (scan moved to the bottom dock) */}
       <div className="shrink-0 h-14 px-5 flex items-center justify-between">
-        <button
-          type="button"
-          onClick={handleProfileOpen}
-          aria-label={t("settings.profile")}
-          className="w-10 h-10 rounded-full flex items-center justify-center text-foreground-muted hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors"
-        >
-          <CircleUserRound className="w-6 h-6" strokeWidth={1.8} />
-        </button>
-        {onScan && (
+        {/* Same glass chip as the bottom dock's camera button, so the two
+            corner icon-buttons read as one system. */}
+        <div className={tabGlassClass}>
           <button
             type="button"
             onClick={() => {
               hapticTap();
-              onScan();
+              onProfile();
             }}
-            aria-label={t('scanner.title')}
-            className="w-10 h-10 rounded-lg flex items-center justify-center text-foreground-muted hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors"
+            aria-label={t("myAddress.title")}
+            className="relative z-20 flex items-center justify-center w-11 h-11 rounded-full text-foreground/80 transition-colors active:bg-foreground/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
           >
-            <CameraFilled />
+            <User className="w-[19px] h-[19px]" strokeWidth={2} />
           </button>
-        )}
+        </div>
       </div>
 
       {/* Fixed top: Balance + Cards */}
@@ -370,71 +381,23 @@ export function HomeScreen({
         </div>
       </div>
 
-      {/* Single recent transaction — pinned above toolbar */}
-      {recentTransaction ? (
-        <HomeRecentCard
-          className="mt-auto"
-          transaction={recentTransaction}
-          onPress={() => onSelectTransaction?.(recentTransaction)}
-          onSeeAll={() => onTransactions?.(mints[clampedMintIndex]?.url)}
-        />
-      ) : (
-        <div className="mt-auto shrink-0 pb-app-nav px-4 w-full max-w-sm mx-auto">
-          <p className="text-caption text-foreground-muted text-center py-2">
-            {t('home.noTransactions')}
-          </p>
-        </div>
-      )}
-
-      <BottomSheet
-        isOpen={profileSheetOpen}
-        onClose={() => setProfileSheetOpen(false)}
-        title={t("settings.profile")}
-      >
-        <div className="flex flex-col items-center px-6 pt-8 pb-6 pb-safe">
-          <div className="flex w-full flex-col items-center text-center">
-            {npub ? (
-              <>
-                <button
-                  type="button"
-                  onClick={handleProfileCopy}
-                  aria-label={t("common.copy")}
-                  className="rounded-2xl bg-white p-4 shadow-sm transition-transform active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-                >
-                  <QRCodeDisplay value={npub} size={200} className="rounded-xl p-0 shadow-none" fill />
-                </button>
-                <p className="mt-6 text-body font-medium text-foreground text-center break-all leading-relaxed px-4">
-                  {npub}
-                </p>
-              </>
-            ) : (
-              <p className="text-body text-foreground-muted">
-                {t("common.loading")}
-              </p>
-            )}
+      {/* Pinned above the dock: the newest row of the ledger, pending or
+          settled. Everything older is one swipe (or "see all") away. */}
+      <div className="mt-auto shrink-0 flex flex-col">
+        {recent ? (
+          <HomeRecentCard
+            row={recent.row}
+            onPress={recent.onPress}
+            onSeeAll={() => onTransactions?.(mints[clampedMintIndex]?.url)}
+          />
+        ) : (
+          <div className="shrink-0 pb-app-nav px-4 w-full max-w-sm mx-auto">
+            <p className="text-caption text-foreground-muted text-center py-2">
+              {t('home.noTransactions')}
+            </p>
           </div>
-
-          <Button
-            variant="brand"
-            size="lg"
-            onClick={handleProfileCopy}
-            disabled={!npub}
-            className="mt-6 w-full max-w-[320px]"
-          >
-            {profileCopied ? (
-              <>
-                <Check className="w-4 h-4 mr-2" />
-                {t("common.copied")}
-              </>
-            ) : (
-              <>
-                <Copy className="w-4 h-4 mr-2" />
-                {t("common.copy")}
-              </>
-            )}
-          </Button>
-        </div>
-      </BottomSheet>
+        )}
+      </div>
     </motion.div>
   );
 }

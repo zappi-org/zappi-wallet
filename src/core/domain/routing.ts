@@ -5,7 +5,7 @@
  * No external dependencies — pure domain logic.
  */
 
-import type { ValidatedData, ParsedCashuRequest } from './input-types'
+import type { ValidatedData, ParsedCashuRequest, LnurlPayParams } from './input-types'
 import { mintUrlKey } from './mint-url'
 
 // ─── Route Constants (as const for single source of truth) ───
@@ -61,10 +61,14 @@ export interface RouteInput {
 export interface FeeEstimate {
   fee: number
   totalNeeded: number
+  /** Spendable balance read only after fee-estimation cleanup has completed. */
+  availableBalance: number
 }
 
 export interface RouteContext {
   parsedCreq?: ParsedCashuRequest
+  /** Already-resolved pay parameters let quoting and execution share one invoice. */
+  lnurlPayParams?: LnurlPayParams
   nostrPrivkey?: string
   relays?: string[]
   memo?: string
@@ -74,9 +78,18 @@ export interface RouteContext {
 }
 
 export interface RouteExecutionResult {
-  success: boolean
+  /**
+   * 'in_transit' = the payment left the wallet but the mint has not confirmed
+   * settlement yet (slow LN route). It is NOT a failure: retrying would prepare
+   * a second melt for the same invoice — a double-pay. The pending-transfer
+   * poller settles or fails it later.
+   */
+  status: 'settled' | 'in_transit' | 'failed'
   amount: number
+  /** Best-known fee — may still be the reserve when the mint never reported an effective fee. */
   fee: number
+  /** Actual charged fee, present only when the mint reported it — safe to label as final. */
+  effectiveFee?: number
   sourceMintUrl: string
   targetMintUrl?: string
   transactionId: string
@@ -137,6 +150,18 @@ export function selectRoute(input: RouteInput): PaymentRoute {
 }
 
 /**
+ * Whether quoting a route needs a bolt11 the caller has to resolve first.
+ *
+ * Mirrors the fee estimator's per-route requirements: only the melt routes quote
+ * from a supplied invoice. Cross-mint routes mint their own quote on the target
+ * mint, and a my-wallet transfer has no external invoice to resolve at all —
+ * demanding one there strands the transfer with an unavailable fee.
+ */
+export function routeNeedsCallerInvoice(route: PaymentRoute): boolean {
+  return route === PaymentRoute.LN_INTERNAL || route === PaymentRoute.MELT_TO_LN
+}
+
+/**
  * Selects the optimal source mint for a route.
  * Best-fit: smallest balance >= amount
  */
@@ -184,4 +209,3 @@ function bestFitMint(
   const fallback = [...pool].sort((a, b) => mints[b] - mints[a])
   return fallback[0] || null
 }
-

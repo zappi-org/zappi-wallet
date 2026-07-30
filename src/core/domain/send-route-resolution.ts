@@ -26,8 +26,10 @@ export type DirectPaymentResolution =
   | { status: 'no-info' }
   | { status: 'no-common-mint' }
   | { status: 'no-relay' }
+  /** The lookup itself did not complete — says nothing about the recipient. */
+  | { status: 'lookup-failed' }
 
-export type SendRouteError = 'no-common-mint' | 'no-relay' | 'no-info'
+export type SendRouteError = 'no-common-mint' | 'no-relay' | 'no-info' | 'lookup-failed'
 
 export type SendRouteDecision =
   | { kind: 'advance'; data: ValidatedCashuRequest; mintUrl?: string; commonMintUrls: string[] }
@@ -39,6 +41,7 @@ export const SEND_ROUTE_ERROR_I18N = {
   'no-common-mint': 'send.destination.noCommonMint',
   'no-relay': 'send.destination.relayNotFound',
   'no-info': 'send.destination.ecashInfoNotFound',
+  'lookup-failed': 'send.destination.lookupFailed',
 } as const satisfies Record<SendRouteError, string>
 
 export function resolveSendRoute(
@@ -66,12 +69,25 @@ export function resolveSendRoute(
     return { kind: 'lnurl-fallback', data: lnurlFallback }
   }
 
-  const error: SendRouteError =
-    resolution.status === 'no-common-mint'
-      ? 'no-common-mint'
-      : resolution.status === 'no-relay'
-        ? 'no-relay'
-        : 'no-info'
+  // Every remaining status is itself an error code — no mapping to drift.
+  return { kind: 'error', error: resolution.status }
+}
 
-  return { kind: 'error', error }
+/**
+ * A rejection here means the lookup never completed — an unreachable relay, a
+ * malformed npub that threw on decode. Reporting that as 'no-info' blames the
+ * recipient for our own failure and tells the user to give up when a retry is
+ * what they need, so it gets its own status. The error is swallowed rather than
+ * rethrown because the callers are fire-and-forget handlers, but it is logged so
+ * a genuine bug is still visible instead of surfacing as "not found".
+ */
+export async function resolveDirectPaymentOrLookupFailure(
+  resolve: () => Promise<DirectPaymentResolution>,
+): Promise<DirectPaymentResolution> {
+  try {
+    return await resolve()
+  } catch (error) {
+    console.error('[sendRoute] direct payment lookup failed:', error)
+    return { status: 'lookup-failed' }
+  }
 }

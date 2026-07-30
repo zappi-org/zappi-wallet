@@ -42,4 +42,45 @@ describe('transaction visibility', () => {
     expect(isVisibleTransaction(makeTx({ status: 'settled' }), hiddenRefs)).toBe(true)
     expect(isVisibleTransaction(makeTx({ direction: 'send' }), hiddenRefs)).toBe(true)
   })
+
+  it('hides an open request’s projections — the request item is its single face', () => {
+    const request = createReceiveRequest({
+      id: 'request-1',
+      amount: sat(1000),
+      accountId: 'https://mint.test',
+      createdAt: 1_000,
+      expiresAt: 10_000,
+      paymentMethods: [
+        createReceiveMethod({ type: 'bolt11', ref: 'quote-1', encoded: 'lnbc...', expiresAt: 10_000 }),
+        createReceiveMethod({ type: 'ecash', ref: 'ecash-1', encoded: 'creq...', expiresAt: 10_000 }),
+      ],
+    })
+
+    const hiddenRefs = hiddenPendingReceiveTransactionRefs([request])
+
+    // The pending lightning projection must not double as a visible receive.
+    expect(isVisibleTransaction(makeTx(), hiddenRefs)).toBe(false)
+    // Projection rows are keyed by metadata.quoteId even under a different id.
+    expect(isVisibleTransaction(makeTx({ id: 'tx-uuid-1' }), hiddenRefs)).toBe(false)
+  })
+
+  it('hides failed residue rows after a request expires', () => {
+    const request = createReceiveRequest({
+      id: 'request-1',
+      amount: sat(1000),
+      accountId: 'https://mint.test',
+      createdAt: 1_000,
+      expiresAt: 10_000,
+      fulfillmentStatus: 'expired',
+      paymentMethods: [
+        createReceiveMethod({ type: 'bolt11', ref: 'quote-1', encoded: 'lnbc...', expiresAt: 10_000 }),
+      ],
+    })
+
+    const hiddenRefs = hiddenPendingReceiveTransactionRefs([request])
+
+    expect(isVisibleTransaction(makeTx({ id: 'tx-uuid-1', status: 'failed' }), hiddenRefs)).toBe(false)
+    // An unrelated failed receive keeps its place in history.
+    expect(isVisibleTransaction(makeTx({ id: 'tx-other', status: 'failed', metadata: {} }), hiddenRefs)).toBe(true)
+  })
 })

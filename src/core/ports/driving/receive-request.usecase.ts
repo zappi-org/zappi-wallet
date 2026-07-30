@@ -24,6 +24,7 @@ export interface ReceiveRequestData {
   bolt11?: string
   httpEndpoint?: string
   createdAt: number
+  memo?: string
   fulfilledAt?: number
   fulfilledBy?: ReceivePaymentMethodType
 }

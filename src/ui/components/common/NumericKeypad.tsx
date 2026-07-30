@@ -5,6 +5,8 @@ interface NumericKeypadProps {
   onKeyPress: (key: string) => void
   disabled?: boolean
   deleteAriaLabel?: string
+  /** When set, the empty bottom-left slot becomes a decimal key emitting 'decimal'. */
+  decimalLabel?: string
 }
 
 /**
@@ -16,6 +18,7 @@ export const NumericKeypad = memo(function NumericKeypad({
   onKeyPress,
   disabled = false,
   deleteAriaLabel = 'Delete',
+  decimalLabel,
 }: NumericKeypadProps) {
   return (
     <div className="grid grid-cols-3 gap-1 pb-app shrink-0">
@@ -24,16 +27,26 @@ export const NumericKeypad = memo(function NumericKeypad({
           key={num}
           onPointerDown={(e) => { e.preventDefault(); onKeyPress(num.toString()) }}
           disabled={disabled}
-          className="h-14 rounded-xl text-title font-bold text-foreground hover:bg-foreground/5 active:bg-foreground/10 active:scale-95 flex items-center justify-center disabled:opacity-50 touch-manipulation select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className="h-14 rounded-xl text-title font-bold text-foreground hover:bg-foreground/5 active:bg-foreground/10 active:scale-95 motion-reduce:active:scale-100 flex items-center justify-center disabled:opacity-50 touch-manipulation select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
           {num}
         </button>
       ))}
-      <div />
+      {decimalLabel ? (
+        <button
+          onPointerDown={(e) => { e.preventDefault(); onKeyPress('decimal') }}
+          disabled={disabled}
+          className="h-14 rounded-xl text-title font-bold text-foreground hover:bg-foreground/5 active:bg-foreground/10 active:scale-95 motion-reduce:active:scale-100 flex items-center justify-center disabled:opacity-50 touch-manipulation select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        >
+          {decimalLabel}
+        </button>
+      ) : (
+        <div />
+      )}
       <button
         onPointerDown={(e) => { e.preventDefault(); onKeyPress('0') }}
         disabled={disabled}
-        className="h-14 rounded-xl text-title font-bold text-foreground hover:bg-foreground/5 active:bg-foreground/10 active:scale-95 flex items-center justify-center disabled:opacity-50 touch-manipulation select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        className="h-14 rounded-xl text-title font-bold text-foreground hover:bg-foreground/5 active:bg-foreground/10 active:scale-95 motion-reduce:active:scale-100 flex items-center justify-center disabled:opacity-50 touch-manipulation select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       >
         0
       </button>
@@ -41,7 +54,7 @@ export const NumericKeypad = memo(function NumericKeypad({
         onPointerDown={(e) => { e.preventDefault(); onKeyPress('delete') }}
         disabled={disabled}
         aria-label={deleteAriaLabel}
-        className="h-14 rounded-xl text-foreground hover:bg-foreground/5 active:bg-foreground/10 active:scale-95 flex items-center justify-center disabled:opacity-50 touch-manipulation select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        className="h-14 rounded-xl text-foreground hover:bg-foreground/5 active:bg-foreground/10 active:scale-95 motion-reduce:active:scale-100 flex items-center justify-center disabled:opacity-50 touch-manipulation select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       >
         <Delete className="w-5 h-5" />
       </button>

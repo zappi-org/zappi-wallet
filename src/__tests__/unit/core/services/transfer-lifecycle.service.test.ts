@@ -268,6 +268,71 @@ describe('TransferLifecycleService', () => {
     })
   })
 
+  // ─── resolveReclaimByOperationRef ───
+
+  describe('resolveReclaimByOperationRef', () => {
+    it('resolves an active submitted send as reclaimed (emit + store update, true)', async () => {
+      createService(new Map())
+
+      const transfer = createPendingTransfer({
+        id: 't1',
+        txId: 'tx-1',
+        direction: 'outgoing',
+        finality: 'deferred',
+        onExpiry: 'reclaim',
+        transportRef: { protocol: 'mock', operationId: 'op-x' },
+        now: Date.now(),
+      })
+      await store.create(transitionPhase(transfer, 'submitted', Date.now()))
+
+      const result = await service.resolveReclaimByOperationRef('op-x')
+
+      expect(result).toBe(true)
+      expect((await store.get('t1'))?.phase).toBe('settled')
+
+      const reclaimedEvent = emittedEvents.find((e) => e.type === 'transfer:reclaimed')
+      expect(reclaimedEvent).toBeDefined()
+      // Never a settled/failed event — that would mislabel the tx or fire the wrong toast
+      expect(emittedEvents.some((e) => e.type === 'transfer:settled')).toBe(false)
+      expect(emittedEvents.some((e) => e.type === 'transfer:failed')).toBe(false)
+    })
+
+    it('returns false with no emit when no active transfer matches', async () => {
+      createService(new Map())
+
+      const result = await service.resolveReclaimByOperationRef('missing-op')
+
+      expect(result).toBe(false)
+      expect(emittedEvents.some((e) => e.type === 'transfer:reclaimed')).toBe(false)
+    })
+
+    it('leaves a matching-ref transfer still in preparing alone (an execute-failure rollback is not a reclaim)', async () => {
+      createService(new Map())
+
+      // A send whose execute threw rolls the proofs back under the SAME
+      // operationId but never leaves 'preparing', so it stays outside
+      // listActive — the invariant that keeps a genuine failure from being
+      // relabelled (and refunded in the UI) as a user reclaim.
+      const transfer = createPendingTransfer({
+        id: 't1',
+        txId: 'tx-1',
+        direction: 'outgoing',
+        finality: 'deferred',
+        onExpiry: 'reclaim',
+        transportRef: { protocol: 'mock', operationId: 'op-x' },
+        now: Date.now(),
+      })
+      await store.create(transfer)
+      expect(transfer.phase).toBe('preparing')
+
+      const result = await service.resolveReclaimByOperationRef('op-x')
+
+      expect(result).toBe(false)
+      expect((await store.get('t1'))?.phase).toBe('preparing')
+      expect(emittedEvents).toEqual([])
+    })
+  })
+
   // ─── processIncomingTransfer ───
 
   describe('processIncomingTransfer', () => {
@@ -506,6 +571,42 @@ describe('TransferLifecycleService', () => {
       // preparing isn't active, so no needs-polling
       const needsPolling = emittedEvents.filter((e) => e.type === 'transfer:needs-polling')
       expect(needsPolling).toHaveLength(0)
+    })
+
+    it('skips a preparing transfer whose initiateTransfer is live in this process', async () => {
+      let resolveExecute: () => void = () => {}
+      const mockOp = makeMockOperator({
+        execute: vi.fn().mockImplementation(
+          (transfer: PendingTransfer) =>
+            new Promise<PendingTransfer>((resolve) => {
+              resolveExecute = () => resolve(transitionPhase(transfer, 'submitted', Date.now()))
+            }),
+        ),
+      })
+      createService(new Map([['mock', mockOp]]))
+
+      const pending = service.initiateTransfer(
+        { txId: 'tx-1', accountId: 'mint-1', amount: amount(1000, 'sat') },
+        'mock',
+      )
+      // Let prepare + store.create land while execute is still in flight
+      await vi.waitFor(() => expect(store.size()).toBe(1))
+
+      // A mid-send service re-bootstrap re-runs recovery in the same process —
+      // it must not mark the live transfer as crashed
+      await service.recoverTransfers()
+
+      expect((await store.get('transfer-1'))?.phase).toBe('preparing')
+      expect(emittedEvents.find((e) => e.type === 'transfer:failed')).toBeUndefined()
+
+      resolveExecute()
+      const result = await pending
+      expect(result.phase).toBe('submitted')
+
+      // Once the live window closes, a leftover 'preparing' row from a real
+      // crash is failed as before
+      await service.recoverTransfers()
+      expect((await store.get('transfer-1'))?.phase).toBe('submitted')
     })
   })
 

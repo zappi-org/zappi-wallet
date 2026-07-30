@@ -110,7 +110,7 @@ export function SettingsMainList({
           </Button>
         ) : (
           <Button
-            variant="outline"
+            variant="secondary"
             size="lg"
             onClick={handleCheckUpdate}
             loading={isCheckingUpdate}

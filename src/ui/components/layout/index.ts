@@ -1,1 +1,1 @@
-export { BottomNav, type BottomNavProps, type NavItem } from './BottomNav'
+export { type NavItem } from './nav-item'

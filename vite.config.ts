@@ -49,6 +49,76 @@ function isGitDirty(): boolean {
   }
 }
 
+// Dev-only kill switch for stale service workers. A device that once loaded a
+// prod/preview build on this origin keeps that SW forever: its update check
+// fetches /service-worker.js, the dev server answers with the index.html SPA
+// fallback (not JS), the update fails, and the SW keeps serving the old cached
+// app — fixes never reach the device. Serving a real self-destroying SW at the
+// same path makes the browser's automatic update swap it in, purge caches,
+// unregister, and reload clients back onto the live dev server.
+const SELF_DESTROYING_SW = `self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', (event) => {
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.map((key) => caches.delete(key)));
+    await self.registration.unregister();
+    const clients = await self.clients.matchAll({ type: 'window' });
+    clients.forEach((client) => client.navigate(client.url));
+  })());
+});
+`
+
+function devServiceWorkerKillSwitch() {
+  return {
+    name: 'dev-sw-kill-switch',
+    apply: 'serve' as const,
+    configureServer(server: { middlewares: { use: (path: string, handler: (req: unknown, res: { setHeader: (k: string, v: string) => void; end: (body: string) => void }) => void) => void } }) {
+      server.middlewares.use('/service-worker.js', (_req, res) => {
+        res.setHeader('Content-Type', 'text/javascript')
+        res.setHeader('Cache-Control', 'no-store')
+        res.end(SELF_DESTROYING_SW)
+      })
+    },
+  }
+}
+
+// Rollup's object form of manualChunks only claims each package's entry module, so
+// React's real implementation modules stayed unclaimed and were swept into whichever
+// chunk reached them first — vendor-charts. That made recharts (~110 KB gzip) a
+// critical-path dependency of the entry while vendor-react built out empty. Matching
+// resolved module ids claims a whole package, so React lands in vendor-react and
+// recharts is reachable only from the lazy Analytics chunk.
+// Deps are listed explicitly because the object form used to absorb them transitively.
+const VENDOR_CHUNKS: ReadonlyArray<readonly [string, RegExp]> = [
+  // use-sync-external-store is a React API shim shared by zustand (eager) and recharts
+  // (lazy); left unclaimed Rollup folds it into vendor-charts and the entry imports it,
+  // which alone is enough to drag all of recharts back onto the critical path.
+  ['vendor-react', /\/node_modules\/(?:react|react-dom|scheduler|use-sync-external-store)\//],
+  ['vendor-motion', /\/node_modules\/(?:motion|framer-motion|motion-dom|motion-utils)\//],
+  // cn() = twMerge(clsx(...)) is used app-wide; left unclaimed Rollup folds clsx into
+  // vendor-charts, so MainApp statically imports that chunk and evaluates all of
+  // recharts on unlock — the same trap as use-sync-external-store, one level down.
+  ['vendor-ui', /\/node_modules\/(?:clsx|tailwind-merge)\//],
+  ['vendor-charts', /\/node_modules\/recharts\//],
+  // Unlock crypto and the Dexie driver are needed before first paint, but they are also
+  // dependencies of the wallet SDK. Left unclaimed Rollup folds them into vendor-cashu /
+  // vendor-coco, which makes the entry import those chunks and undoes the SDK deferral.
+  ['vendor-crypto', /\/node_modules\/(?:@noble|@scure)\//],
+  ['vendor-dexie', /\/node_modules\/dexie\//],
+  ['vendor-nostr', /\/node_modules\/nostr-tools\//],
+  ['vendor-cashu', /\/node_modules\/@cashu\/cashu-ts\//],
+  ['vendor-coco', /\/node_modules\/@cashu\/coco-(?:core|indexeddb)\//],
+]
+
+function manualChunks(id: string): string | undefined {
+  // Virtual ids (\0commonjs-proxy:…) embed the real path, so plain matching still works.
+  const normalized = id.replace(/\\/g, '/')
+  for (const [name, pattern] of VENDOR_CHUNKS) {
+    if (pattern.test(normalized)) return name
+  }
+  return undefined
+}
+
 const appVersion = readPackageVersion()
 const gitCommit = readGitCommit()
 const appCommit = gitCommit !== 'unknown' && isGitDirty() ? `${gitCommit}-dirty` : gitCommit
@@ -79,6 +149,8 @@ export default defineConfig({
     host: true,
     port: 5174,
     https: httpsConfig,
+    // Tailscale serve proxies device testing traffic with a *.ts.net Host header.
+    allowedHosts: ['.ts.net'],
   },
   resolve: {
     alias: {
@@ -113,14 +185,7 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom'],
-          'vendor-motion': ['motion'],
-          'vendor-charts': ['recharts'],
-          'vendor-nostr': ['nostr-tools'],
-          'vendor-cashu': ['@cashu/cashu-ts'],
-          'vendor-coco': ['@cashu/coco-core', '@cashu/coco-indexeddb'],
-        },
+        manualChunks,
       },
     },
   },
@@ -129,6 +194,7 @@ export default defineConfig({
     pure: ['console.log', 'console.debug', 'console.info'],
   },
   plugins: [
+    devServiceWorkerKillSwitch(),
     react(),
     tailwindcss(),
     VitePWA({
@@ -172,7 +238,9 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+        // webp is listed too: the logo and card art moved to it, and anything missing here
+        // is simply absent offline rather than served stale.
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff,woff2}'],
         clientsClaim: true,
         cleanupOutdatedCaches: true,
         runtimeCaching: [

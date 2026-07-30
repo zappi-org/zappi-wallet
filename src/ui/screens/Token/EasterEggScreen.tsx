@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'motion/react'
-import zappiLogo from '@/assets/zappi.png'
+import zappiLogo from '@/assets/zappi.webp'
 import cashuNut from '@/assets/cashu-nut.png'
 
 export interface EasterEggScreenProps {
@@ -44,7 +44,7 @@ function createDrops(count: number): Drop[] {
 
 /**
  * Full-page easter egg — Zappi stars + Cashu nuts raining while rotating.
- * Entered after 10 taps on the raw-token box inside TokenRawSheet.
+ * Entered after 10 taps on the raw-token text inside the transaction detail.
  */
 export function EasterEggScreen({ onClose, count = 28 }: EasterEggScreenProps) {
   const { t } = useTranslation()

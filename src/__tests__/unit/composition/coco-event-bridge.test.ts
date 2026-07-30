@@ -2,7 +2,7 @@
  * CocoEventBridge — contract safety net for SDK → domain event translation.
  *
  * This bridge is the sole SDK-side origin of balance:changed. Pinned contracts:
- * - proofs:* (4 kinds) / mint-op:finalized / melt-quote:paid → balance:changed
+ * - proofs:* (5 kinds) / mint-op:finalized / melt-quote:paid → balance:changed
  * - mint-op:finalized(finalized) → receive:settled (+isSwapStep flag)
  * - one initial balance:changed on connect (shows balance right after bootstrap)
  * - all subscriptions released on disconnect
@@ -52,7 +52,7 @@ describe('CocoEventBridge', () => {
     })
   })
 
-  it.each(['proofs:saved', 'proofs:state-changed', 'proofs:deleted', 'proofs:wiped'])(
+  it.each(['proofs:saved', 'proofs:state-changed', 'proofs:deleted', 'proofs:wiped', 'proofs:released'])(
     '%s → balance:changed',
     (event) => {
       const { manager, handlers } = makeManager()
@@ -128,13 +128,13 @@ describe('CocoEventBridge', () => {
     expect(emit.mock.calls.some(([e]) => e.type === 'receive:settled')).toBe(false)
   })
 
-  it('releases all 6 subscriptions (proofs 4 + mint-op + melt) on disconnect', () => {
+  it('releases all 7 subscriptions (proofs 5 + mint-op + melt) on disconnect', () => {
     const { manager, unsubs } = makeManager()
     const disconnect = connectCocoEventBridge(manager, eventBus)
 
     disconnect()
 
-    expect(unsubs).toHaveLength(6)
+    expect(unsubs).toHaveLength(7)
     for (const unsub of unsubs) {
       expect(unsub).toHaveBeenCalledTimes(1)
     }

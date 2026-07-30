@@ -11,8 +11,10 @@ export interface ReclaimSheetProps {
   onClose: () => void
   /** Tokens to reclaim. One entry for single-token flow, many for "Reclaim all". */
   tokens: PendingTokenView[]
-  /** Per-token receive fee in sats. */
-  reclaimFeePerToken?: number
+  /** Fee quotes still in flight — totals read as quoting. */
+  quoting?: boolean
+  /** Re-run failed fee quotes; rendered as a retry action when quotes are missing. */
+  onRetryFees?: () => void
   /** Called when user taps the Reclaim CTA — awaited so the button can show busy state. */
   onConfirm: (tokens: PendingTokenView[]) => Promise<void> | void
 }
@@ -21,18 +23,19 @@ export function ReclaimSheet({
   isOpen,
   onClose,
   tokens,
-  reclaimFeePerToken = 2,
+  quoting = false,
+  onRetryFees,
   onConfirm,
 }: ReclaimSheetProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
   const [busy, setBusy] = useState(false)
 
+  // No invented fees: until every quote lands, the totals read as quoting and
+  // the CTA stays disabled — the user must never confirm against a guess.
+  const feesKnown = tokens.length > 0 && tokens.every((tk) => typeof tk.reclaimFee === 'number')
   const totalAmount = tokens.reduce((sum, tk) => sum + tk.amount, 0)
-  const totalFee = tokens.reduce(
-    (sum, tk) => sum + (tk.reclaimFee ?? reclaimFeePerToken),
-    0,
-  )
+  const totalFee = tokens.reduce((sum, tk) => sum + (tk.reclaimFee ?? 0), 0)
   const netAmount = Math.max(0, totalAmount - totalFee)
 
   const handleDragEnd = useCallback(
@@ -130,13 +133,25 @@ export function ReclaimSheet({
                   <dt className="font-medium text-foreground">
                     {t('token.reclaim.summaryFee')}
                   </dt>
-                  <dd className="text-foreground">− {formatSats(totalFee)}</dd>
+                  <dd className="text-foreground">
+                    {feesKnown ? (
+                      `− ${formatSats(totalFee)}`
+                    ) : quoting || !onRetryFees ? (
+                      t('txDetail.reclaimQuoting')
+                    ) : (
+                      <button type="button" onClick={onRetryFees} className="font-medium text-brand underline underline-offset-2">
+                        {t('send.confirm.retryFee')}
+                      </button>
+                    )}
+                  </dd>
                 </div>
                 <div className="flex items-center justify-between">
                   <dt className="font-medium text-foreground">
                     {t('token.reclaim.summaryNet')}
                   </dt>
-                  <dd className="font-bold text-foreground">{formatSats(netAmount)}</dd>
+                  <dd className="font-bold text-foreground">
+                    {feesKnown ? formatSats(netAmount) : '—'}
+                  </dd>
                 </div>
               </dl>
 
@@ -152,7 +167,7 @@ export function ReclaimSheet({
                 <button
                   type="button"
                   onClick={handleConfirm}
-                  disabled={busy}
+                  disabled={busy || !feesKnown}
                   className="flex items-center gap-2 px-6 py-2.5 rounded-[25px] bg-brand text-caption font-bold text-white active:scale-[0.98] disabled:opacity-60 transition-transform"
                   style={{
                     boxShadow:

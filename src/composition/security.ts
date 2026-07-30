@@ -8,10 +8,14 @@
 import { KeyManagerAdapter } from '@/adapters/crypto/key-manager.adapter'
 import { EncryptionAdapter } from '@/adapters/crypto/encryption.adapter'
 import { SecureStorageAdapter } from '@/adapters/storage/secure-storage.adapter'
+import { UnlockGraceAdapter } from '@/adapters/storage/unlock-grace.adapter'
 import { SeedCacheAdapter } from '@/adapters/coco/seed-cache.adapter'
 import { SecurityService } from '@/core/services/security.service'
 import type { SecurityUseCase } from '@/core/ports/driving/security.usecase'
-import { injectSeedCache } from '@/modules/cashu'
+// Imported from the defining module, not the @/modules/cashu barrel: the barrel
+// re-exports coco-sdk/cashu-backend, which would pull the whole wallet SDK into the
+// app shell's eager graph just to wire a cache setter.
+import { injectSeedCache } from '@/modules/cashu/internal/seed-getter'
 
 let _instance: SecurityUseCase | null = null
 
@@ -25,6 +29,7 @@ export function createSecurityService(): SecurityUseCase {
     new EncryptionAdapter(),
     new SecureStorageAdapter(),
     seedCache,
+    new UnlockGraceAdapter(),
   )
   return _instance
 }
