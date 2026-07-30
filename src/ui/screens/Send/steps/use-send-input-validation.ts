@@ -262,7 +262,14 @@ export function useSendInputValidation({
       const sendableDetectedTypes = ['bolt11', 'email-address', 'lnurl', 'cashu-request']
       if (!sendableDetectedTypes.includes(detected.type)) {
         setIsPreValidating(false)
-        // Check if input looks like Cashu token but failed to parse
+        // A decoded token is not an error, just not a SEND target — submit hands
+        // it to the receive flow. Only 'unknown' means the decode actually
+        // failed; the cashuA/B prefix never proved it, since every VALID token
+        // carries it too, which is what made this fire on good input.
+        if (detected.type === 'cashu-token') {
+          setPreValidationError(null)
+          return
+        }
         if (destination.trim().startsWith('cashuA') || destination.trim().startsWith('cashuB')) {
           console.error('[SendInputStep] Invalid Cashu token format:', destination.slice(0, 50))
           addToast({ type: 'error', message: t('send.destination.invalidCashuToken'), duration: 3000 })

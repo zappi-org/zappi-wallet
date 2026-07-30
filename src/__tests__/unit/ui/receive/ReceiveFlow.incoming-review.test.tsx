@@ -125,11 +125,13 @@ describe('ReceiveFlow incoming review while mounted', () => {
       <ReceiveFlow
         {...props}
         incomingReview={makeReview('r1', 'https://trusted.mint')}
-        launch={{ redeemOpen: true, redeemToken: 'cashuB_stale' }}
+        launch={{
+          redeemOpen: true,
+          redeemToken: { type: 'cashu-token', token: 'cashuB_stale', amount: sat(7), mintUrl: 'https://trusted.mint' },
+        }}
       />,
     )
-    // Review wins: no sheet auto-open (the stale launch token must not
-    // auto-validate over the review), confirm shows the review's own token.
+    // Review wins: confirm shows the review's own token, not the stale launch's.
     expect(screen.getByTestId('step-confirm-trusted')).toBeInTheDocument()
     expect(screen.queryByTestId('redeem-sheet')).not.toBeInTheDocument()
     expect(screen.getByTestId('step-confirm-trusted')).toHaveAttribute('data-token', 'cashuBr1')

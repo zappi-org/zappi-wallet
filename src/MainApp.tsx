@@ -403,7 +403,13 @@ export default function MainApp() {
     }
   }, [currentScreen, activeMintUrl, settings.mints, balance.byMint, serviceRegistry, addToast, t, setCurrentScreen, setPreviousScreen])
 
-  /** Universal input router — navigate based on validated input type. */
+  /**
+   * Universal input router — navigate based on validated input type.
+   *
+   * Pushes, so the screen the user was redirected out of stays underneath and
+   * back retraces the way in. Where a FINISHED flow lands is the flow's own
+   * onComplete, not this (see the receive screen's).
+   */
   const handleRouteValidated = useCallback((data: ValidatedData) => {
     const target = routeValidatedInput(data)
     setContactInfo(null)
@@ -920,14 +926,16 @@ export default function MainApp() {
     settingsRepo: preUnlock.settingsRepo,
   })
 
+  /** Send-flow handoff — the universal router owns the navigation AND the seed
+   *  (a bare setCurrentScreen('receive') dropped the token on the floor). */
   const handleSendRedirect = useCallback((validated: ValidatedData) => {
-    setValidatedScanData(validated)
-    // Same stale-launch guard as the home receive entry. The send launch is
-    // cleared too — this leaves send without passing through onBack/onComplete.
-    setReceiveLaunch(null)
-    setCurrentScreen('receive')
-    addToast({ type: 'info', message: t('redirect.toReceive') })
-  }, [addToast, t, setCurrentScreen])
+    handleRouteValidated(validated)
+    // Only announce a move that happened — lnurl-withdraw also resolves to the
+    // receive side but the router rejects it with its own error toast.
+    if (routeValidatedInput(validated).screen === 'receive-redeem') {
+      addToast({ type: 'info', message: t('redirect.toReceive') })
+    }
+  }, [handleRouteValidated, addToast, t])
 
   // Preload lazy screens after home is visible
   useEffect(() => {
@@ -1258,8 +1266,11 @@ export default function MainApp() {
           setCurrentScreen(backTo)
         }}
         onComplete={() => {
-          // Return where we came from (e.g. the token tab) like onBack does.
-          const backTo = previousScreen || 'home'
+          // Return where we came from (e.g. the token tab) like onBack does —
+          // except Send. A token pasted there redirects here, and dropping the
+          // user back on "누구에게 보낼까요?" right after they took money IN is
+          // the wrong ending; only an ABANDONED receive retraces that step.
+          const backTo = previousScreen && previousScreen !== 'send' ? previousScreen : 'home'
           clearIncomingReviewState()
           setReceiveLaunch(null)
           setPreviousScreen(null)

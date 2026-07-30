@@ -28,11 +28,9 @@ export interface RedeemSheetProps {
   onValidated: (token: ValidatedCashuToken) => void | Promise<void>
   /** Non-cashu input (bolt11 etc.) → universal router. */
   onRouteValidated?: (data: ValidatedData) => void
-  /** Deep-link token (scanner/router entry) — auto-validated on open. */
-  initialToken?: string
 }
 
-export function RedeemSheet({ isOpen, onClose, onValidated, onRouteValidated, initialToken }: RedeemSheetProps) {
+export function RedeemSheet({ isOpen, onClose, onValidated, onRouteValidated }: RedeemSheetProps) {
   const { t } = useTranslation()
   const inputParser = useInputParser()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -67,20 +65,11 @@ export function RedeemSheet({ isOpen, onClose, onValidated, onRouteValidated, in
     }
   }, [inputParser, onValidated, onRouteValidated, t])
 
-  // Deep-link entry (scanner/router) — validate the pre-supplied token once.
-  // Track the consumed token VALUE, not a boolean: back-from-confirm reopens the
-  // sheet with the same initialToken, and resetting on close would re-validate it
-  // forever. A genuinely new deep-link token (different string) still validates.
-  const consumedTokenRef = useRef<string | null>(null)
+  // The sheet is only ever opened empty now — a token that arrived already
+  // parsed goes straight to its confirm step, so there is nothing to auto-feed.
   useEffect(() => {
-    if (isOpen && initialToken && initialToken !== consumedTokenRef.current) {
-      consumedTokenRef.current = initialToken
-      void handleRaw(initialToken)
-    }
-    if (!isOpen) {
-      setError(null)
-    }
-  }, [isOpen, initialToken, handleRaw])
+    if (!isOpen) setError(null)
+  }, [isOpen])
 
   // Dismissal is suppressed while a validation and its awaited continuation
   // (self-check, reclaim, confirm routing) are in flight — but only within a

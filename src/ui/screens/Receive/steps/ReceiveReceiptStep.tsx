@@ -27,6 +27,7 @@ export function buildReceiveRows(
   method: ReceiveReceiptMethod,
   mintName: string | null,
   memo?: string,
+  fee?: string | null,
 ): PaymentReceiptRow[] {
   const rows: PaymentReceiptRow[] = [{
     label: t('receive.receipt.method'),
@@ -34,11 +35,16 @@ export function buildReceiveRows(
   }]
   if (mintName) rows.push({ label: t('receive.receipt.toMint'), value: mintName, strong: true })
   if (memo) rows.push({ label: t('receive.receipt.memo'), value: memo })
+  // The amount above is the token's face value, so a mint that charged to
+  // receive has to say so — same label and placement as the archived receipt.
+  if (fee) rows.push({ label: t('txDetail.fee'), value: fee })
   return rows
 }
 
 export interface ReceiveReceiptStepProps {
   amount: number
+  /** Receiving fee charged by the mint; 0 (or omitted) prints no fee row. */
+  fee?: number
   mintUrl: string | null
   memo?: string
   method: ReceiveReceiptMethod
@@ -47,7 +53,7 @@ export interface ReceiveReceiptStepProps {
   onExit: () => void
 }
 
-export function ReceiveReceiptStep({ amount, mintUrl, memo, method, receivedAt, onMakeAnother, onExit }: ReceiveReceiptStepProps) {
+export function ReceiveReceiptStep({ amount, fee = 0, mintUrl, memo, method, receivedAt, onMakeAnother, onExit }: ReceiveReceiptStepProps) {
   const { t, i18n } = useTranslation()
   const reduceMotion = useReducedMotion()
   const formatSats = useFormatSats()
@@ -60,8 +66,8 @@ export function ReceiveReceiptStep({ amount, mintUrl, memo, method, receivedAt, 
   const [stamped, setStamped] = useState(false)
 
   const rows = useMemo(
-    () => buildReceiveRows(t, method, mintUrl ? getDisplayName(mintUrl) : null, memo),
-    [t, method, mintUrl, getDisplayName, memo],
+    () => buildReceiveRows(t, method, mintUrl ? getDisplayName(mintUrl) : null, memo, fee > 0 ? formatSats(fee) : null),
+    [t, method, mintUrl, getDisplayName, memo, fee, formatSats],
   )
   const stampedAt = useMemo(
     () => new Date(receivedAt).toLocaleString(i18n.language, { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }),

@@ -9,6 +9,8 @@ import { useCallback } from 'react'
 interface RedeemTokenResult {
   success: boolean
   amount?: number
+  /** Receiving fee the mint charged, as reported by the settled transfer. */
+  fee?: number
   transactionId?: string
   error?: BaseError
 }
@@ -43,7 +45,7 @@ async function waitForTransfer(
   serviceRegistry: ServiceRegistry,
   transferId: string,
   timeoutMs = 60000,
-): Promise<{ success: boolean; amount?: number; error?: BaseError }> {
+): Promise<{ success: boolean; amount?: number; fee?: number; error?: BaseError }> {
   const startTime = Date.now()
   const pollInterval = 500
 
@@ -55,8 +57,11 @@ async function waitForTransfer(
     }
 
     if (transfer.phase === 'settled') {
-      const ref = transfer.transportRef as { amount?: number } | undefined
-      return { success: true, amount: ref?.amount }
+      // `amount` is the token's face value; the adapter adds `fee` (and the net
+      // `receivedAmount`) when it settles. The receipt prints the face value and
+      // the fee as its own line, the way the archived one does.
+      const ref = transfer.transportRef as { amount?: number; fee?: number } | undefined
+      return { success: true, amount: ref?.amount, fee: ref?.fee }
     }
 
     if (transfer.phase === 'failed') {
@@ -132,6 +137,7 @@ export function useRedeemToken(
         return {
           success: true,
           amount: result.amount ?? tokenInfo.amount,
+          fee: result.fee,
           transactionId: transferId,
         }
       }

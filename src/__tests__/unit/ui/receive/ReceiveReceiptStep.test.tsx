@@ -1,6 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
-import { ReceiveReceiptStep } from '@/ui/screens/Receive/steps/ReceiveReceiptStep'
+import { ReceiveReceiptStep, buildReceiveRows } from '@/ui/screens/Receive/steps/ReceiveReceiptStep'
+import type { TFunction } from 'i18next'
 
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k, i18n: { language: 'ko' } }) }))
 vi.mock('@/utils/format', () => ({ useFormatSats: () => (n: number) => `${n} sat`, useFormatFiat: () => () => null }))
@@ -33,5 +34,19 @@ describe('ReceiveReceiptStep (merged)', () => {
   it('hides make-another for the redeem entry', () => {
     render(<ReceiveReceiptStep {...base} method="redeem" />)
     expect(screen.queryByText('receive.request.makeAnother')).not.toBeInTheDocument()
+  })
+})
+
+describe('buildReceiveRows', () => {
+  const t = ((k: string) => k) as unknown as TFunction
+
+  it('prints the receiving fee as its own row when the mint charged one', () => {
+    const rows = buildReceiveRows(t, 'redeem', 'Lemonfizz', undefined, '2 sat')
+    expect(rows.at(-1)).toEqual({ label: 'txDetail.fee', value: '2 sat' })
+  })
+
+  it('prints no fee row on a fee-free arrival', () => {
+    const rows = buildReceiveRows(t, 'redeem', 'Lemonfizz', undefined, null)
+    expect(rows.some((r) => r.label === 'txDetail.fee')).toBe(false)
   })
 })

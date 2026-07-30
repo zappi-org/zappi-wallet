@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, act } from '@testing-library/react'
 
 import { SendInputStep } from '@/ui/screens/Send/steps/SendInputStep'
+import { sat } from '@/core/domain/amount'
 import type { InputType, ValidatedData } from '@/core/domain/input-types'
 import { ServiceProvider } from '@/ui/hooks/service-context'
 import type { ServiceRegistry } from '@/core/ports/driving/service-registry'
@@ -242,6 +243,42 @@ describe('SendInputStep pre-validation', () => {
     expect(mockValidateAsync).not.toHaveBeenCalled()
     const nextButton = screen.getByRole('button', { name: 'send.next' })
     expect(nextButton).not.toBeDisabled()
+  })
+
+  // A decoded cashu token is not a send target, but it is not malformed either.
+  // The prefix check read cashuA/B as proof of a failed decode — which every
+  // VALID token also carries — so pasting a good token cried "invalid format".
+  it('a valid cashu token pastes silently — no error toast, Next stays enabled', async () => {
+    const tokenStr = 'cashuAeyJ0b2tlbiI6W10sInVuaXQiOiJzYXQifQ'
+    mockDetectAndClassify.mockReturnValue({
+      type: 'cashu-token',
+      token: tokenStr,
+      amount: sat(21),
+      mintUrl: 'https://mint.example.com',
+    })
+
+    stableAddToast.mockClear()
+    renderStep()
+    typeIntoInput(tokenStr)
+    await act(async () => { vi.advanceTimersByTime(500) })
+
+    expect(stableAddToast).not.toHaveBeenCalled()
+    expect(screen.getByTestId('pre-validation-error-area')).toHaveTextContent('')
+    expect(screen.getByRole('button', { name: 'send.next' })).not.toBeDisabled()
+  })
+
+  // The branch still has to fire for input that genuinely failed to decode.
+  it('a malformed cashu string still reports an invalid format', async () => {
+    mockDetectAndClassify.mockReturnValue({ type: 'unknown', input: 'cashuB_broken' })
+
+    stableAddToast.mockClear()
+    renderStep()
+    typeIntoInput('cashuB_broken')
+    await act(async () => { vi.advanceTimersByTime(500) })
+
+    expect(stableAddToast).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'error', message: 'send.destination.invalidCashuToken' }),
+    )
   })
 
   it('error container reserves height and stays empty when idle (error pops in without shifting tabs)', () => {
