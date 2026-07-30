@@ -523,6 +523,8 @@ export default {
     sent: 'Enviado',
     receiving: 'Recibiendo',
     sending: 'Enviando',
+    swapSent: 'Enviado a otra wallet',
+    swapReceived: 'Recibido de otra wallet',
 
     // Redesigned history screen
     income: 'Ingresos',
@@ -890,7 +892,7 @@ export default {
       title: 'Recibo de envío',
       pendingTitle: 'Esperando entrega',
       recipient: 'Para',
-      sending: 'Enviando',
+    sending: 'Enviando',
       settling: 'Confirmando liquidación',
       completed: 'Completado',
       kept: 'Guardado en tu historial de transacciones',

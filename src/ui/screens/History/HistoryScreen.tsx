@@ -693,6 +693,7 @@ export function HistoryScreen({
                           key={tx.id}
                           transaction={tx}
                           linkedTransaction={tx.linkedTxId ? transactionById.get(tx.linkedTxId) : null}
+                          hasCompanionReceive={reclaimCompanionSendIds.has(tx.id)}
                           groupKind={group.kind}
                           onClick={() => selectTransaction(tx)}
                           getMintName={getDisplayName}

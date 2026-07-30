@@ -525,6 +525,8 @@ export default {
     sent: '보냄',
     receiving: '받는 중',
     sending: '보내는 중',
+    swapSent: '다른 지갑으로 보내기',
+    swapReceived: '다른 지갑에서 받음',
 
     // Redesigned history screen
     income: '입금',

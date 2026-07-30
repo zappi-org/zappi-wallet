@@ -1,12 +1,11 @@
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import type { Transaction } from '@/core/domain/transaction'
-import { getTotalCost, getTransactionType, getTxMeta } from '@/core/domain/transaction'
+import { getTotalCost, getTransactionType, getTxMeta, isReclaimed, isReclaimableSend } from '@/core/domain/transaction'
 import { toNumber } from '@/core/domain/amount'
 import { useFormatSats, useFormatFiat, formatTransactionFiat } from '@/utils/format'
 import { formatMintHost } from '@/utils/url'
 import { cn } from '@/ui/lib/utils'
-import { getTypeLabel } from '@/ui/components/wallet/transactionHelpers'
 import type { TimelineKind } from '@/ui/hooks/use-transaction-history'
 
 export interface HistoryTimelineRowProps {
@@ -15,6 +14,8 @@ export interface HistoryTimelineRowProps {
   groupKind: TimelineKind
   onClick?: () => void
   getMintName?: (url: string) => string
+  /** This send's reclaim is booked on a companion receive row (legacy token path). */
+  hasCompanionReceive?: boolean
 }
 
 function formatRowTime(
@@ -38,6 +39,7 @@ export function HistoryTimelineRow({
   groupKind,
   onClick,
   getMintName,
+  hasCompanionReceive = false,
 }: HistoryTimelineRowProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
@@ -51,6 +53,8 @@ export function HistoryTimelineRow({
   const isEcashToken = txType === 'ecash-token'
   const isPending = tx.status === 'pending'
   const isFailed = tx.status === 'failed'
+  const isReclaim = !!getTxMeta(tx).reclaimedFrom
+    || (isReclaimed(tx) && !hasCompanionReceive)
   const resolveName = (url: string) => getMintName ? getMintName(url) : formatMintHost(url)
 
   const transferFromUrl = meta.fromMintUrl ?? linkedMeta?.fromMintUrl ?? (tx.direction === 'send' ? tx.accountId : undefined)
@@ -59,18 +63,27 @@ export function HistoryTimelineRow({
     ? `${resolveName(transferFromUrl)} → ${resolveName(transferToUrl)}`
     : null
 
-  const title = tx.memo || getTypeLabel(tx, t)
-  const typeLabel = getTypeLabel(tx, t)
+  const directionLabel = isReclaim
+    ? t('history.reclaimed')
+    : isSwap
+      ? t(isReceive ? 'history.swapReceived' : 'history.swapSent')
+      : tx.status === 'pending'
+        ? (!isReceive && isReclaimableSend(tx)
+            ? t('send.receipt.pendingTitle')
+            : t(isReceive ? 'history.receiving' : 'history.sending'))
+        : t(isReceive ? 'history.received' : 'history.sent')
+
+  const title: string = tx.memo || (directionLabel as string)
   const time = formatRowTime(t, tx.createdAt, groupKind)
 
   const subtitle = transferRoute
     ? `${time} · ${transferRoute}`
-    : title !== typeLabel
-      ? `${time} · ${typeLabel}`
+    : tx.memo
+      ? `${time} · ${directionLabel}`
       : time
 
   const amountSats = toNumber(getTotalCost(tx))
-  const amountPrefix = isReceive ? '' : '- '
+  const amountPrefix = isReclaim ? '' : isReceive ? '' : '- '
   const amountColor = isFailed
     ? 'line-through text-foreground-muted'
     : isPending

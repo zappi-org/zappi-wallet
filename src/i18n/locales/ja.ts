@@ -521,6 +521,8 @@ export default {
     sent: '送金',
     receiving: '受取中',
     sending: '送金中',
+    swapSent: '別のウォレットへ送信',
+    swapReceived: '別のウォレットから受信',
 
     // Redesigned history screen
     income: '入金',
@@ -888,7 +890,7 @@ export default {
       title: '送金レシート',
       pendingTitle: '受け渡し待ち',
       recipient: '宛先',
-      sending: '送金中',
+    sending: '送金中',
       settling: '決済確認中',
       completed: '送金完了',
       kept: 'レシートは取引履歴に保存されます',

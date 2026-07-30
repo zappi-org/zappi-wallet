@@ -6,7 +6,6 @@ import { sat } from '@/core/domain/amount'
 const KO: Record<string, string> = {
   'history.sent': '보냄',
   'history.reclaimed': '되찾음',
-  'history.ecash': '이캐시',
 }
 
 vi.mock('react-i18next', () => ({
@@ -39,31 +38,23 @@ function makeReclaimedSend(): Transaction {
   }
 }
 
-function iconNameOf(container: HTMLElement): string {
-  return container.querySelector('svg')?.getAttribute('class') ?? ''
-}
-
-// Label, icon and amount presentation must all key off the same predicate —
-// a row saying 보냄 next to an Undo2 icon would be worse than either alone.
-describe('HistoryTimelineRow — reclaim presentation is one decision', () => {
-  it('opId shape (no companion): 되찾음 + Undo2 + unsigned muted amount', () => {
-    const { container } = render(
+// Flat redesign: no icons, direction-based labels, reclaims unsigned.
+describe('HistoryTimelineRow — reclaim presentation', () => {
+  it('opId shape (no companion): 되찾음 + unsigned amount', () => {
+    render(
       <HistoryTimelineRow transaction={makeReclaimedSend()} groupKind="today" />,
     )
 
     expect(screen.getByText('되찾음')).toBeInTheDocument()
-    expect(iconNameOf(container)).toContain('undo')
-    const amount = screen.getByText('1000')
-    expect(amount.className).toContain('text-foreground-muted')
+    expect(screen.getByText('1000')).toBeInTheDocument()
   })
 
-  it('legacy shape (companion exists): 보냄 + directional icon + signed amount', () => {
-    const { container } = render(
+  it('legacy shape (companion exists): 보냄 + signed amount', () => {
+    render(
       <HistoryTimelineRow transaction={makeReclaimedSend()} groupKind="today" hasCompanionReceive />,
     )
 
     expect(screen.getByText('보냄')).toBeInTheDocument()
-    expect(iconNameOf(container)).not.toContain('undo')
     expect(screen.getByText('- 1000')).toBeInTheDocument()
   })
 })

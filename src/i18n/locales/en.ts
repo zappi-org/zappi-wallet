@@ -525,6 +525,8 @@ export default {
     sent: 'Sent',
     receiving: 'Receiving',
     sending: 'Sending',
+    swapSent: 'Transferred out',
+    swapReceived: 'Transferred in',
 
     // Redesigned history screen
     income: 'Income',
@@ -886,7 +888,7 @@ export default {
       title: 'Send Receipt',
       pendingTitle: 'Awaiting delivery',
       recipient: 'To',
-      sending: 'Sending',
+    sending: 'Sending',
       settling: 'Confirming settlement',
       completed: 'Completed',
       kept: 'Saved to your transaction history',

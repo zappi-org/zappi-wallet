@@ -523,6 +523,8 @@ export default {
     sent: 'Terkirim',
     receiving: 'Menerima',
     sending: 'Mengirim',
+    swapSent: 'Terkirim ke wallet lain',
+    swapReceived: 'Diterima dari wallet lain',
 
     // Redesigned history screen
     income: 'Pemasukan',
@@ -890,7 +892,7 @@ export default {
       title: 'Struk pengiriman',
       pendingTitle: 'Menunggu penyerahan',
       recipient: 'Kepada',
-      sending: 'Mengirim',
+    sending: 'Mengirim',
       settling: 'Menunggu penyelesaian',
       completed: 'Selesai',
       kept: 'Tersimpan di riwayat transaksi',
