@@ -530,7 +530,7 @@ export function HistoryScreen({
 
   // h-full in both modes: the stack container and the sheet body both supply a definite height.
   return (
-    <div className={`${isSheet ? 'h-full' : 'h-dvh'} bg-white text-foreground flex flex-col font-primary relative overflow-hidden z-[60] pt-safe`}>
+    <div className={`${isSheet ? 'h-full' : 'h-dvh'} bg-white text-foreground flex flex-col font-primary relative overflow-hidden z-[60] ${isSheet ? '' : 'pt-safe'}`}>
       {/* Header */}
       <header className="relative flex items-center justify-between px-[20px] h-14 shrink-0 z-50">
         <button
