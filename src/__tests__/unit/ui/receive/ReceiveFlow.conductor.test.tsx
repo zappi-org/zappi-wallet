@@ -87,7 +87,7 @@ vi.mock('@/ui/screens/Receive/steps/ReceiveRequestStep', () => ({
   ),
 }))
 vi.mock('@/ui/screens/Receive/steps/ReceiveReceiptStep', () => ({
-  ReceiveReceiptStep: () => <div data-testid="step-received" />,
+  ReceiveReceiptStep: ({ fee }: { fee?: number }) => <div data-testid="step-received" data-fee={String(fee ?? '')} />,
 }))
 vi.mock('@/ui/screens/Receive/redeem/RedeemSheet', () => ({
   RedeemSheet: ({ isOpen, onClose, onValidated }: { isOpen: boolean; onClose: () => void; onValidated: (t: unknown) => void }) =>
@@ -104,8 +104,11 @@ vi.mock('@/ui/screens/Receive/redeem/RedeemSheet', () => ({
     ) : null,
 }))
 vi.mock('@/ui/screens/Receive/redeem/ConfirmTrustedStep', () => ({
-  ConfirmTrustedStep: ({ onReceive }: { onReceive: () => Promise<void> }) => (
-    <button data-testid="step-confirm-trusted" onClick={() => void onReceive()} />
+  ConfirmTrustedStep: ({ onReceive, onBack }: { onReceive: () => Promise<void>; onBack: () => void }) => (
+    <>
+      <button data-testid="step-confirm-trusted" onClick={() => void onReceive()} />
+      <button data-testid="confirm-trusted-back" onClick={onBack} />
+    </>
   ),
 }))
 vi.mock('@/ui/screens/Receive/redeem/ConfirmUntrustedStep', () => ({
@@ -215,6 +218,55 @@ describe('ReceiveFlow conductor — overlay + review races', () => {
     expect(screen.queryByTestId('redeem-sheet')).not.toBeInTheDocument()
   })
 
+  // A token routed in from Send/scan is already parsed. Hosting the sheet for it
+  // flashed the direct-receive UI — camera included — for ~320ms before closing
+  // itself, so the launch must land on the confirm step directly.
+  it('a routed token opens its confirm step without ever hosting the redeem sheet', () => {
+    const props = baseProps()
+    render(
+      <ReceiveFlow
+        {...props}
+        incomingReview={null}
+        launch={{
+          redeemToken: { type: 'cashu-token', token: 'cashuB_routed', amount: sat(21), mintUrl: 'https://trusted.mint' },
+        }}
+      />,
+    )
+    expect(screen.getByTestId('step-confirm-trusted')).toBeInTheDocument()
+    expect(screen.queryByTestId('redeem-sheet')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('step-redeem')).not.toBeInTheDocument()
+  })
+
+  // Back must retrace the way in. A routed token never passed through the sheet,
+  // so re-hosting it on back conjured the camera out of nowhere.
+  it('back from a routed token leaves the flow instead of opening the sheet', () => {
+    const props = baseProps()
+    render(
+      <ReceiveFlow
+        {...props}
+        incomingReview={null}
+        launch={{
+          redeemToken: { type: 'cashu-token', token: 'cashuB_routed', amount: sat(21), mintUrl: 'https://trusted.mint' },
+        }}
+      />,
+    )
+    fireEvent.click(screen.getByTestId('confirm-trusted-back'))
+    expect(props.onBack).toHaveBeenCalledTimes(1)
+    expect(screen.queryByTestId('redeem-sheet')).not.toBeInTheDocument()
+  })
+
+  it('back from a sheet-entered token still returns to the sheet', async () => {
+    const props = baseProps()
+    render(<ReceiveFlow {...props} incomingReview={null} launch={{ redeemOpen: true }} />)
+
+    fireEvent.click(screen.getByTestId('redeem-validate'))
+    await waitFor(() => expect(screen.getByTestId('step-confirm-trusted')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByTestId('confirm-trusted-back'))
+    expect(screen.getByTestId('redeem-sheet')).toBeInTheDocument()
+    expect(props.onBack).not.toHaveBeenCalled()
+  })
+
   it('does NOT resolve a different pending review when a manual redeem finalizes', async () => {
     const onResolveIncomingReview = vi.fn(async () => {})
     let resolveToken: (v: { success: boolean; amount: number }) => void = () => {}
@@ -239,6 +291,19 @@ describe('ReceiveFlow conductor — overlay + review races', () => {
     await act(async () => { resolveToken({ success: true, amount: 21 }) })
     await waitFor(() => expect(screen.getByTestId('step-received')).toBeInTheDocument())
     expect(onResolveIncomingReview).not.toHaveBeenCalled()
+  })
+
+  it('carries the redeem fee to the receipt, so a fee-charging mint is not silent', async () => {
+    const onReceiveToken = vi.fn(async () => ({ success: true, amount: 21, fee: 2 }))
+    const props = { ...baseProps(), onReceiveToken }
+
+    render(<ReceiveFlow {...props} incomingReview={null} launch={{ redeemOpen: true }} />)
+    fireEvent.click(screen.getByTestId('redeem-validate'))
+    await waitFor(() => expect(screen.getByTestId('step-confirm-trusted')).toBeInTheDocument())
+    fireEvent.click(screen.getByTestId('step-confirm-trusted'))
+
+    await waitFor(() => expect(screen.getByTestId('step-received')).toBeInTheDocument())
+    expect(screen.getByTestId('step-received')).toHaveAttribute('data-fee', '2')
   })
 
   it('resolves the review whose own token was redeemed', async () => {

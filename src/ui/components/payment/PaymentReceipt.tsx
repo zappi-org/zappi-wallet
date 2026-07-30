@@ -164,21 +164,24 @@ export function PaymentReceipt({
               </svg>
             )}
 
-            <div className="relative rounded-b-[2px] bg-background-card px-[18px] pb-2 pt-[18px] shadow-paper">
+            {/* Gutters and leading are deliberately generous: a receipt is read
+                at a glance, and the printed blocks need air between them more
+                than the sheet needs to be short. */}
+            <div className="relative rounded-b-[2px] bg-background-card px-5 pb-3 pt-6 shadow-paper">
               <div className="text-center text-overline font-bold tracking-[0.14em] text-foreground-subtle">ZAPPI</div>
-              <div className="mt-1.5 text-center text-subtitle font-semibold">{title}</div>
-              <div className="mb-0.5 mt-3 text-center text-[30px] font-bold font-display leading-none tracking-tight">{amount}</div>
+              <div className="mt-2 text-center text-subtitle font-semibold">{title}</div>
+              <div className="mb-1 mt-4 text-center text-[30px] font-bold font-display leading-none tracking-tight">{amount}</div>
               {fiat && <div className="text-center text-label text-foreground-muted">{fiat}</div>}
 
               {timeline && (
                 <>
-                  <div className="mt-3.5 border-t-[1.5px] border-dashed border-border" />
-                  <div className="pt-3.5">{timeline}</div>
+                  <div className="mt-5 border-t-[1.5px] border-dashed border-border" />
+                  <div className="pt-4">{timeline}</div>
                 </>
               )}
-              <div className={`mb-1.5 ${timeline ? 'mt-2.5' : 'mt-3.5'} border-t-[1.5px] border-dashed border-border`} />
+              <div className={`mb-2 ${timeline ? 'mt-3.5' : 'mt-5'} border-t-[1.5px] border-dashed border-border`} />
               {rows.map((row, i) => (
-                <div key={`${row.label}-${i}`} className="flex items-center justify-between gap-3 py-[5px] text-caption">
+                <div key={`${row.label}-${i}`} className="flex items-center justify-between gap-4 py-2 text-caption">
                   <span className="shrink-0 text-foreground-muted">{row.label}</span>
                   <span className={`truncate ${row.strong ? 'font-semibold' : 'font-medium'}`}>{row.valueNode ?? row.value}</span>
                 </div>
@@ -191,7 +194,7 @@ export function PaymentReceipt({
                   // Full content width of the paper (width - px-[18px] gutters),
                   // so the QR grows with the sheet instead of a magic 264px.
                   // p-1 is a rim only — the QR owns its own quiet zone.
-                  className="relative mx-auto mt-2 mb-1 flex aspect-square w-full items-center justify-center overflow-hidden rounded-lg bg-white p-1"
+                  className="relative mx-auto mb-2 mt-3 flex aspect-square w-full items-center justify-center overflow-hidden rounded-lg bg-white p-1"
                 >
                   <div className={`flex h-full w-full items-center justify-center transition-all ${qrVeiled ? 'blur-md opacity-40' : ''}`}>
                     {qr}
@@ -211,8 +214,8 @@ export function PaymentReceipt({
               )}
               {extra && (
                 <>
-                  <div className="mt-1.5 border-t-[1.5px] border-dashed border-border" />
-                  <div className="pt-2.5 pb-1">{extra}</div>
+                  <div className="mt-2.5 border-t-[1.5px] border-dashed border-border" />
+                  <div className="pb-1.5 pt-3.5">{extra}</div>
                 </>
               )}
               {/* One centered caption for every state — the completion label
@@ -221,8 +224,8 @@ export function PaymentReceipt({
                   screens, where the timeline carries the times). */}
               {(doneLine || statusLine) && (
                 <>
-                  <div className="mb-1 mt-1.5 border-t-[1.5px] border-dashed border-border" />
-                  <div className="py-2 text-center text-caption text-foreground-muted">
+                  <div className="mb-1.5 mt-2.5 border-t-[1.5px] border-dashed border-border" />
+                  <div className="py-2.5 text-center text-caption text-foreground-muted">
                     {doneLine ?? statusLine}
                     {(status === 'printing' || status === 'finishing') && (
                       <span aria-hidden>

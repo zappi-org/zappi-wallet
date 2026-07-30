@@ -6,11 +6,14 @@
  * where it was entered.
  */
 
-import type { ValidatedData } from '@/core/domain/input-types'
+import type { ValidatedCashuToken, ValidatedData } from '@/core/domain/input-types'
 
 export type InputRouteTarget =
   | { screen: 'send'; validatedData: ValidatedData }
-  | { screen: 'receive-redeem'; token: string }
+  // The VALIDATED token, not its string: handing the receive flow a bare string
+  // makes it re-open the direct-receive sheet (camera and all) just to parse
+  // what was already parsed here, and close it again a frame later.
+  | { screen: 'receive-redeem'; token: ValidatedCashuToken }
   | { screen: 'amount-action'; amount: number }
   | { screen: 'unsupported'; type: ValidatedData['type'] }
 
@@ -24,7 +27,7 @@ export function routeValidatedInput(data: ValidatedData): InputRouteTarget {
     case 'my-wallet':
       return { screen: 'send', validatedData: data }
     case 'cashu-token':
-      return { screen: 'receive-redeem', token: data.token }
+      return { screen: 'receive-redeem', token: data }
     case 'amount':
       return { screen: 'amount-action', amount: data.amount }
     case 'lnurl-withdraw':

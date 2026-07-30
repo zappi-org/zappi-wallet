@@ -51,14 +51,18 @@ export type ReceiveStep =
 export interface TokenReceiveOutcome {
   success: boolean
   amount?: number
+  /** Receiving fee the mint charged — printed on the receipt when non-zero. */
+  fee?: number
   transactionId?: string
   error?: BaseError
 }
 
 /** Deep-link entry — how MainApp seeds the flow when routed from a scan/action. */
 export interface ReceiveLaunch {
+  /** Open the direct-receive sheet with nothing in it (the ecash-tab entry). */
   redeemOpen?: boolean
-  redeemToken?: string
+  /** An already-validated token — skips the sheet and lands on its confirm step. */
+  redeemToken?: ValidatedCashuToken
 }
 
 interface ReceiveFlowState {
@@ -81,10 +85,16 @@ interface ReceiveFlowState {
   expiresAt: number | null
   // Result — stamped once at detection, never re-evaluated in render
   receivedAmount: number
+  /** Receiving fee charged on this arrival; 0 for the fee-free paths. */
+  receivedFee: number
   receivedMethod: 'bolt11' | 'ecash' | 'redeem'
   receivedAt: number
   // Redeem
   redeemToken: ValidatedCashuToken | null
+  /** How the CURRENT confirm step was reached — it decides where back goes:
+   *  'sheet' returns to the sheet to try another token, 'direct' (routed in from
+   *  send/scan) leaves the flow, because that user never saw a sheet. */
+  redeemEntry: 'sheet' | 'direct'
 }
 
 export interface ReceiveFlowProps {
@@ -153,12 +163,13 @@ export function ReceiveFlow({
   const setLastReceivedPayment = useAppStore((s) => s.setLastReceivedPayment)
 
   const [state, setState] = useState<ReceiveFlowState>(() => {
-    const review = incomingReview?.token ?? null
-    // Incoming review wins; a redeem entry (ecash-tab register / scanned or routed
-    // token) opens the redeem host; everything else lands on the amount step.
+    // A queued review and a routed/scanned token are the same thing to this
+    // flow: a token that is already parsed. Both skip the sheet and open on
+    // their confirm step — only a bare `redeemOpen` needs the sheet.
+    const review = incomingReview?.token ?? launch?.redeemToken ?? null
     const initialStep: ReceiveStep = review
       ? (isTrusted(review.mintUrl) ? 'redeem-confirm-trusted' : 'redeem-confirm-untrusted')
-      : (launch?.redeemOpen || launch?.redeemToken)
+      : launch?.redeemOpen
         ? 'redeem'
         : 'amount'
     return {
@@ -175,9 +186,12 @@ export function ReceiveFlow({
       receiveRequestId: null,
       expiresAt: null,
       receivedAmount: 0,
+      receivedFee: 0,
       receivedMethod: 'bolt11',
       receivedAt: 0,
       redeemToken: review,
+      // A token that arrived already parsed never passed through the sheet.
+      redeemEntry: review ? 'direct' : 'sheet',
     }
   })
 
@@ -185,10 +199,11 @@ export function ReceiveFlow({
   // AnimatePresence) rather than inside a single step fragment: the redeem sheet
   // backgrounds the redeem host step and reopens when backing out of a confirm
   // step; the mint sheet is opened from the amount step.
-  // Review wins at mount: a stale redeem launch must not auto-open (and
-  // auto-validate its token) over the queued review's confirm step.
+  // Only the empty entry opens it at mount. A token that arrived already parsed
+  // (review or router) goes straight to its confirm step — opening the sheet
+  // just to re-parse it flashed the camera for a third of a second.
   const [redeemSheetOpen, setRedeemSheetOpen] = useState(
-    () => !incomingReview?.token && !!(launch?.redeemOpen || launch?.redeemToken),
+    () => !incomingReview?.token && !launch?.redeemToken && !!launch?.redeemOpen,
   )
   const [mintSheetOpen, setMintSheetOpen] = useState(false)
 
@@ -228,6 +243,7 @@ export function ReceiveFlow({
       ...prev,
       step: isTrusted(incomingReview.token.mintUrl) ? 'redeem-confirm-trusted' : 'redeem-confirm-untrusted',
       redeemToken: incomingReview.token,
+      redeemEntry: 'direct',
     }))
   }
 
@@ -424,7 +440,7 @@ export function ReceiveFlow({
         void receiveReq.complete(prev.receiveRequestId, method)
           .catch((err: unknown) => console.error('[ReceiveFlow] Failed to complete ReceiveRequest:', err))
       }
-      return { ...prev, step: 'received', receivedMethod: method, receivedAmount: amount, receivedAt }
+      return { ...prev, step: 'received', receivedMethod: method, receivedAmount: amount, receivedFee: 0, receivedAt }
     })
   }, [onPaymentReceived, receiveReq])
 
@@ -448,6 +464,7 @@ export function ReceiveFlow({
       step: 'received',
       receivedMethod: 'redeem',
       receivedAmount: result.amount ?? toNumber(token.amount),
+      receivedFee: result.fee ?? 0,
       receivedAt: Date.now(),
     }))
   }, [onResolveIncomingReview, incomingReview])
@@ -469,6 +486,7 @@ export function ReceiveFlow({
             step: 'received',
             receivedMethod: 'redeem',
             receivedAmount: result.amount,
+            receivedFee: 0,
             receivedAt: Date.now(),
             redeemToken: token,
           }))
@@ -490,6 +508,8 @@ export function ReceiveFlow({
       ...prev,
       step: isTrusted(token.mintUrl) ? 'redeem-confirm-trusted' : 'redeem-confirm-untrusted',
       redeemToken: token,
+      // Came from the sheet, so back belongs to the sheet.
+      redeemEntry: 'sheet',
     }))
   }, [onCheckSelfToken, onReclaimOwnToken, isTrusted, addToast, t])
 
@@ -546,13 +566,19 @@ export function ReceiveFlow({
   }, [incomingReview, onRejectIncomingReview, addToast, t])
 
   // Confirm-step back: in incoming-review mode the user cannot return (the queue
-  // chose this token), so back becomes reject. Otherwise re-host the redeem sheet
-  // so the user can try another token.
+  // chose this token), so back becomes reject. Otherwise it retraces the way in
+  // — re-hosting the sheet only for the user who arrived through it. A token
+  // routed in from send/scan has no sheet behind it, and conjuring one (camera
+  // and all) out of a back tap is a screen the user never asked for.
   const handleConfirmBack = useCallback(() => {
     if (rejectIncomingReview()) return
+    if (state.redeemEntry === 'direct') {
+      onBack()
+      return
+    }
     setState((prev) => ({ ...prev, step: 'redeem' }))
     setRedeemSheetOpen(true)
-  }, [rejectIncomingReview])
+  }, [rejectIncomingReview, state.redeemEntry, onBack])
 
   // Reject: mark the queued review rejected, or (direct-receive) drop the token.
   // With the landing gone there is nowhere to return to, so exit the flow.
@@ -682,6 +708,7 @@ export function ReceiveFlow({
           <PageTransition key="receive-received" variant="fade" className="flex-1 min-h-0">
             <ReceiveReceiptStep
               amount={state.receivedAmount}
+              fee={state.receivedFee}
               mintUrl={receiptMintUrl}
               memo={receiptMemo}
               method={state.receivedMethod}
@@ -722,7 +749,6 @@ export function ReceiveFlow({
         onClose={() => { setRedeemSheetOpen(false); onBack() }}
         onValidated={handleRedeemValidated}
         onRouteValidated={onRouteValidated}
-        initialToken={launch?.redeemToken}
       />
 
       <MintSelectBottomSheet

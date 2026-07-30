@@ -1,7 +1,7 @@
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react'
 import { cn } from '@/ui/lib/utils'
 
-export type ButtonVariant = 'primary' | 'secondary' | 'destructive' | 'ghost' | 'outline' | 'brand'
+export type ButtonVariant = 'primary' | 'secondary' | 'surface' | 'destructive' | 'ghost' | 'outline' | 'brand'
 export type ButtonSize = 'sm' | 'md' | 'lg' | 'xl'
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -22,6 +22,9 @@ const variantStyles: Record<ButtonVariant, string> = {
   // read as a button on the canvas AND inside white sheets. 6% is the tint the
   // segment rail already uses, so it is the system's own value, not a new one.
   secondary: 'bg-foreground/[0.06] text-foreground hover:bg-foreground/[0.09]',
+  // Paper, not tint: on a neutral-50 canvas white reads QUIETER than the 6%
+  // tint, while still matching the card stack it sits under.
+  surface: 'bg-background-card border border-border/60 text-foreground hover:bg-background-hover',
   destructive: 'bg-accent-danger text-white font-semibold hover:bg-accent-danger/90',
   ghost: 'bg-transparent text-foreground-muted hover:bg-background-card',
   outline: 'border border-input bg-background hover:bg-background-card',
