@@ -213,7 +213,13 @@ export function useFocusTrap(
     // it back from whatever the user was typing in.
     if (!isOpen || enteredRef.current) return
     enteredRef.current = true
-    containerRef.current?.focus()
+    const container = containerRef.current
+    if (!container) return
+    // A dialog that autofocuses a field has already placed the caret where the
+    // user needs it; moving focus to the surface would make them tap again.
+    const active = document.activeElement
+    if (active instanceof HTMLElement && active !== container && container.contains(active)) return
+    container.focus()
   }, [isOpen, containerRef])
 
   const restoreFocus = useCallback(() => {
