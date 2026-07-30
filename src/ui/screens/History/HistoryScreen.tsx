@@ -36,7 +36,7 @@ import { getMintFilterLabel } from '@/ui/hooks/useAvailableMints'
 import { exportTransactionsCsv } from '@/ui/utils/exportTransactions'
 import { FilterChip } from '@/ui/components/common/FilterChip'
 import { Spinner } from '@/ui/components/common/Spinner'
-import { groupTransactionsForTimeline, type TimelineGroup, type TimelineKind } from '@/ui/hooks/use-transaction-history'
+import { groupTransactionsForTimeline, type TimelineGroup } from '@/ui/hooks/use-transaction-history'
 import { HistoryTimelineRow } from './components/HistoryTimelineRow'
 
 const TransactionDetailScreen = lazy(() => import('@/ui/screens/TransactionDetail/TransactionDetailScreen'))
@@ -90,7 +90,7 @@ function buildAnchor(
     case 'yesterday': {
       const date = new Date(group.refDate)
       const weekday = shortWeekday(date, locale)
-      const major = `${group.month}.${group.day}`
+      const major = `${zeroPad2(group.month)}.${zeroPad2(group.day ?? 0)}`
       const minorKey =
         group.kind === 'today'
           ? 'history.anchor.today'
@@ -100,7 +100,7 @@ function buildAnchor(
     case 'dayThisMonth': {
       const date = new Date(group.refDate)
       const weekday = shortWeekday(date, locale)
-      const major = `${group.month}.${group.day}`
+      const major = `${zeroPad2(group.month)}.${zeroPad2(group.day ?? 0)}`
       return { major, minor: weekday }
     }
     case 'monthThisYear': {
@@ -129,14 +129,8 @@ function buildAnchor(
   }
 }
 
-function anchorSizeClass(kind: TimelineKind): string {
-  return kind === 'monthPastYear'
-    ? 'text-body font-display font-bold text-foreground leading-none'
-    : 'text-heading font-display font-bold text-foreground leading-none'
-}
-
 function estimateTimelineGroupSize(group: TimelineGroup): number {
-  return Math.max(80, group.entries.length * 66 + 8)
+  return group.entries.length * 75 + 75
 }
 
 // ─── Main Screen ───
@@ -536,9 +530,9 @@ export function HistoryScreen({
 
   // h-full in both modes: the stack container and the sheet body both supply a definite height.
   return (
-    <div className="h-full bg-background text-foreground flex flex-col font-primary relative overflow-hidden z-[60] pt-safe">
+    <div className={`${isSheet ? 'h-full' : 'h-dvh'} bg-white text-foreground flex flex-col font-primary relative overflow-hidden z-[60] ${isSheet ? '' : 'pt-safe'}`}>
       {/* Header */}
-      <header className="relative flex items-center justify-between px-5 h-14 shrink-0 z-50">
+      <header className="relative flex items-center justify-between px-[20px] h-14 shrink-0 z-50">
         <button
           onClick={onBack}
           aria-label={isSheet ? t('common.close') : t('common.back')}
@@ -560,47 +554,53 @@ export function HistoryScreen({
         </button>
       </header>
 
-      {/* Search Bar */}
-      <div className="px-5 pb-3 pt-2">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-muted" />
-          <input
-            type="text"
-            placeholder={t('history.searchPlaceholder')}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-background-card pl-10 pr-4 py-2.5 rounded-card outline-none text-body text-foreground placeholder:text-foreground-muted"
-          />
+      {/* Scrollable Content: search + filters + list */}
+      <div ref={scrollContainerRef} data-scroll-container className="flex-1 min-h-0 overflow-y-auto pb-app">
+        {/* Search Bar */}
+        <div className="px-[20px] pb-3 pt-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-muted" />
+            <input
+              type="text"
+              placeholder={t('history.searchPlaceholder')}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-[#F9F9F9] pl-10 pr-4 py-2.5 rounded-card outline-none text-body text-foreground placeholder:text-foreground-muted"
+            />
+          </div>
         </div>
-      </div>
 
-      {/* Filter Chips */}
-      <div className="px-5 py-2 flex gap-2 overflow-x-auto scrollbar-hide">
-        <FilterChip
-          icon={<ListFilter className="w-3.5 h-3.5" strokeWidth={1.8} />}
-          label={isTypeFiltered ? filterLabels[filter] : t('history.filterType')}
-          active={isTypeFiltered}
-          onClick={() => setOpenSheet('type')}
-        />
-        <FilterChip
-          icon={<Calendar className="w-3.5 h-3.5" strokeWidth={1.8} />}
-          label={isDateFiltered ? dateFilterLabel : t('history.dateFilter')}
-          active={isDateFiltered}
-          onClick={() => setOpenSheet('date')}
-        />
-        {availableMints.length > 1 && (
+        {/* Filter Chips */}
+        <div className="px-[20px] pt-2 flex gap-2 overflow-x-auto scrollbar-hide">
           <FilterChip
-            icon={<CreditCard className="w-3.5 h-3.5" strokeWidth={1.8} />}
-            label={isMintFiltered ? mintFilterLabel : t('history.mintFilter')}
-            active={isMintFiltered}
-            onClick={() => setOpenSheet('mint')}
-            truncate
+            icon={<ListFilter className="w-3.5 h-3.5" strokeWidth={1.8} />}
+            label={isTypeFiltered ? filterLabels[filter] : t('history.filterType')}
+            active={isTypeFiltered}
+            onClick={() => setOpenSheet('type')}
           />
-        )}
-      </div>
+          <FilterChip
+            icon={<Calendar className="w-3.5 h-3.5" strokeWidth={1.8} />}
+            label={isDateFiltered ? dateFilterLabel : t('history.dateFilter')}
+            active={isDateFiltered}
+            onClick={() => setOpenSheet('date')}
+          />
+          {availableMints.length > 1 && (
+            <FilterChip
+              icon={<CreditCard className="w-3.5 h-3.5" strokeWidth={1.8} />}
+              label={isMintFiltered ? mintFilterLabel : t('history.mintFilter')}
+              active={isMintFiltered}
+              onClick={() => setOpenSheet('mint')}
+              truncate
+            />
+          )}
+        </div>
 
-      {/* List */}
-      <div ref={scrollContainerRef} data-scroll-container className="mt-2 flex-1 min-h-0 overflow-y-auto px-5 pb-app">
+        {/* Separator — sticky below header */}
+        <div className="h-px bg-[#EBEBEB] mt-[30px] mx-[20px] sticky top-0" />
+        <div className="h-[30px]" />
+
+        {/* List */}
+        <div className="px-[24px]">
         {isLoading ? (
           <TransactionListSkeleton count={6} />
         ) : (
@@ -654,7 +654,8 @@ export function HistoryScreen({
           </motion.div>
           )
         ) : (
-          <AnimatePresence mode="wait">
+          <>
+            <AnimatePresence mode="wait">
             <motion.div
               key={`${filter}-${dateFilter.preset}-${dateFilter.range?.from?.getTime()}-${searchQuery}-${selectedMintUrls.size}`}
               initial={{ opacity: 0 }}
@@ -679,44 +680,40 @@ export function HistoryScreen({
                       left: 0,
                       width: '100%',
                     }}
+                    className={virtualRow.index === 0 ? '' : 'pt-[40px]'}
                   >
-                    <div className={`flex items-start gap-3 ${virtualRow.index === timelineGroups.length - 1 ? '' : 'pb-6'}`}>
-                      <div className="w-14 shrink-0 pt-1 sticky top-0 self-start">
-                        <div className={anchorSizeClass(group.kind)}>
-                          {anchor.major}
-                        </div>
-                        {anchor.minor && (
-                          <div className="mt-1.5 text-overline text-foreground-muted">
-                            {anchor.minor}
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1 flex flex-col gap-2 min-w-0">
-                        {group.entries.map((tx) => (
-                          <HistoryTimelineRow
-                            key={tx.id}
-                            transaction={tx}
-                            linkedTransaction={tx.linkedTxId ? transactionById.get(tx.linkedTxId) : null}
-                            hasCompanionReceive={reclaimCompanionSendIds.has(tx.id)}
-                            groupKind={group.kind}
-                            onClick={() => selectTransaction(tx)}
-                            getMintName={getDisplayName}
-                          />
-                        ))}
-                      </div>
+                    <div>
+                      <span className="text-[13px] leading-[16px] font-semibold text-[#353535]">
+                        {anchor.major}
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-[34px] mt-[20px]">
+                      {group.entries.map((tx) => (
+                        <HistoryTimelineRow
+                          key={tx.id}
+                          transaction={tx}
+                          linkedTransaction={tx.linkedTxId ? transactionById.get(tx.linkedTxId) : null}
+                          hasCompanionReceive={reclaimCompanionSendIds.has(tx.id)}
+                          groupKind={group.kind}
+                          onClick={() => selectTransaction(tx)}
+                          getMintName={getDisplayName}
+                        />
+                      ))}
                     </div>
                   </div>
                 )
               })}
             </motion.div>
+          </AnimatePresence>
             <p className="text-caption text-foreground-muted text-center pt-5 pb-8">
               {t('history.endOfList')}
             </p>
-          </AnimatePresence>
+          </>
         )}
           </>
         )}
       </div>
+      </div> {/* end scroll container */}
 
       {/* Type Filter Sheet */}
       <BottomSheet isOpen={openSheet === 'type'} onClose={closeSheet} title={t('history.filterType')}>
@@ -749,7 +746,7 @@ export function HistoryScreen({
 
       {/* Export Confirmation Sheet */}
       <BottomSheet isOpen={openSheet === 'export'} onClose={closeSheet} title={t('history.export')}>
-        <div className="px-5 py-4 flex flex-col gap-4">
+        <div className="px-[20px] py-4 flex flex-col gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
               <FileSpreadsheet className="w-5 h-5 text-primary" strokeWidth={1.8} />

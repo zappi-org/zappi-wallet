@@ -79,7 +79,7 @@ export default {
     addFirstMint: '첫 번째 민트를 추가하세요',
     recentTransactions: '최근 거래',
     noTransactions: '거래내역이 없습니다',
-    seeAll: '더보기',
+    seeAll: '내역',
   },
 
   // Action Buttons
@@ -525,6 +525,8 @@ export default {
     sent: '보냄',
     receiving: '받는 중',
     sending: '보내는 중',
+    swapSent: '다른 지갑으로 보내기',
+    swapReceived: '다른 지갑에서 받음',
 
     // Redesigned history screen
     income: '입금',

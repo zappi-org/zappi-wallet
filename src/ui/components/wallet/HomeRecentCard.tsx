@@ -54,29 +54,18 @@ export const HomeRecentCard = memo(function HomeRecentCard({
 
   return (
     <div className={cn('shrink-0 pb-app-nav px-4 w-full max-w-sm mx-auto', className)}>
-      <div className="relative flex items-center mb-2 px-5">
-        {onSeeAll && (
+      {onSeeAll && (
+        <div className="flex items-center justify-center mb-2.5 px-5">
           <button
             onClick={onSeeAll}
-            className="absolute left-1/2 -translate-x-1/2 -translate-y-1 flex h-11 w-11 items-center justify-center rounded-lg active:opacity-60 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+            className="flex flex-col items-center active:opacity-60 transition-opacity"
             aria-label={t('home.seeAll')}
           >
-            <ChevronUp className="w-4 h-4 text-foreground-muted" strokeWidth={2.5} />
+            <ChevronUp className="w-5 h-5 text-foreground-muted" strokeWidth={2.5} />
+            <span className="text-[11px] text-foreground-muted -mt-0.5">{t('home.seeAll')}</span>
           </button>
-        )}
-        {!onSeeAll && (
-          <ChevronUp className="absolute left-1/2 -translate-x-1/2 w-4 h-4 text-foreground-muted" strokeWidth={2.5} />
-        )}
-        <div className="flex-1" />
-        {onSeeAll && (
-          <button
-            onClick={onSeeAll}
-            className="-mr-2 flex min-h-11 items-center rounded-lg px-2 text-label text-foreground active:opacity-60 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
-          >
-            {t('home.seeAll')}
-          </button>
-        )}
-      </div>
+        </div>
+      )}
 
       <button
         onClick={onPress}

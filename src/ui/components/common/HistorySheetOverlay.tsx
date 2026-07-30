@@ -158,7 +158,7 @@ export function HistorySheetOverlay({
             dragListener={false}
             onDragEnd={handleDragEnd}
             onPointerDown={handlePointerDown}
-            className="absolute inset-x-0 bottom-0 top-[6vh] z-50 rounded-t-2xl overflow-hidden bg-background flex flex-col outline-none"
+            className="absolute inset-x-0 bottom-0 top-[6vh] z-50 rounded-t-2xl overflow-hidden bg-white flex flex-col outline-none"
           >
             <div className="flex justify-center py-3 shrink-0 touch-none">
               <div className="w-10 h-1 bg-foreground-subtle rounded-full" />
