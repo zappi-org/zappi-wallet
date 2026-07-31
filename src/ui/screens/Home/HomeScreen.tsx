@@ -383,33 +383,31 @@ export function HomeScreen({
         </div>
       </div>
 
-      {/* The newest ledger row now lives in the drawer's collapsed detent, so
-          the same surface the user grabs is the one that expands. */}
-      {isTop && (
-        <HistoryDrawer
-          expanded={historyExpanded}
-          onExpandedChange={setHistoryExpanded}
-          transactions={transactions}
-          initialMintUrls={
-            mints[clampedMintIndex] ? [mints[clampedMintIndex].url] : undefined
-          }
-          peek={
-            recent ? (
-              <HomeRecentCard
-                row={recent.row}
-                onPress={recent.onPress}
-                onSeeAll={() => setHistoryExpanded(true)}
-              />
-            ) : (
-              <div className="shrink-0 px-4 w-full max-w-sm mx-auto">
-                <p className="text-caption text-foreground-muted text-center py-2">
-                  {t('home.noTransactions')}
-                </p>
-              </div>
-            )
-          }
-        />
-      )}
+      {/* The newest ledger row stays home's own; the drawer only takes the
+          gesture on it, and slides its sheet over the top. */}
+      <HistoryDrawer
+        expanded={historyExpanded}
+        onExpandedChange={setHistoryExpanded}
+        transactions={transactions}
+        initialMintUrls={
+          mints[clampedMintIndex] ? [mints[clampedMintIndex].url] : undefined
+        }
+        peek={
+          recent ? (
+            <HomeRecentCard
+              row={recent.row}
+              onPress={recent.onPress}
+              onSeeAll={() => setHistoryExpanded(true)}
+            />
+          ) : (
+            <div className="shrink-0 px-4 w-full max-w-sm mx-auto">
+              <p className="text-caption text-foreground-muted text-center py-2">
+                {t('home.noTransactions')}
+              </p>
+            </div>
+          )
+        }
+      />
     </motion.div>
   );
 }

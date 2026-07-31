@@ -1,51 +1,41 @@
-import { lazy, Suspense, type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import type React from 'react'
-import { Drawer } from 'vaul'
+import { createPortal } from 'react-dom'
+import {
+  animate,
+  motion,
+  useDragControls,
+  useMotionValue,
+  useReducedMotion,
+  useTransform,
+  type PanInfo,
+} from 'motion/react'
 import { useTranslation } from 'react-i18next'
 import { LoadingFallback } from '@/ui/components/common/LoadingFallback'
 import type { Transaction } from '@/core/domain/transaction'
 import { useEscapeDismiss } from '@/ui/hooks/use-escape-dismiss'
 import { useFocusTrap } from '@/ui/hooks/use-focus-trap'
+import { useIsActivityTop } from '@/ui/navigation/use-is-activity-top'
+import { SHEET_DURATION, SHEET_EASE } from '@/ui/utils/motion'
 import type { PendingItemDetailCallbacks } from '@/ui/screens/MintDetail/PendingItemDetailScreen'
 
 const HistoryScreen = lazy(() => import('@/ui/screens/History/HistoryScreen'))
 
-/** Expanded height, leaving the pushed-back shell visible above the sheet. */
+/** Open height, leaving the pushed-back shell visible above the sheet. */
 const SHEET_HEIGHT_RATIO = 0.94
-/** Collapsed: the peek row + clearance for the glass dock it sits behind. */
-const PEEK_VISIBLE_PX = 220
-const FULL_SNAP = 1
-/** Past this much travel a press is a drag, not a tap on what sat under it. */
-const DRAG_SLOP_PX = 8
 /** Matches the shared sheet: same scrim weight, same presentation curve. */
 const SCRIM_OPACITY = 0.5
-const SHEET_EASE = 'var(--sheet-ease)'
-const SHEET_MS = 500
-/** The material arrives under the finger, so it fades in far faster than it leaves. */
-const SURFACE_IN_MS = 150
-/**
- * Leaving is driven by where the sheet is rather than by a clock. Fading evenly
- * over the slide left it half transparent in mid-screen; waiting and then fading
- * on a timer changed the surface while the sheet was already parked, which reads
- * as a switch rather than a departure. Cubing the travel keeps it solid through
- * the part of the descent the eye follows and drains it over the last stretch —
- * and because the sheet is decelerating there, the drain slows with it.
- */
-const SURFACE_FADE_POWER = 3
-
-/**
- * Vaul measures a px snap point from the top of the drawer element, not from the
- * bottom of the viewport — with a 94%-tall sheet a literal 236px would show only
- * 184px. Add back the gap the sheet leaves at the top.
- */
-function peekSnapFor(viewportHeight: number): string {
-  return `${Math.round(viewportHeight * (1 - SHEET_HEIGHT_RATIO) + PEEK_VISIBLE_PX)}px`
-}
+/** Past this much travel a press is a drag, not a tap on what sat under it. */
+const DRAG_SLOP_PX = 8
+/** Movement needed over the list before scrolling vs dismissing is decided. */
+const DIRECTION_SLOP_PX = 6
+/** Of a flick's speed, the distance credited to it when picking a resting state. */
+const FLICK_PROJECTION_S = 0.12
 
 export interface HistoryDrawerProps {
   expanded: boolean
   onExpandedChange: (expanded: boolean) => void
-  /** Collapsed content — the newest ledger row, shown in place of the old home card. */
+  /** Home's own newest-transaction row, which the sheet slides over and back off. */
   peek: ReactNode
   transactions: Transaction[]
   initialMintUrls?: string[]
@@ -53,14 +43,13 @@ export interface HistoryDrawerProps {
 }
 
 /**
- * Home's transaction history as a persistent two-detent drawer.
+ * Home's transaction history as a sheet that slides over the screen.
  *
- * Replaces the pan-recognizer + overlay pair: the sheet itself is the gesture
- * target, so dragging tracks the finger from the first pixel and the webview
- * never sees an unconsumed vertical drag to bounce on.
- *
- * The z-index flips with the detent: below the dock (z-50) while collapsed so the
- * tab bar stays usable, above it once expanded so the sheet is not pierced by it.
+ * The peek row stays where home draws it and never moves: the sheet travels the
+ * full height of its own box, so opening covers the row and closing uncovers it.
+ * The gesture starts on that row rather than on the sheet — closed, the sheet is
+ * off the bottom of the screen and there is nothing there to grab — which is
+ * what `dragListener={false}` plus an external `dragControls.start` is for.
  */
 export function HistoryDrawer({
   expanded,
@@ -71,28 +60,19 @@ export function HistoryDrawer({
   pendingItemCallbacks,
 }: HistoryDrawerProps) {
   const { t } = useTranslation()
-  const contentRef = useRef<HTMLDivElement>(null)
+  const reduceMotion = useReducedMotion()
+  const dragControls = useDragControls()
+  const sheetRef = useRef<HTMLDivElement>(null)
   const scrimRef = useRef<HTMLDivElement>(null)
+  const isTop = useIsActivityTop()
 
   const collapse = useCallback(() => onExpandedChange(false), [onExpandedChange])
 
-  // The sheet lives in a portal that mounts after this component's own layout
-  // effects, so the trap has to wait for the node: arming it on `expanded` alone
-  // would run against a null container and never mark the background inert.
-  const [contentReady, setContentReady] = useState(false)
-  const setContentNode = useCallback((node: HTMLDivElement | null) => {
-    contentRef.current = node
-    setContentReady(Boolean(node))
-  }, [])
-  const { onEntryComplete, restoreFocus } = useFocusTrap(
-    expanded && contentReady,
-    contentRef,
-    scrimRef,
-  )
+  const { onEntryComplete, restoreFocus } = useFocusTrap(expanded, sheetRef, scrimRef)
   useEscapeDismiss(expanded, collapse)
 
-  // The drawer never unmounts, so the trap is driven by the detent instead of by
-  // mount/unmount: take focus once expanded, hand it back on collapse.
+  // The sheet never unmounts, so the trap is driven by the open state instead of
+  // by mount/unmount: take focus once open, hand it back on close.
   useEffect(() => {
     if (expanded) onEntryComplete()
     else restoreFocus()
@@ -107,35 +87,47 @@ export function HistoryDrawer({
     return () => window.removeEventListener('resize', onResize)
   }, [])
 
-  const peekSnap = useMemo(() => peekSnapFor(viewportHeight), [viewportHeight])
-  const snapPoints = useMemo(() => [peekSnap, FULL_SNAP], [peekSnap])
-  const activeSnapPoint = expanded ? FULL_SNAP : peekSnap
-
-  const setActiveSnapPoint = useCallback(
-    (snap: number | string | null) => onExpandedChange(snap === FULL_SNAP),
-    [onExpandedChange],
+  /** Closed sits the sheet on its own height — entirely below the viewport. */
+  const closedY = Math.ceil(viewportHeight * SHEET_HEIGHT_RATIO)
+  const y = useMotionValue(closedY)
+  // The scrim belongs to the sheet's position, not to the state it ends in: it
+  // follows the finger on the way up and lifts on the way down, in step.
+  const scrimOpacity = useTransform(
+    y,
+    (value) => Math.min(1, Math.max(0, 1 - value / closedY)) * SCRIM_OPACITY,
   )
 
-  // Warm the history chunk while the drawer is still collapsed, so the first
-  // expand doesn't wait on the network for its content.
+  const settleTo = useCallback(
+    (open: boolean) => {
+      const transition = reduceMotion
+        ? { duration: 0 }
+        : { duration: SHEET_DURATION, ease: SHEET_EASE }
+      animate(y, open ? 0 : closedY, transition)
+    },
+    [y, closedY, reduceMotion],
+  )
+
+  useEffect(() => { settleTo(expanded) }, [expanded, settleTo])
+
+  // Warm the history chunk while the sheet is still closed, so the first open
+  // doesn't wait on the network for its content.
   useEffect(() => {
     const idle = window.requestIdleCallback ?? ((cb: () => void) => window.setTimeout(cb, 1))
     idle(() => { void import('@/ui/screens/History/HistoryScreen') })
   }, [])
 
-  // The list mounts on the first drag rather than on expand, so the two layers
-  // can cross-fade instead of the content swapping after the snap lands. It is
-  // never mounted on a home that was only ever looked at: HistoryScreen kicks off
-  // a reconcile on mount, which has no business running until the user reaches
-  // for the ledger.
+  // The list mounts on the first drag rather than on release, so it is already
+  // there under the finger. It is never mounted on a home that was only looked
+  // at: HistoryScreen kicks off a reconcile on mount, which has no business
+  // running until the user reaches for the ledger.
   const [listMounted, setListMounted] = useState(expanded)
   useEffect(() => {
     if (expanded) setListMounted(true)
   }, [expanded])
 
-  // HistoryScreen seeds its mint filter once, at mount. Now that the list stays
-  // mounted between detents, swiping to another card would otherwise leave it
-  // showing the previous mint's ledger. Drop it while collapsed so the next drag
+  // HistoryScreen seeds its mint filter once, at mount. Since the list stays
+  // mounted between opens, swiping to another card would otherwise leave it
+  // showing the previous mint's ledger. Drop it while closed so the next drag
   // mounts it against the card the user is actually on — and remount via `key`
   // for the case where it is already open.
   const mintKey = initialMintUrls?.join('|') ?? 'all'
@@ -145,104 +137,79 @@ export function HistoryDrawer({
     if (!expanded && listMounted) setListMounted(false)
   }
 
-  // The sheet material shows up as soon as the drag starts, not when the snap
-  // lands: pulling a transparent surface reads as home flying up, pulling a white
-  // one reads as a sheet being lifted.
-  const [dragging, setDragging] = useState(false)
-  const surfaced = expanded || dragging
+  const handleDragStart = useCallback(() => setListMounted(true), [])
 
-  // The scrim belongs to the sheet's position, not to the detent it ends on: it
-  // follows the finger while dragging and settles on the same curve and duration
-  // as every other sheet in the app. Written straight to the node during a drag —
-  // a state update per frame would be a re-render per frame.
-  const dimProgress = useRef(expanded ? 1 : 0)
-  const peekTop = viewportHeight - PEEK_VISIBLE_PX
-  const fullTop = viewportHeight * (1 - SHEET_HEIGHT_RATIO)
-  const trackDrag = useCallback(() => {
-    setListMounted(true)
-    setDragging(true)
-    const node = contentRef.current
-    if (!node) return
-    const progress = (peekTop - node.getBoundingClientRect().y) / (peekTop - fullTop)
-    dimProgress.current = Math.min(1, Math.max(0, progress))
-    if (scrimRef.current) scrimRef.current.style.opacity = String(dimProgress.current * SCRIM_OPACITY)
-  }, [peekTop, fullTop])
+  const handleDragEnd = useCallback(
+    (_: unknown, info: PanInfo) => {
+      const projected = y.get() + info.velocity.y * FLICK_PROJECTION_S
+      const open = projected < closedY / 2
+      // A drag that ends on the side it started changes no state, so nothing
+      // would animate it home; settle it here instead.
+      if (open === expanded) settleTo(open)
+      else onExpandedChange(open)
+    },
+    [y, closedY, expanded, settleTo, onExpandedChange],
+  )
 
-  const settleDim = useCallback(() => {
-    setDragging(false)
-    dimProgress.current = expanded ? 1 : 0
-  }, [expanded])
+  /** Nearest scrollable ancestor within the sheet, if the press is over one. */
+  const verticalScroller = useCallback((target: EventTarget | null): HTMLElement | null => {
+    let node = target as HTMLElement | null
+    while (node && node !== sheetRef.current) {
+      if (node.scrollHeight > node.clientHeight) {
+        const { overflowY } = getComputedStyle(node)
+        if (overflowY === 'auto' || overflowY === 'scroll') return node
+      }
+      node = node.parentElement
+    }
+    return null
+  }, [])
 
-  // The material's opacity is written here rather than through JSX: React would
-  // otherwise set it to its resting value on the render that starts a collapse,
-  // blanking the surface for a frame before the first driven value lands. Layout
-  // effect, so the value is in place before the browser paints.
-  const surfaceRef = useRef<HTMLDivElement>(null)
-  useLayoutEffect(() => {
-    const surface = surfaceRef.current
-    if (!surface) return
-    if (surfaced) {
-      surface.style.transition = `opacity ${SURFACE_IN_MS}ms ${SHEET_EASE}`
-      surface.style.opacity = '1'
+  const pressOrigin = useRef<{ x: number; y: number } | null>(null)
+  const awaitingDirection = useRef(false)
+
+  const startFromPeek = useCallback((event: React.PointerEvent) => {
+    pressOrigin.current = { x: event.clientX, y: event.clientY }
+    dragControls.start(event)
+  }, [dragControls])
+
+  // The whole sheet is the grab area. A list scrolled away from its top keeps
+  // the gesture; at the top the first few pixels decide — downwards dismisses,
+  // upwards is left to the scroller.
+  const handleSheetPointerDown = useCallback((event: React.PointerEvent) => {
+    pressOrigin.current = { x: event.clientX, y: event.clientY }
+    awaitingDirection.current = false
+    const target = event.target as HTMLElement | null
+    // Sheets opened from inside this one (the history filters) sit in its drag
+    // surface — without this, dragging them drags the sheet underneath.
+    if (target?.closest('[data-sheet-no-drag]')) return
+    const scroller = verticalScroller(target)
+    if (scroller) {
+      if (scroller.scrollTop > 0) return
+      awaitingDirection.current = true
       return
     }
-    // On the way down it is drawn frame by frame from how far the sheet has
-    // travelled, so the two can only ever stop together. Cubing keeps it solid
-    // through the part of the descent the eye follows and drains it over the last
-    // stretch — and since the sheet is decelerating there, the drain slows with it.
-    surface.style.transition = 'none'
-    let frame = 0
-    const draw = () => {
-      // The sheet lives in a portal that attaches after this effect first runs;
-      // returning without drawing would leave the material at its stylesheet
-      // default and paint a white panel over the collapsed peek.
-      const node = contentRef.current
-      if (!node) {
-        frame = requestAnimationFrame(draw)
-        return
-      }
-      const travelled = (node.getBoundingClientRect().y - fullTop) / (peekTop - fullTop)
-      const progress = Math.min(1, Math.max(0, travelled))
-      surface.style.opacity = String(1 - progress ** SURFACE_FADE_POWER)
-      if (progress < 1) frame = requestAnimationFrame(draw)
-    }
-    draw()
-    return () => cancelAnimationFrame(frame)
-  }, [surfaced, contentReady, peekTop, fullTop])
+    dragControls.start(event)
+  }, [dragControls, verticalScroller])
 
-  // Two ways out of the dragging state, because leaving it to vaul's onRelease
-  // alone is what made the X button leave the shell dimmed under a white sheet
-  // on device: the press that hit it was enough of a drag to arm this, the
-  // release never came back, and the surface and scrim both read that stale flag.
-  // A pointer that ended anywhere ends the drag, and reaching a detent settles it
-  // regardless of which callbacks fired.
-  useEffect(() => {
-    if (!dragging) return
-    const end = () => setDragging(false)
-    window.addEventListener('pointerup', end)
-    window.addEventListener('pointercancel', end)
-    return () => {
-      window.removeEventListener('pointerup', end)
-      window.removeEventListener('pointercancel', end)
-    }
-  }, [dragging])
+  const handleSheetPointerMove = useCallback((event: React.PointerEvent) => {
+    if (!awaitingDirection.current) return
+    const origin = pressOrigin.current
+    if (!origin) return
+    const dy = event.clientY - origin.y
+    if (Math.abs(dy) < DIRECTION_SLOP_PX) return
+    awaitingDirection.current = false
+    if (dy > 0) dragControls.start(event)
+  }, [dragControls])
 
-  useEffect(() => {
-    setDragging(false)
-    dimProgress.current = expanded ? 1 : 0
-    if (scrimRef.current) {
-      scrimRef.current.style.opacity = String(dimProgress.current * SCRIM_OPACITY)
-    }
-  }, [expanded])
+  const endDirectionWatch = useCallback(() => { awaitingDirection.current = false }, [])
 
   // Dragging the peek row upwards would otherwise also count as a tap on it and
   // open that transaction behind the sheet you just pulled up. A pointer that
   // travelled is a drag, and its click is not the user's intent.
-  const pressOrigin = useRef<{ x: number; y: number } | null>(null)
-  const notePress = useCallback((event: React.PointerEvent) => {
-    pressOrigin.current = { x: event.clientX, y: event.clientY }
-  }, [])
   const swallowDragClick = useCallback((event: React.MouseEvent) => {
+    // Keyboard and assistive-tech activations carry no pointer position, so
+    // comparing them against the last drag's origin would swallow them.
+    if (event.detail === 0) return
     const origin = pressOrigin.current
     if (!origin) return
     if (Math.hypot(event.clientX - origin.x, event.clientY - origin.y) <= DRAG_SLOP_PX) return
@@ -251,102 +218,76 @@ export function HistoryDrawer({
   }, [])
 
   return (
-    <Drawer.Root
-      open
-      dismissible={false}
-      // Constant on purpose: vaul 1.1.2's Overlay calls a hook after an early
-      // `if (!modal) return null`, so flipping this at runtime throws
-      // "Rendered more hooks than during the previous render". We own the scrim
-      // instead — which is also what keeps home tappable at the peek detent.
-      modal={false}
-      snapPoints={snapPoints}
-      activeSnapPoint={activeSnapPoint}
-      setActiveSnapPoint={setActiveSnapPoint}
-      fadeFromIndex={1}
-      // Our own keyboard inset handling applies here too: Vaul's viewport math
-      // has thrown sheets to the top of the screen on iOS (see MemoSheet).
-      repositionInputs={false}
-      onDrag={trackDrag}
-      onRelease={settleDim}
-    >
-      <Drawer.Portal>
-        <div
-          ref={scrimRef}
-          aria-hidden
-          onClick={collapse}
-          className={`fixed inset-0 bg-black motion-reduce:transition-none ${expanded ? 'z-[55]' : 'z-30'}`}
-          style={{
-            opacity: (dragging ? dimProgress.current : expanded ? 1 : 0) * SCRIM_OPACITY,
-            transition: dragging ? 'none' : `opacity ${SHEET_MS}ms ${SHEET_EASE}`,
-            pointerEvents: expanded ? 'auto' : 'none',
-          }}
-        />
-        <Drawer.Content
-          ref={setContentNode}
-          aria-describedby={undefined}
-          // Collapsed the drawer is only a drag surface: home's own background has
-          // to stay visible behind the peek row, which is what it sat on before.
-          className={`fixed inset-x-0 bottom-0 flex h-[94%] flex-col outline-none ${
-            expanded ? 'z-[60]' : 'z-40'
-          }`}
-        >
-          {/* The sheet material is a layer of its own rather than this element's
-              background: vaul writes `transition` inline on the drawer, which
-              overrides any transition set on it, so the background switched with
-              no fade at all — at the first frame of a collapse the surface was
-              already gone and the peek row appeared to travel down on its own.
-              Owning a child means owning its timing: it arrives quickly under the
-              finger and leaves over the length of the slide it is riding. */}
-          <div
-            ref={surfaceRef}
+    <>
+      {/* Home's own bottom edge: in flow, and untouched by the sheet passing
+          over it. `touch-action: none` because this row is where the drag is
+          picked up — left to the browser it would scroll-bounce the webview. */}
+      <div
+        className="mt-auto shrink-0"
+        style={{ touchAction: 'none' }}
+        onPointerDown={startFromPeek}
+        onClickCapture={swallowDragClick}
+      >
+        {peek}
+      </div>
+
+      {/* Body-level, so `fixed` escapes the activity's transform and the sheet
+          paints over the dock instead of under it. Dropped while home is
+          covered: a portalled sheet would otherwise outlive its screen. */}
+      {isTop && createPortal(
+        <>
+          <motion.div
+            ref={scrimRef}
             aria-hidden
-            className="pointer-events-none absolute inset-0 rounded-t-[32px] bg-white"
+            onClick={collapse}
+            className="fixed inset-0 z-[55] bg-black"
+            style={{ opacity: scrimOpacity, pointerEvents: expanded ? 'auto' : 'none' }}
           />
-          {/* The grabber belongs to the expanded sheet — collapsed, the peek row
-              is home's own bottom edge and carried no bar before. */}
-          <div
-            className="flex shrink-0 justify-center overflow-hidden transition-all duration-200 motion-reduce:transition-none"
-            style={{ height: expanded ? 22 : 12, opacity: expanded ? 1 : 0 }}
+          <motion.div
+            ref={sheetRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label={t('history.title')}
+            aria-hidden={!expanded}
+            tabIndex={-1}
+            drag="y"
+            dragControls={dragControls}
+            dragListener={false}
+            dragConstraints={{ top: 0, bottom: closedY }}
+            dragElastic={0}
+            dragMomentum={false}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            onPointerDown={handleSheetPointerDown}
+            onPointerMove={handleSheetPointerMove}
+            onPointerUp={endDirectionWatch}
+            onPointerCancel={endDirectionWatch}
+            onClickCapture={swallowDragClick}
+            className="fixed inset-x-0 bottom-0 z-[60] flex h-[94%] flex-col overflow-hidden rounded-t-[32px] bg-white outline-none"
+            style={{ y, pointerEvents: expanded ? 'auto' : 'none' }}
           >
-            <Drawer.Handle className="!mt-3 !h-1 !w-10 !bg-foreground-subtle" />
-          </div>
+            <div className="flex shrink-0 touch-none justify-center pt-3 pb-2">
+              <div className="h-1 w-10 rounded-full bg-foreground-subtle" />
+            </div>
 
-          <Drawer.Title className="sr-only">{t('history.title')}</Drawer.Title>
-
-
-          {/* Both detents' content live in the same box and cross-fade, so the
-              swap doesn't land as a jump once the snap settles. */}
-          <div className="relative min-h-0 flex-1">
-            {listMounted && (
-              <div
-                className="absolute inset-0 transition-opacity duration-200 motion-reduce:transition-none"
-                style={{ opacity: expanded ? 1 : 0, pointerEvents: expanded ? 'auto' : 'none' }}
-                aria-hidden={!expanded}
-              >
+            <div className="relative min-h-0 flex-1">
+              {listMounted && (
                 <Suspense fallback={<LoadingFallback />}>
                   <HistoryScreen
                     key={mintKey}
-                    onBack={() => onExpandedChange(false)}
+                    onBack={collapse}
                     transactions={transactions}
                     initialMintUrls={initialMintUrls}
                     pendingItemCallbacks={pendingItemCallbacks}
                     isSheet
                   />
                 </Suspense>
-              </div>
-            )}
-            <div
-              className="absolute inset-x-0 top-0 pb-app-nav transition-opacity duration-200 motion-reduce:transition-none"
-              style={{ opacity: expanded ? 0 : 1, pointerEvents: expanded ? 'none' : 'auto' }}
-              aria-hidden={expanded}
-              onPointerDownCapture={notePress}
-              onClickCapture={swallowDragClick}
-            >
-              {peek}
+              )}
             </div>
-          </div>
-        </Drawer.Content>
-      </Drawer.Portal>
-    </Drawer.Root>
+          </motion.div>
+        </>,
+        document.body,
+      )}
+    </>
   )
 }

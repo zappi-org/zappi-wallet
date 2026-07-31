@@ -22,7 +22,7 @@ vi.mock('motion/react', () => {
   const MOTION_ONLY = new Set([
     'initial', 'animate', 'exit', 'transition', 'layout',
     'drag', 'dragConstraints', 'dragElastic', 'dragControls', 'dragListener',
-    'dragSnapToOrigin', 'onDragEnd', 'onAnimationComplete',
+    'dragSnapToOrigin', 'dragMomentum', 'onDragStart', 'onDragEnd', 'onAnimationComplete',
   ])
 
   function Div({ ref, ...props }: Record<string, unknown> & { ref?: Ref<HTMLDivElement> }) {
@@ -35,7 +35,25 @@ vi.mock('motion/react', () => {
     const domProps = Object.fromEntries(
       Object.entries(props).filter(([key]) => !MOTION_ONLY.has(key)),
     )
+    // Motion values are objects; only plain CSS survives the trip to the DOM.
+    if (domProps.style && typeof domProps.style === 'object') {
+      domProps.style = Object.fromEntries(
+        Object.entries(domProps.style as Record<string, unknown>).filter(
+          ([, value]) => typeof value === 'string' || typeof value === 'number',
+        ),
+      )
+    }
     return <div {...domProps} ref={ref} />
+  }
+
+  /** Enough of a motion value to read, write and derive from. */
+  function motionValue(initial: unknown) {
+    let current = initial
+    return {
+      get: () => current,
+      set: (next: unknown) => { current = next },
+      on: () => () => {},
+    }
   }
 
   function AnimatePresence({
@@ -59,6 +77,13 @@ vi.mock('motion/react', () => {
     AnimatePresence,
     useDragControls: () => ({ start: () => {} }),
     useReducedMotion: () => false,
+    useMotionValue: (initial: unknown) => motionValue(initial),
+    useTransform: (source: { get: () => number }, transform: (value: number) => number) =>
+      motionValue(transform(source.get())),
+    animate: (value: { set: (next: unknown) => void }, to: unknown) => {
+      value.set(to)
+      return { stop: () => {} }
+    },
   }
 })
 

@@ -8,7 +8,7 @@ import {
   type PanInfo,
   type Transition,
 } from 'motion/react'
-import { motionSafeTransition } from '@/ui/utils/motion'
+import { motionSafeTransition, SHEET_DURATION, SHEET_EASE } from '@/ui/utils/motion'
 import { useEscapeDismiss } from '@/ui/hooks/use-escape-dismiss'
 import { useFocusTrap } from '@/ui/hooks/use-focus-trap'
 import { useIsActivityTop } from '@/ui/navigation/use-is-activity-top'
@@ -72,16 +72,6 @@ export interface BottomSheetProps {
 }
 
 const DEFAULT_SHEET_CLASS = 'bg-background-elevated rounded-t-lg max-h-[85vh] overflow-hidden'
-/**
- * Fitted to Apple's system spring (Animation.smooth: duration 0.5, bounce 0) —
- * see --sheet-ease in index.css, which carries the same numbers for the drawer.
- * A spring leaves rest slowly and spends its speed in the middle; the curve this
- * replaces was at 78% of the distance a quarter of the way through, which is why
- * an animation of the right length still read as rushed.
- */
-const SHEET_EASE = [0.18, 0.08, 0.24, 1] as const
-const DEFAULT_TRANSITION: Transition = { duration: 0.5, ease: SHEET_EASE }
-const DEFAULT_BACKDROP_TRANSITION: Transition = { duration: 0.5, ease: SHEET_EASE }
 /** Past this much travel a press is a drag, not a tap on what sat under it. */
 const DRAG_SLOP_PX = 8
 /** Movement needed over a carousel before paging vs dismissing is decided. */
@@ -107,8 +97,8 @@ export function BottomSheet({
   backdropClassName = 'bg-black',
   backdropOpacity = 0.5,
   sheetClassName = DEFAULT_SHEET_CLASS,
-  transition = DEFAULT_TRANSITION,
-  backdropTransition = DEFAULT_BACKDROP_TRANSITION,
+  transition,
+  backdropTransition,
   disableDrag = false,
   scrollable = true,
   showHandle = true,
@@ -125,6 +115,8 @@ export function BottomSheet({
   const isTop = useIsActivityTop()
 
   const { onEntryComplete, restoreFocus } = useFocusTrap(isOpen, sheetRef, backdropRef)
+
+  const slide: Transition = transition ?? { duration: SHEET_DURATION, ease: SHEET_EASE }
 
   const requestClose = useCallback(() => {
     if (!dismissible) return
@@ -217,6 +209,9 @@ export function BottomSheet({
 
   /** A press that travelled is a drag, and its click is not a selection. */
   const swallowDragClick = useCallback((e: React.MouseEvent) => {
+    // Keyboard and assistive-tech activations carry no pointer position, so
+    // comparing them against the last drag's origin would swallow them.
+    if (e.detail === 0) return
     const origin = pressOrigin.current
     if (!origin) return
     if (Math.hypot(e.clientX - origin.x, e.clientY - origin.y) <= DRAG_SLOP_PX) return
@@ -250,14 +245,13 @@ export function BottomSheet({
           {/* Backdrop */}
           <motion.div
             ref={backdropRef}
-            // A sheet opened from inside a Vaul drawer (history filters) sits in
-            // that drawer's drag surface — without this, dragging here drags the
-            // drawer underneath and collapses it.
-            data-vaul-no-drag=""
+            // A sheet opened from inside the history drawer sits in its drag
+            // surface — without this, dragging here drags the drawer underneath.
+            data-sheet-no-drag=""
             initial={{ opacity: 0 }}
             animate={{ opacity: backdropOpacity }}
             exit={{ opacity: 0 }}
-            transition={motionSafeTransition(reduceMotion, backdropTransition)}
+            transition={motionSafeTransition(reduceMotion, backdropTransition ?? slide)}
             className={`${position} inset-0 ${backdropClassName} ${backdropZClass}`}
             style={{ isolation: 'isolate' }}
             onClick={requestClose}
@@ -266,7 +260,7 @@ export function BottomSheet({
           {/* Sheet */}
           <motion.div
             ref={sheetRef}
-            data-vaul-no-drag=""
+            data-sheet-no-drag=""
             role="dialog"
             aria-modal="true"
             aria-label={typeof title === 'string' ? title : undefined}
@@ -276,7 +270,7 @@ export function BottomSheet({
             animate={reduceMotion ? { opacity: 1 } : { y: 0 }}
             exit={reduceMotion ? { opacity: 0 } : { y: '100%' }}
             {...dragProps}
-            transition={motionSafeTransition(reduceMotion, transition)}
+            transition={motionSafeTransition(reduceMotion, slide)}
             onAnimationComplete={onEntryComplete}
             onPointerDown={dragEnabled ? handlePointerDown : undefined}
             onPointerMove={dragEnabled ? handlePointerMove : undefined}
