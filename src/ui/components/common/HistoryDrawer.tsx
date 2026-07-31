@@ -162,6 +162,31 @@ export function HistoryDrawer({
     dimProgress.current = expanded ? 1 : 0
   }, [expanded])
 
+  // Two ways out of the dragging state, because leaving it to vaul's onRelease
+  // alone is what made the X button leave the shell dimmed under a white sheet
+  // on device: the press that hit it was enough of a drag to arm this, the
+  // release never came back, and the surface and scrim both read that stale flag.
+  // A pointer that ended anywhere ends the drag, and reaching a detent settles it
+  // regardless of which callbacks fired.
+  useEffect(() => {
+    if (!dragging) return
+    const end = () => setDragging(false)
+    window.addEventListener('pointerup', end)
+    window.addEventListener('pointercancel', end)
+    return () => {
+      window.removeEventListener('pointerup', end)
+      window.removeEventListener('pointercancel', end)
+    }
+  }, [dragging])
+
+  useEffect(() => {
+    setDragging(false)
+    dimProgress.current = expanded ? 1 : 0
+    if (scrimRef.current) {
+      scrimRef.current.style.opacity = String(dimProgress.current * SCRIM_OPACITY)
+    }
+  }, [expanded])
+
   // Dragging the peek row upwards would otherwise also count as a tap on it and
   // open that transaction behind the sheet you just pulled up. A pointer that
   // travelled is a drag, and its click is not the user's intent.
