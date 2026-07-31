@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Drawer } from 'vaul'
+import { BottomSheet } from '@/ui/components/common/BottomSheet'
 import { Button } from '@/ui/components/common/Button'
-import { useIsActivityTop } from '@/ui/navigation/use-is-activity-top'
 import { useKeyboardInset } from '@/ui/hooks/use-keyboard-inset'
 
 const MEMO_MAX_LENGTH = 200
@@ -14,26 +13,15 @@ interface MemoSheetProps {
   onClose: () => void
 }
 
-/** Memo editor for the confirm step. Vaul owns the drawer gesture/dismissal;
- *  the keyboard offset is OURS (useKeyboardInset + bottom), with Vaul's input
- *  repositioning disabled — its VisualViewport math occasionally threw the
- *  drawer to the top of the screen when iOS mis-reported the viewport. No
+/** Memo editor for the confirm step. The shared sheet owns the gesture and the
+ *  dismissal; the keyboard offset is ours (useKeyboardInset + bottom), which is
+ *  why this never used a library's input repositioning — that math threw the
+ *  sheet to the top of the screen when iOS mis-reported the viewport. No
  *  delivery hint in the copy — the memo only travels on NUT-18 sends. */
 export function MemoSheet({ isOpen, memo, onSave, onClose }: MemoSheetProps) {
   const { t } = useTranslation()
   const [draft, setDraft] = useState(memo)
-  const isTop = useIsActivityTop()
   const keyboardInset = useKeyboardInset()
-
-  // This drawer portals to document.body, so when another activity is pushed on
-  // top of the owning screen (e.g. an incoming payment pushes Receive) stackflow
-  // hides only that screen's DOM — the portal would stay modal over the new one.
-  // Close via the parent's onClose so isOpen stays the single source of truth;
-  // flipping the controlled prop here would desync it. Unsaved draft is discarded
-  // by design: an interrupt is not a save.
-  useEffect(() => {
-    if (isOpen && !isTop) onClose()
-  }, [isOpen, isTop, onClose])
 
   // Re-seed on open so a cancelled edit doesn't leak into the next one —
   // render-phase adjustment; an effect here would cascade renders
@@ -49,24 +37,18 @@ export function MemoSheet({ isOpen, memo, onSave, onClose }: MemoSheetProps) {
   }
 
   return (
-    <Drawer.Root open={isOpen} onOpenChange={(open) => { if (!open) onClose() }} repositionInputs={false}>
-      <Drawer.Portal>
-        <Drawer.Overlay className="fixed inset-0 z-[60] bg-black/50" />
-        <Drawer.Content
-          aria-describedby={undefined}
-          className="fixed inset-x-0 z-[70] rounded-t-3xl bg-background-card outline-none transition-[bottom] duration-200 ease-out motion-reduce:transition-none"
-          style={{ bottom: keyboardInset }}
-        >
-          {/* Plain handle — Vaul drags from anywhere on the content, so this is
-              purely the visual grabber, styled to match the app's sheets. */}
-          <div className="flex justify-center py-2.5">
-            <div className="h-1 w-10 rounded-full bg-foreground-subtle" />
-          </div>
-          <div className="px-5 pb-3 border-b border-foreground-subtle/20">
-            <Drawer.Title className="text-subtitle font-semibold text-foreground text-center">
-              {t('send.memo.changeTitle')}
-            </Drawer.Title>
-          </div>
+    <BottomSheet
+      isOpen={isOpen}
+      onClose={onClose}
+      title={t('send.memo.changeTitle')}
+      // Portalled, so it must fold when its screen is covered: an interrupt is
+      // not a save, and the unsaved draft is discarded by design.
+      portal
+      closeWhenCovered
+      scrollable={false}
+      bottomOffset={keyboardInset}
+      sheetClassName="rounded-t-3xl bg-background-card transition-[bottom] duration-200 ease-out motion-reduce:transition-none"
+    >
           <div className="px-5 pt-4 pb-app">
             {/* The field must read as a field before focus: the card surface is
                 the same white, so the input takes the page tint and a brand
@@ -95,8 +77,6 @@ export function MemoSheet({ isOpen, memo, onSave, onClose }: MemoSheetProps) {
               </Button>
             </div>
           </div>
-        </Drawer.Content>
-      </Drawer.Portal>
-    </Drawer.Root>
+    </BottomSheet>
   )
 }

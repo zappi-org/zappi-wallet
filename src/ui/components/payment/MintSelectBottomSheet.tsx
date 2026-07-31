@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { createPortal } from 'react-dom'
-import { motion, AnimatePresence } from 'motion/react'
+import { BottomSheet } from '@/ui/components/common/BottomSheet'
 import { hapticTap } from '@/ui/utils/haptic'
 import { useAppStore } from '@/store'
 import { getMintBalance } from '@/utils/url'
@@ -13,6 +12,8 @@ import { useKeyboardInset } from '@/ui/hooks/use-keyboard-inset'
 import { MintCard, resolveMintColor } from '@/ui/components/wallet/MintCard'
 import { Button } from '@/ui/components/common/Button'
 import type { MintInfo } from '@/core/types'
+
+const TITLE_ID = 'mint-select-title'
 
 export interface MintSelectBottomSheetProps {
   isOpen: boolean
@@ -37,11 +38,7 @@ export function MintSelectBottomSheet({
   isOpen,
   ...rest
 }: MintSelectBottomSheetProps) {
-  return (
-    <AnimatePresence>
-      {isOpen && <MintSelectBottomSheetInner {...rest} />}
-    </AnimatePresence>
-  )
+  return isOpen ? <MintSelectBottomSheetInner {...rest} /> : null
 }
 
 /** Inner component — remounted each time sheet opens so local state resets naturally */
@@ -117,45 +114,33 @@ function MintSelectBottomSheetInner({
     }
   }, [localSelected, allowEmpty, selectedHasBalance, onSelect, onClose])
 
-  // Portaled: inside a transformed Stackflow activity, `fixed` is trapped in
-  // the activity's stacking context, so the root-level tab dock (z-50) paints
-  // over the sheet on tab screens. body-level rendering restores true stacking.
-  return createPortal(
-    <>
-      {/* Backdrop */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 0.5 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black z-[60]"
-        onClick={onClose}
-      />
+  // Portalled: inside a transformed Stackflow activity `fixed` is trapped in the
+  // activity's stacking context, so the root-level tab dock (z-50) paints over
+  // the sheet on tab screens. body-level rendering restores true stacking.
+  return (
+    <BottomSheet
+      isOpen
+      onClose={onClose}
+      portal
+      ariaLabelledBy={TITLE_ID}
+      scrollable={false}
+      showHandle={false}
+      bottomOffset={keyboardInset}
+      // transition-[bottom] eases the keyboard-inset ride (motion only animates
+      // the y transform, so bottom would otherwise snap).
+      sheetClassName="bg-background-card border-t border-border rounded-t-[20px] transition-[bottom] duration-200 ease-out motion-reduce:transition-none"
+    >
+      {/* Handle */}
+      <div className="flex justify-center py-2">
+        <div className="w-10 h-1 bg-foreground-subtle rounded-full" />
+      </div>
 
-      {/* Sheet */}
-      <motion.div
-        role="dialog"
-        aria-modal="true"
-        aria-label={t('payment.selectMint')}
-        initial={{ y: '100%' }}
-        animate={{ y: 0 }}
-        exit={{ y: '100%' }}
-        transition={{ duration: 0.25, ease: 'easeOut' }}
-        // transition-[bottom] eases the keyboard-inset ride (motion only
-        // animates the y transform, so bottom would otherwise snap).
-        className="fixed left-0 right-0 bg-background-card border-t border-border rounded-t-[20px] z-[70] transition-[bottom] duration-200 ease-out motion-reduce:transition-none"
-        style={{ bottom: keyboardInset }}
-      >
-        {/* Handle */}
-        <div className="flex justify-center py-2">
-          <div className="w-10 h-1 bg-foreground-subtle rounded-full" />
-        </div>
-
-        {/* Header */}
-        <div className="flex items-center justify-center px-4 pb-3">
-          <h3 className="text-subtitle font-semibold text-foreground">
-            {t('payment.selectMint')}
-          </h3>
-        </div>
+      {/* Header */}
+      <div className="flex items-center justify-center px-4 pb-3">
+        <h3 id={TITLE_ID} className="text-subtitle font-semibold text-foreground">
+          {t('payment.selectMint')}
+        </h3>
+      </div>
 
         {/* Card Carousel */}
         <div
@@ -215,8 +200,6 @@ function MintSelectBottomSheetInner({
             {buttonLabel || t('payment.selectThisMint')}
           </Button>
         </div>
-      </motion.div>
-    </>,
-    document.body,
+    </BottomSheet>
   )
 }

@@ -1,4 +1,5 @@
-import { type ReactNode, useCallback, useRef } from 'react'
+import { type ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   motion,
   AnimatePresence,
@@ -7,9 +8,10 @@ import {
   type PanInfo,
   type Transition,
 } from 'motion/react'
-import { motionSafeTransition } from '@/ui/utils/motion'
+import { motionSafeTransition, sheetSettleMs, SHEET_EASE } from '@/ui/utils/motion'
 import { useEscapeDismiss } from '@/ui/hooks/use-escape-dismiss'
 import { useFocusTrap } from '@/ui/hooks/use-focus-trap'
+import { useIsActivityTop } from '@/ui/navigation/use-is-activity-top'
 
 export interface BottomSheetProps {
   isOpen: boolean
@@ -30,9 +32,13 @@ export interface BottomSheetProps {
   backdropOpacity?: number
   /** Sheet surface class (bg / radius / padding / max-height / overflow). */
   sheetClassName?: string
-  /** Enter/exit transition for the sheet slide. Overridden by a fade under reduced motion. */
+  /**
+   * Enter/exit transition for the sheet slide. Omitted → timed from how far the
+   * sheet has to travel, so sheets of different heights read at one speed.
+   * Overridden by a fade under reduced motion.
+   */
   transition?: Transition
-  /** Backdrop fade transition. Omitted → motion default (preserves legacy consumers). */
+  /** Backdrop fade transition. Omitted → the sheet's own curve, so the two move together. */
   backdropTransition?: Transition
   /** Disable drag-to-dismiss (sheets that must be dismissed via an explicit action). */
   disableDrag?: boolean
@@ -48,10 +54,32 @@ export interface BottomSheetProps {
    * behind the keyboard on iOS, where the layout viewport does not shrink).
    */
   bottomOffset?: number
+  /**
+   * Render at document.body. Inside a transformed Stackflow activity `fixed` is
+   * trapped in that activity's stacking context, so a sheet opened from a tab
+   * screen would paint under the dock; body-level rendering restores true
+   * stacking. Pair with `closeWhenCovered`.
+   */
+  portal?: boolean
+  /**
+   * Close the sheet when its owning activity stops being the top of the stack.
+   * A portalled sheet survives its screen being covered — Stackflow only hides
+   * the covered screen's own DOM — so it would stay modal over whatever was
+   * pushed on top.
+   */
+  closeWhenCovered?: boolean
+  /**
+   * Set false while an action must not be interrupted: backdrop taps, Escape and
+   * drag-to-dismiss all stop closing the sheet (the explicit controls stay).
+   */
+  dismissible?: boolean
 }
 
 const DEFAULT_SHEET_CLASS = 'bg-background-elevated rounded-t-lg max-h-[85vh] overflow-hidden'
-const DEFAULT_TRANSITION: Transition = { duration: 0.25, ease: 'easeOut' }
+/** Past this much travel a press is a drag, not a tap on what sat under it. */
+const DRAG_SLOP_PX = 8
+/** Movement needed over a carousel before paging vs dismissing is decided. */
+const DIRECTION_SLOP_PX = 6
 
 /**
  * Bottom sheet component for scrollable lists and selection UI (Section 17.4)
@@ -73,35 +101,143 @@ export function BottomSheet({
   backdropClassName = 'bg-black',
   backdropOpacity = 0.5,
   sheetClassName = DEFAULT_SHEET_CLASS,
-  transition = DEFAULT_TRANSITION,
+  transition,
   backdropTransition,
   disableDrag = false,
   scrollable = true,
   showHandle = true,
   ariaLabelledBy,
   bottomOffset = 0,
+  portal = false,
+  closeWhenCovered = false,
+  dismissible = true,
 }: BottomSheetProps) {
   const reduceMotion = useReducedMotion()
   const dragControls = useDragControls()
   const sheetRef = useRef<HTMLDivElement>(null)
   const backdropRef = useRef<HTMLDivElement>(null)
+  const isTop = useIsActivityTop()
 
   const { onEntryComplete, restoreFocus } = useFocusTrap(isOpen, sheetRef, backdropRef)
+
+  // The slide is timed from the distance it covers, which is not known until the
+  // sheet has been laid out. Measuring in a layout effect and settling on the
+  // render it schedules keeps that inside one frame: the sheet is never painted
+  // at rest before it has started moving. Kept across closes, so the exit is
+  // timed on the height it is leaving from.
+  const [travel, setTravel] = useState(0)
+  useLayoutEffect(() => {
+    if (!isOpen) return
+    const node = sheetRef.current
+    if (node) setTravel(node.offsetHeight)
+  }, [isOpen])
+
+  const settleSeconds =
+    sheetSettleMs(travel, typeof window === 'undefined' ? 0 : window.innerHeight) / 1000
+  const slide: Transition = transition ?? { duration: settleSeconds, ease: SHEET_EASE }
+
+  const requestClose = useCallback(() => {
+    if (!dismissible) return
+    onClose()
+  }, [dismissible, onClose])
+
+  // Closing through the owner keeps `isOpen` the single source of truth; flipping
+  // anything locally here would desync it.
+  useEffect(() => {
+    if (closeWhenCovered && isOpen && !isTop) onClose()
+  }, [closeWhenCovered, isOpen, isTop, onClose])
+
+  // Let the caret go the moment the sheet starts leaving. The soft keyboard is
+  // tied to focus, so a field still focused through the exit keeps it up until
+  // the sheet has already gone — the keyboard then collapses on its own, after
+  // the fact. Blurring here starts both retreats together.
+  useEffect(() => {
+    if (isOpen) return
+    const active = document.activeElement
+    if (active instanceof HTMLElement && sheetRef.current?.contains(active)) active.blur()
+  }, [isOpen])
 
   const handleDragEnd = useCallback(
     (_: unknown, info: PanInfo) => {
       if (info.offset.y > 100 || info.velocity.y > 500) {
-        onClose()
+        requestClose()
       }
     },
-    [onClose],
+    [requestClose],
   )
 
+  /** Nearest scrollable ancestor within the sheet that is actually scrolled. */
+  const scrolledAncestor = useCallback((target: EventTarget | null): boolean => {
+    let node = target as HTMLElement | null
+    while (node && node !== sheetRef.current) {
+      if (node.scrollHeight > node.clientHeight && node.scrollTop > 0) {
+        const { overflowY } = getComputedStyle(node)
+        if (overflowY === 'auto' || overflowY === 'scroll') return true
+      }
+      node = node.parentElement
+    }
+    return false
+  }, [])
+
+  /** A horizontally paging region (a card carousel) that owns sideways gestures. */
+  const horizontalScroller = useCallback((target: EventTarget | null): boolean => {
+    let node = target as HTMLElement | null
+    while (node && node !== sheetRef.current) {
+      if (node.scrollWidth > node.clientWidth) {
+        const { overflowX } = getComputedStyle(node)
+        if (overflowX === 'auto' || overflowX === 'scroll') return true
+      }
+      node = node.parentElement
+    }
+    return false
+  }, [])
+
+  const pressOrigin = useRef<{ x: number; y: number } | null>(null)
+  const awaitingDirection = useRef(false)
+
+  // The whole surface is the grab area — a 20px bar was the only place the sheet
+  // could be pulled from, so dragging it anywhere else did nothing (and on a list
+  // it landed as a tap, selecting whatever was under the finger). Content that is
+  // scrolled away from its top keeps the gesture; at the top the sheet takes it,
+  // which is the usual hand-off. Over a carousel the first few pixels decide:
+  // sideways pages, downwards dismisses.
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    pressOrigin.current = { x: e.clientX, y: e.clientY }
+    awaitingDirection.current = false
+    if (scrolledAncestor(e.target)) return
+    if (horizontalScroller(e.target)) {
+      awaitingDirection.current = true
+      return
+    }
     dragControls.start(e)
+  }, [dragControls, scrolledAncestor, horizontalScroller])
+
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!awaitingDirection.current) return
+    const origin = pressOrigin.current
+    if (!origin) return
+    const dx = Math.abs(e.clientX - origin.x)
+    const dy = e.clientY - origin.y
+    if (Math.max(dx, Math.abs(dy)) < DIRECTION_SLOP_PX) return
+    awaitingDirection.current = false
+    if (dy > dx) dragControls.start(e)
   }, [dragControls])
 
-  useEscapeDismiss(isOpen, onClose)
+  const endDirectionWatch = useCallback(() => { awaitingDirection.current = false }, [])
+
+  /** A press that travelled is a drag, and its click is not a selection. */
+  const swallowDragClick = useCallback((e: React.MouseEvent) => {
+    // Keyboard and assistive-tech activations carry no pointer position, so
+    // comparing them against the last drag's origin would swallow them.
+    if (e.detail === 0) return
+    const origin = pressOrigin.current
+    if (!origin) return
+    if (Math.hypot(e.clientX - origin.x, e.clientY - origin.y) <= DRAG_SLOP_PX) return
+    e.preventDefault()
+    e.stopPropagation()
+  }, [])
+
+  useEscapeDismiss(isOpen && dismissible, requestClose)
 
   const position = variant === 'absolute' ? 'absolute' : 'fixed'
   const dragEnabled = !disableDrag && !reduceMotion
@@ -111,68 +247,80 @@ export function BottomSheet({
         dragConstraints: { top: 0, bottom: 0 },
         dragElastic: { top: 0, bottom: 0.6 },
         dragControls,
-        // Drag starts from the handle only, so scrollable sheet content keeps its own gestures.
-        // Without a handle there is no such origin, so fall back to the whole surface.
-        dragListener: !showHandle,
+        // Starts are decided in handlePointerDown, which knows about the content's
+        // own scrolling; motion must not also arm itself on the bare surface.
+        dragListener: false,
         onDragEnd: handleDragEnd,
       }
     : {}
 
   const titleId = title && typeof title === 'string' ? `${title.replace(/\s+/g, '-').toLowerCase()}-title` : undefined
 
-  return (
+  const tree = (
     <AnimatePresence onExitComplete={restoreFocus}>
       {isOpen && (
         <>
           {/* Backdrop */}
           <motion.div
             ref={backdropRef}
+            // A sheet opened from inside the history drawer sits in its drag
+            // surface — without this, dragging here drags the drawer underneath.
+            data-sheet-no-drag=""
             initial={{ opacity: 0 }}
             animate={{ opacity: backdropOpacity }}
             exit={{ opacity: 0 }}
-            transition={motionSafeTransition(reduceMotion, backdropTransition)}
+            transition={motionSafeTransition(reduceMotion, backdropTransition ?? slide)}
             className={`${position} inset-0 ${backdropClassName} ${backdropZClass}`}
             style={{ isolation: 'isolate' }}
-            onClick={onClose}
+            onClick={requestClose}
           />
 
           {/* Sheet */}
           <motion.div
             ref={sheetRef}
+            data-sheet-no-drag=""
             role="dialog"
             aria-modal="true"
             aria-label={typeof title === 'string' ? title : undefined}
             aria-labelledby={ariaLabelledBy ?? titleId}
             tabIndex={-1}
             initial={reduceMotion ? { opacity: 0 } : { y: '100%' }}
-            animate={reduceMotion ? { opacity: 1 } : { y: 0 }}
+            // Held at the start until the measurement lands, one render later —
+            // and only on the very first open, when nothing has been measured.
+            animate={reduceMotion ? { opacity: 1 } : { y: travel > 0 ? 0 : '100%' }}
             exit={reduceMotion ? { opacity: 0 } : { y: '100%' }}
             {...dragProps}
-            transition={motionSafeTransition(reduceMotion, transition)}
+            transition={motionSafeTransition(reduceMotion, slide)}
             onAnimationComplete={onEntryComplete}
+            onPointerDown={dragEnabled ? handlePointerDown : undefined}
+            onPointerMove={dragEnabled ? handlePointerMove : undefined}
+            onPointerUp={endDirectionWatch}
+            onPointerCancel={endDirectionWatch}
+            onClickCapture={dragEnabled ? swallowDragClick : undefined}
             className={`${position} left-0 right-0 ${sheetClassName} ${sheetZClass} outline-none`}
             style={{ bottom: bottomOffset }}
           >
-            {/* Handle */}
+            {/* Handle — the visual grabber; the whole sheet is the grab area. */}
             {showHandle && (
-              <div
-                className="flex justify-center py-2.5 cursor-grab active:cursor-grabbing touch-none"
-                onPointerDown={dragEnabled ? handlePointerDown : undefined}
-              >
+              <div className="flex justify-center py-2.5 cursor-grab active:cursor-grabbing touch-none">
                 <div className="w-10 h-1 bg-foreground-subtle rounded-full" />
               </div>
             )}
 
             {/* Header */}
             {title && (
-              <div className="px-5 pb-3 border-b border-foreground-subtle/20">
+              <div className="px-5 pb-3 border-b border-foreground-subtle/20 touch-none">
                 <h3 id={titleId} className="text-subtitle font-semibold text-foreground text-center">{title}</h3>
               </div>
             )}
 
-            {/* Content area */}
+            {/* Content area — overscroll contained so a list at its end doesn't
+                hand the gesture back to whatever is behind the sheet, and padded
+                so the last row clears the screen edge (and the home indicator
+                under it) instead of ending flush against it. Sheets that lay out
+                their own bottom edge opt out with `scrollable={false}`. */}
             {scrollable ? (
-              <div className="overflow-y-auto max-h-[calc(85vh-60px)]">{children}</div>
+              <div className="overflow-y-auto overscroll-contain pb-app max-h-[calc(85vh-60px)]">{children}</div>
             ) : (
               children
             )}
@@ -181,6 +329,8 @@ export function BottomSheet({
       )}
     </AnimatePresence>
   )
+
+  return portal ? createPortal(tree, document.body) : tree
 }
 
 /**

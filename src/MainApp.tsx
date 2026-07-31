@@ -79,7 +79,6 @@ import { MyAddressScreen } from '@/ui/screens/MyAddress/MyAddressScreen'
 import { SendFlow } from '@/ui/screens/Send/SendFlow'
 import { routeValidatedInput } from '@/ui/utils/input-router'
 import { QrScannerModal } from '@/ui/components/common/QrScannerModal'
-import { HistorySheetOverlay } from '@/ui/components/common/HistorySheetOverlay'
 import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
 import { formatNpubShort } from '@/ui/screens/Send/sendDisplayHelpers'
 
@@ -189,7 +188,6 @@ export default function MainApp() {
 
   const [activeMintUrl, setActiveMintUrl] = useState<string | null>(null)
 
-  const [showHistoryOverlay, setShowHistoryOverlay] = useState(false)
   const [historyInitialMintUrls, setHistoryInitialMintUrls] = useState<string[] | undefined>(undefined)
 
   const [contactInfo, setContactInfo] = useState<{ address: string; displayName: string } | null>(null)
@@ -1024,10 +1022,6 @@ export default function MainApp() {
   const screenRoutes: Record<Exclude<Screen, 'token-detail'>, () => ReactNode> = {
     home: () => (
       <HomeScreen
-        onTransactions={(mintUrl?: string) => {
-          setHistoryInitialMintUrls(mintUrl ? [mintUrl] : undefined)
-          setShowHistoryOverlay(true)
-        }}
         onProfile={() => {
           setPreviousScreen('home')
           setCurrentScreen('my-address')
@@ -1424,31 +1418,21 @@ export default function MainApp() {
     <>
       <div className="relative h-full overflow-hidden">
         <AppStack renderScreen={renderStackScreen} />
-
-        {/* History overlay — bottom-sheet style with backdrop, anchored to this stack box */}
-        <HistorySheetOverlay
-          open={showHistoryOverlay}
-          onClose={() => setShowHistoryOverlay(false)}
-          transactions={transactions}
-          initialMintUrls={historyInitialMintUrls}
-          pendingItemCallbacks={pendingItemCallbacks}
-        />
       </div>
 
-      {/* Bottom Navigation — stays down while the history sheet is up */}
-      {!showHistoryOverlay && (
-        <AnimatePresence mode="wait" initial={false}>
-          {isTabScreen && (
-            <MainTabToolbar
-              key="main-tab-toolbar"
-              navItems={navItems}
-              activeTab={activeTab}
-              onTabSelect={handleTabSelect}
-              onScan={() => setShowHomeScanner(true)}
-            />
-          )}
-        </AnimatePresence>
-      )}
+      {/* Bottom Navigation — the history drawer rides above it when expanded,
+          and leaves it usable at its collapsed detent. */}
+      <AnimatePresence mode="wait" initial={false}>
+        {isTabScreen && (
+          <MainTabToolbar
+            key="main-tab-toolbar"
+            navItems={navItems}
+            activeTab={activeTab}
+            onTabSelect={handleTabSelect}
+            onScan={() => setShowHomeScanner(true)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Home camera shortcut — top-right scan */}
       <QrScannerModal

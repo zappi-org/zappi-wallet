@@ -1,10 +1,12 @@
 import { useCallback, useState } from 'react'
 import { Undo2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { motion, AnimatePresence, type PanInfo } from 'motion/react'
+import { BottomSheet } from '@/ui/components/common/BottomSheet'
 import { useFormatSats } from '@/utils/format'
 import { formatRelativeTime } from '../token-view-model'
 import type { PendingTokenView } from '../types'
+
+const TITLE_ID = 'reclaim-sheet-title'
 
 export interface ReclaimSheetProps {
   isOpen: boolean
@@ -38,16 +40,6 @@ export function ReclaimSheet({
   const totalFee = tokens.reduce((sum, tk) => sum + (tk.reclaimFee ?? 0), 0)
   const netAmount = Math.max(0, totalAmount - totalFee)
 
-  const handleDragEnd = useCallback(
-    (_: unknown, info: PanInfo) => {
-      if (busy) return
-      if (info.offset.y > 100 || info.velocity.y > 500) {
-        onClose()
-      }
-    },
-    [busy, onClose],
-  )
-
   const handleConfirm = useCallback(async () => {
     if (busy) return
     setBusy(true)
@@ -60,36 +52,16 @@ export function ReclaimSheet({
   }, [busy, onConfirm, onClose, tokens])
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 0.5 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black z-[60]"
-            onClick={busy ? undefined : onClose}
-          />
-
-          <motion.div
-            role="dialog"
-            aria-modal="true"
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            drag="y"
-            dragConstraints={{ top: 0, bottom: 0 }}
-            dragElastic={{ top: 0, bottom: 0.6 }}
-            onDragEnd={handleDragEnd}
-            transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="fixed bottom-0 left-0 right-0 rounded-t-3xl z-[70] max-h-[85vh] bg-background-elevated"
-          >
-            <div className="flex justify-center py-2.5 cursor-grab active:cursor-grabbing touch-none">
-              <div className="w-10 h-1 rounded-full bg-foreground/20" />
-            </div>
-
+    <BottomSheet
+      isOpen={isOpen}
+      onClose={onClose}
+      // A reclaim in flight must not be dismissed out from under itself.
+      dismissible={!busy}
+      ariaLabelledBy={TITLE_ID}
+      sheetClassName="rounded-t-3xl max-h-[85vh] bg-background-elevated"
+    >
             <div className="px-5 pb-1">
-              <h3 className="text-title-sm font-bold text-foreground text-center">
+              <h3 id={TITLE_ID} className="text-title-sm font-bold text-foreground text-center">
                 {t('token.reclaim.title')}
               </h3>
             </div>
@@ -100,10 +72,7 @@ export function ReclaimSheet({
               </p>
             </div>
 
-            <div
-              className="px-5 pt-4"
-              style={{ paddingBottom: 'var(--app-bottom-padding)' }}
-            >
+            <div className="px-5 pt-4">
               <div className="flex flex-col gap-3 rounded-xl bg-background px-4 py-4">
                 {tokens.map((tk) => (
                   <div key={tk.id} className="flex items-center justify-between">
@@ -178,11 +147,8 @@ export function ReclaimSheet({
                   <span>{t('token.reclaim.confirm')}</span>
                 </button>
               </div>
-            </div>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
+      </div>
+    </BottomSheet>
   )
 }
 

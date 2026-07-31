@@ -55,10 +55,12 @@ export const HomeRecentCard = memo(function HomeRecentCard({
   return (
     <div className={cn('shrink-0 pb-app-nav px-4 w-full max-w-sm mx-auto', className)}>
       {onSeeAll && (
-        <div className="flex items-center justify-center mb-2.5 px-5">
+        <div className="flex items-center justify-center px-5">
+          {/* Padding, not glyph size: the chevron+label stay as drawn while the
+              tap target reaches the 44px minimum. */}
           <button
             onClick={onSeeAll}
-            className="flex flex-col items-center active:opacity-60 transition-opacity"
+            className="flex min-h-11 min-w-11 flex-col items-center justify-center px-4 pb-1.5 active:opacity-60 transition-opacity"
             aria-label={t('home.seeAll')}
           >
             <ChevronUp className="w-5 h-5 text-foreground-muted" strokeWidth={2.5} />

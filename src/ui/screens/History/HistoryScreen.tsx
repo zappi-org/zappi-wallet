@@ -746,7 +746,7 @@ export function HistoryScreen({
 
       {/* Export Confirmation Sheet */}
       <BottomSheet isOpen={openSheet === 'export'} onClose={closeSheet} title={t('history.export')}>
-        <div className="px-[20px] py-4 flex flex-col gap-4">
+        <div className="px-[20px] pt-4 flex flex-col gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
               <FileSpreadsheet className="w-5 h-5 text-primary" strokeWidth={1.8} />

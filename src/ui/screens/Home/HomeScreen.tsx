@@ -2,7 +2,9 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useCarouselScroll } from "@/ui/hooks/use-carousel-scroll";
 import { usePullToRefresh } from "@/ui/hooks/use-pull-to-refresh";
 import { Plus, LoaderCircle, ArrowDown, Eye, EyeOff, User } from "lucide-react";
-import { motion, type PanInfo } from "motion/react";
+import { motion } from "motion/react";
+import { HistoryDrawer } from "@/ui/components/common/HistoryDrawer";
+import { useIsActivityTop } from "@/ui/navigation/use-is-activity-top";
 import { tabGlassClass } from "@/ui/components/layout/TabToolbar/styles";
 
 import { useTranslation } from "react-i18next";
@@ -27,6 +29,7 @@ export interface HomeScreenProps {
   onSettings?: () => void;
   onProfile: () => void;
   onNotifications?: () => void;
+  /** Kept for the mint-detail deep link; home itself now expands the drawer. */
   onTransactions?: (mintUrl?: string) => void;
   onAddMint?: () => void;
   onMintDetails?: (mint: MintInfo, index: number) => void;
@@ -41,7 +44,6 @@ export interface HomeScreenProps {
 
 export function HomeScreen({
   onProfile,
-  onTransactions,
   onAddMint,
   onMintDetails,
   onSend,
@@ -189,13 +191,14 @@ export function HomeScreen({
     return null;
   }, [pendingItems, recentTransaction, t, onSelectPendingItem, onSelectTransaction]);
 
-  const handleSwipeUp = useCallback((_: PointerEvent, info: PanInfo) => {
-    if (info.point.y > window.innerHeight - 100) return
-    if (Math.abs(info.offset.y) < Math.abs(info.offset.x)) return
-    if (info.offset.y < -48 || info.velocity.y < -320) {
-      onTransactions?.(mints[clampedMintIndex]?.url)
-    }
-  }, [onTransactions, mints, clampedMintIndex])
+  // The drawer owns the open gesture now — no pan recognizer on the screen.
+  const [historyExpanded, setHistoryExpanded] = useState(false)
+  const isTop = useIsActivityTop()
+
+  // The drawer portals to document.body, so a covered home would keep it painted
+  // over whatever activity was pushed on top (see MemoSheet). Collapse on cover —
+  // render-phase adjustment, since an effect here would cascade renders.
+  if (!isTop && historyExpanded) setHistoryExpanded(false)
 
   const handleBalanceVisibilityToggle = useCallback(() => {
     hapticTap();
@@ -209,7 +212,6 @@ export function HomeScreen({
       ref={scrollContainerRef as React.RefObject<HTMLDivElement>}
       className="h-full bg-background text-foreground font-primary overflow-hidden flex flex-col pt-safe"
       style={{ overscrollBehaviorY: "contain" }}
-      onPanEnd={handleSwipeUp}
     >
       {/* Pull-to-refresh indicator */}
       <div
@@ -381,23 +383,31 @@ export function HomeScreen({
         </div>
       </div>
 
-      {/* Pinned above the dock: the newest row of the ledger, pending or
-          settled. Everything older is one swipe (or "see all") away. */}
-      <div className="mt-auto shrink-0 flex flex-col">
-        {recent ? (
-          <HomeRecentCard
-            row={recent.row}
-            onPress={recent.onPress}
-            onSeeAll={() => onTransactions?.(mints[clampedMintIndex]?.url)}
-          />
-        ) : (
-          <div className="shrink-0 pb-app-nav px-4 w-full max-w-sm mx-auto">
-            <p className="text-caption text-foreground-muted text-center py-2">
-              {t('home.noTransactions')}
-            </p>
-          </div>
-        )}
-      </div>
+      {/* The newest ledger row stays home's own; the drawer only takes the
+          gesture on it, and slides its sheet over the top. */}
+      <HistoryDrawer
+        expanded={historyExpanded}
+        onExpandedChange={setHistoryExpanded}
+        transactions={transactions}
+        initialMintUrls={
+          mints[clampedMintIndex] ? [mints[clampedMintIndex].url] : undefined
+        }
+        peek={
+          recent ? (
+            <HomeRecentCard
+              row={recent.row}
+              onPress={recent.onPress}
+              onSeeAll={() => setHistoryExpanded(true)}
+            />
+          ) : (
+            <div className="shrink-0 px-4 w-full max-w-sm mx-auto">
+              <p className="text-caption text-foreground-muted text-center py-2">
+                {t('home.noTransactions')}
+              </p>
+            </div>
+          )
+        }
+      />
     </motion.div>
   );
 }
