@@ -23,6 +23,14 @@ const SHEET_EASE = 'var(--sheet-ease)'
 const SHEET_MS = 500
 /** The material arrives under the finger, so it fades in far faster than it leaves. */
 const SURFACE_IN_MS = 150
+/**
+ * On the way out it waits while the sheet does most of its travel and then goes
+ * quickly, landing exactly as the sheet does. Fading it evenly across the slide
+ * left the sheet half transparent in the middle of the screen, which reads as the
+ * sheet dissolving in mid-air rather than descending.
+ */
+const SURFACE_OUT_DELAY_MS = 300
+const SURFACE_OUT_MS = 200
 
 /**
  * Vaul measures a px snap point from the top of the drawer element, not from the
@@ -256,7 +264,9 @@ export function HistoryDrawer({
             className="pointer-events-none absolute inset-0 rounded-t-[32px] bg-white"
             style={{
               opacity: surfaced ? 1 : 0,
-              transition: `opacity ${surfaced ? SURFACE_IN_MS : SHEET_MS}ms ${SHEET_EASE}`,
+              transition: surfaced
+                ? `opacity ${SURFACE_IN_MS}ms ${SHEET_EASE}`
+                : `opacity ${SURFACE_OUT_MS}ms ${SHEET_EASE} ${SURFACE_OUT_DELAY_MS}ms`,
             }}
           />
           {/* The grabber belongs to the expanded sheet — collapsed, the peek row
