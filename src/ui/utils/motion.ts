@@ -28,5 +28,24 @@ export function motionSafeTransition(reduceMotion: boolean | null, full?: Transi
  */
 export const SHEET_EASE = [0.18, 0.08, 0.24, 1] as const
 
-/** Apple's own sheet length, and the one every sheet here presents on. */
-export const SHEET_DURATION = 0.5
+const BASE_SETTLE_MS = 256
+const MAX_SETTLE_MS = 600
+
+/**
+ * How long a sheet should take to cover `travel` px of a `viewport`-tall screen.
+ *
+ * A fixed duration gives every sheet the same time for a different distance, so
+ * a short one crawls and a tall one bolts — two sheets on the same screen read
+ * as two different speeds. This is Android's settle formula, which the platform
+ * bottom sheet has always used: the fraction of the screen crossed sets the
+ * time, between 256ms for nothing and 512ms for the whole screen.
+ *
+ * (Apple's springs do the opposite — their duration is amplitude-independent —
+ * so this is a deliberate departure, taken because our sheets vary in height far
+ * more than iOS's medium/large detents do.)
+ */
+export function sheetSettleMs(travel: number, viewport: number): number {
+  if (travel <= 0 || viewport <= 0) return 0
+  const crossed = Math.min(1, travel / viewport)
+  return Math.min(MAX_SETTLE_MS, Math.round((crossed + 1) * BASE_SETTLE_MS))
+}

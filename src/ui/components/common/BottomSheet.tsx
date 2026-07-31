@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useEffect, useRef } from 'react'
+import { type ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
   motion,
@@ -8,7 +8,7 @@ import {
   type PanInfo,
   type Transition,
 } from 'motion/react'
-import { motionSafeTransition, SHEET_DURATION, SHEET_EASE } from '@/ui/utils/motion'
+import { motionSafeTransition, sheetSettleMs, SHEET_EASE } from '@/ui/utils/motion'
 import { useEscapeDismiss } from '@/ui/hooks/use-escape-dismiss'
 import { useFocusTrap } from '@/ui/hooks/use-focus-trap'
 import { useIsActivityTop } from '@/ui/navigation/use-is-activity-top'
@@ -32,7 +32,11 @@ export interface BottomSheetProps {
   backdropOpacity?: number
   /** Sheet surface class (bg / radius / padding / max-height / overflow). */
   sheetClassName?: string
-  /** Enter/exit transition for the sheet slide. Overridden by a fade under reduced motion. */
+  /**
+   * Enter/exit transition for the sheet slide. Omitted → timed from how far the
+   * sheet has to travel, so sheets of different heights read at one speed.
+   * Overridden by a fade under reduced motion.
+   */
   transition?: Transition
   /** Backdrop fade transition. Omitted → the sheet's own curve, so the two move together. */
   backdropTransition?: Transition
@@ -116,7 +120,21 @@ export function BottomSheet({
 
   const { onEntryComplete, restoreFocus } = useFocusTrap(isOpen, sheetRef, backdropRef)
 
-  const slide: Transition = transition ?? { duration: SHEET_DURATION, ease: SHEET_EASE }
+  // The slide is timed from the distance it covers, which is not known until the
+  // sheet has been laid out. Measuring in a layout effect and settling on the
+  // render it schedules keeps that inside one frame: the sheet is never painted
+  // at rest before it has started moving. Kept across closes, so the exit is
+  // timed on the height it is leaving from.
+  const [travel, setTravel] = useState(0)
+  useLayoutEffect(() => {
+    if (!isOpen) return
+    const node = sheetRef.current
+    if (node) setTravel(node.offsetHeight)
+  }, [isOpen])
+
+  const settleSeconds =
+    sheetSettleMs(travel, typeof window === 'undefined' ? 0 : window.innerHeight) / 1000
+  const slide: Transition = transition ?? { duration: settleSeconds, ease: SHEET_EASE }
 
   const requestClose = useCallback(() => {
     if (!dismissible) return
@@ -267,7 +285,9 @@ export function BottomSheet({
             aria-labelledby={ariaLabelledBy ?? titleId}
             tabIndex={-1}
             initial={reduceMotion ? { opacity: 0 } : { y: '100%' }}
-            animate={reduceMotion ? { opacity: 1 } : { y: 0 }}
+            // Held at the start until the measurement lands, one render later —
+            // and only on the very first open, when nothing has been measured.
+            animate={reduceMotion ? { opacity: 1 } : { y: travel > 0 ? 0 : '100%' }}
             exit={reduceMotion ? { opacity: 0 } : { y: '100%' }}
             {...dragProps}
             transition={motionSafeTransition(reduceMotion, slide)}

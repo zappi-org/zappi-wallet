@@ -16,7 +16,7 @@ import type { Transaction } from '@/core/domain/transaction'
 import { useEscapeDismiss } from '@/ui/hooks/use-escape-dismiss'
 import { useFocusTrap } from '@/ui/hooks/use-focus-trap'
 import { useIsActivityTop } from '@/ui/navigation/use-is-activity-top'
-import { SHEET_DURATION, SHEET_EASE } from '@/ui/utils/motion'
+import { sheetSettleMs, SHEET_EASE } from '@/ui/utils/motion'
 import type { PendingItemDetailCallbacks } from '@/ui/screens/MintDetail/PendingItemDetailScreen'
 
 const HistoryScreen = lazy(() => import('@/ui/screens/History/HistoryScreen'))
@@ -97,14 +97,15 @@ export function HistoryDrawer({
     (value) => Math.min(1, Math.max(0, 1 - value / closedY)) * SCRIM_OPACITY,
   )
 
+  // Timed from the distance left to cover, on the same formula as every other
+  // sheet — a release halfway up finishes in less than a full presentation.
   const settleTo = useCallback(
     (open: boolean) => {
-      const transition = reduceMotion
-        ? { duration: 0 }
-        : { duration: SHEET_DURATION, ease: SHEET_EASE }
-      animate(y, open ? 0 : closedY, transition)
+      const target = open ? 0 : closedY
+      const duration = sheetSettleMs(Math.abs(y.get() - target), viewportHeight) / 1000
+      animate(y, target, reduceMotion ? { duration: 0 } : { duration, ease: SHEET_EASE })
     },
-    [y, closedY, reduceMotion],
+    [y, closedY, viewportHeight, reduceMotion],
   )
 
   useEffect(() => { settleTo(expanded) }, [expanded, settleTo])
