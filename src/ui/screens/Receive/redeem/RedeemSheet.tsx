@@ -5,7 +5,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import QrScannerLib from 'qr-scanner'
+import { QrScanner as QrScannerLib } from '@/ui/lib/qr-engine'
 import { Image as ImageIcon, ClipboardPaste } from 'lucide-react'
 import { BottomSheet } from '@/ui/components/common/BottomSheet'
 import { Button } from '@/ui/components/common/Button'
@@ -94,7 +94,7 @@ export function RedeemSheet({ isOpen, onClose, onValidated, onRouteValidated }: 
     e.target.value = ''
     if (!file) return
     try {
-      const result = await QrScannerLib.scanImage(file, { returnDetailedScanResult: true })
+      const result = await QrScannerLib.scanImage(file)
       await handleRaw(result.data)
     } catch {
       hapticError()

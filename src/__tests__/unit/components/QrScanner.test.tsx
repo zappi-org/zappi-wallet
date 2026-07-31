@@ -1,12 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, cleanup, act } from '@testing-library/react'
-import type QrScannerLib from 'qr-scanner'
-type ScanResult = QrScannerLib.ScanResult
+import type { ScanResult } from '@/ui/lib/qr-engine'
 
 // Capture the scan callback passed to QrScannerLib constructor
 let capturedScanCallback: ((result: ScanResult) => void) | null = null
 
-vi.mock('qr-scanner', () => {
+vi.mock('@/ui/lib/qr-engine', () => {
   class MockQrScanner {
     constructor(
       _video: HTMLVideoElement,
@@ -20,7 +19,9 @@ vi.mock('qr-scanner', () => {
     setInversionMode = vi.fn()
     static hasCamera = vi.fn().mockResolvedValue(true)
   }
-  return { default: MockQrScanner }
+  class CameraPermissionError extends Error {}
+  class CameraNotFoundError extends Error {}
+  return { QrScanner: MockQrScanner, CameraPermissionError, CameraNotFoundError }
 })
 
 vi.mock('@gandlaf21/bc-ur', () => ({

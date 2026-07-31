@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import QrScannerLib from "qr-scanner";
-type ScanResult = QrScannerLib.ScanResult;
+import {
+  CameraNotFoundError,
+  CameraPermissionError,
+  QrScanner as QrScannerLib,
+  type ScanResult,
+} from "@/ui/lib/qr-engine";
 import { URDecoder } from "@gandlaf21/bc-ur";
 import { usePinchZoom } from "@/ui/hooks/use-pinch-zoom";
 
@@ -26,7 +30,7 @@ export function QrScanner({ onScan, onError, active = true }: QrScannerProps) {
   // Pinch-to-zoom
   const { zoomLevel, videoStyle, getScanRegion } = usePinchZoom({
     containerRef,
-    scannerRef,
+    videoRef,
     enabled: active && isReady,
   });
   const getScanRegionRef = useRef(getScanRegion);
@@ -95,7 +99,6 @@ export function QrScanner({ onScan, onError, active = true }: QrScannerProps) {
 
       // Create scanner instance
       const scanner = new QrScannerLib(video, handleScan, {
-        returnDetailedScanResult: true,
         highlightScanRegion: false,
         highlightCodeOutline: false,
         onDecodeError: () => {},
@@ -121,10 +124,10 @@ export function QrScanner({ onScan, onError, active = true }: QrScannerProps) {
           console.error("[QrScanner] Failed to start:", err);
 
           const error = err as Error;
-          if (error?.name === "NotAllowedError") {
+          if (error instanceof CameraPermissionError || error?.name === "NotAllowedError") {
             setErrorMessage(t("scanner.cameraPermission"));
             onErrorRef.current?.(t("scanner.cameraPermission"));
-          } else if (error?.name === "NotFoundError") {
+          } else if (error instanceof CameraNotFoundError || error?.name === "NotFoundError") {
             setHasCamera(false);
             setErrorMessage(t("scanner.cameraNotFound"));
             onErrorRef.current?.(t("scanner.cameraNotFound"));

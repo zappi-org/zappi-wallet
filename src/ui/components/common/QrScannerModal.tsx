@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import QrScannerLib from "qr-scanner";
+import { QrScanner as QrScannerLib } from "@/ui/lib/qr-engine";
 import { ClipboardPaste, Image, X } from "lucide-react";
 import { QrScanner } from "./QrScanner";
 import { useAppStore } from "@/store";
@@ -38,9 +38,7 @@ export function QrScannerModal({
       if (imageErrorTimer.current) clearTimeout(imageErrorTimer.current);
 
       try {
-        const result = await QrScannerLib.scanImage(file, {
-          returnDetailedScanResult: true,
-        });
+        const result = await QrScannerLib.scanImage(file);
         if (result?.data) {
           onScan(result.data);
         }

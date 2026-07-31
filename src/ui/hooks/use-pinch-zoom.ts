@@ -1,10 +1,9 @@
 import { useRef, useCallback, useEffect, useState, type CSSProperties, type RefObject } from 'react'
-import type QrScannerLib from 'qr-scanner'
-type ScanRegion = QrScannerLib.ScanRegion
+import type { ScanRegion } from '@/ui/lib/qr-engine'
 
 export interface UsePinchZoomOptions {
   containerRef: RefObject<HTMLElement | null>
-  scannerRef: RefObject<QrScannerLib | null>
+  videoRef: RefObject<HTMLVideoElement | null>
   enabled: boolean
   minZoom?: number
   maxZoom?: number
@@ -32,7 +31,7 @@ function getTouchDistance(t1: Touch, t2: Touch): number {
  */
 export function usePinchZoom({
   containerRef,
-  scannerRef,
+  videoRef,
   enabled,
   minZoom = 1,
   maxZoom = 5,
@@ -55,11 +54,11 @@ export function usePinchZoom({
   // Check native zoom support once scanner is active
   const checkCapabilities = useCallback(() => {
     if (capabilitiesChecked.current) return
-    const scanner = scannerRef.current
-    if (!scanner) return
+    const video = videoRef.current
+    if (!video) return
 
     try {
-      const stream = scanner.$video.srcObject
+      const stream = video.srcObject
       if (!(stream instanceof MediaStream)) return
 
       const track = stream.getVideoTracks()[0]
@@ -76,20 +75,20 @@ export function usePinchZoom({
     } catch {
       // Capabilities not available yet — will retry on next pinch
     }
-  }, [scannerRef])
+  }, [videoRef])
 
   // Apply zoom — direct DOM manipulation for real-time feedback
   const applyZoomImmediate = useCallback((level: number) => {
     const clamped = Math.max(minZoom, Math.min(maxZoom, level))
     zoomRef.current = clamped
 
-    const scanner = scannerRef.current
-    if (!scanner) return
+    const video = videoRef.current
+    if (!video) return
 
     if (isNativeZoomRef.current) {
       // Android: native camera zoom
       try {
-        const stream = scanner.$video.srcObject
+        const stream = video.srcObject
         if (!(stream instanceof MediaStream)) return
         const track = stream.getVideoTracks()[0]
         if (!track) return
@@ -101,7 +100,6 @@ export function usePinchZoom({
       }
     } else {
       // iOS: direct DOM transform for instant visual feedback
-      const video = scanner.$video
       if (clamped > 1) {
         video.style.transform = `scale(${clamped})`
         video.style.transformOrigin = 'center center'
@@ -110,7 +108,7 @@ export function usePinchZoom({
         video.style.transformOrigin = ''
       }
     }
-  }, [scannerRef, minZoom, maxZoom])
+  }, [videoRef, minZoom, maxZoom])
 
   // Touch event handlers
   useEffect(() => {
@@ -174,13 +172,13 @@ export function usePinchZoom({
       setIsNativeZoom(false)
 
       // Reset DOM transform
-      const scanner = scannerRef.current
-      if (scanner) {
-        scanner.$video.style.transform = ''
-        scanner.$video.style.transformOrigin = ''
+      const video = videoRef.current
+      if (video) {
+        video.style.transform = ''
+        video.style.transformOrigin = ''
       }
     }
-  }, [enabled, scannerRef])
+  }, [enabled, videoRef])
 
   // CSS transform for initial render / non-gesture state
   // During gestures, DOM is manipulated directly for real-time feedback
@@ -190,18 +188,13 @@ export function usePinchZoom({
       ? { transform: `scale(${zoomLevel})`, transformOrigin: 'center center' }
       : {}
 
-  // Dynamic scan region: crop center on iOS for decoder zoom
+  // Dynamic scan region: crop center on iOS for decoder zoom. The frame is
+  // handed over at full resolution — the decoder is fast enough not to need it
+  // shrunk, and shrinking costs the fine detail a dense code is made of.
   const getScanRegion = useCallback((video: HTMLVideoElement): ScanRegion => {
     const z = zoomRef.current
     if (z <= 1 || isNativeZoomRef.current) {
-      return {
-        x: 0,
-        y: 0,
-        width: video.videoWidth,
-        height: video.videoHeight,
-        downScaledWidth: 800,
-        downScaledHeight: 800,
-      }
+      return { x: 0, y: 0, width: video.videoWidth, height: video.videoHeight }
     }
 
     const cropWidth = video.videoWidth / z
@@ -211,8 +204,6 @@ export function usePinchZoom({
       y: (video.videoHeight - cropHeight) / 2,
       width: cropWidth,
       height: cropHeight,
-      downScaledWidth: 800,
-      downScaledHeight: 800,
     }
   }, [])
 

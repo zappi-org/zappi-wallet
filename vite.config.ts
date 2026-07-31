@@ -240,7 +240,7 @@ export default defineConfig({
       workbox: {
         // webp is listed too: the logo and card art moved to it, and anything missing here
         // is simply absent offline rather than served stale.
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff,woff2}'],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff,woff2,wasm}'],
         clientsClaim: true,
         cleanupOutdatedCaches: true,
         runtimeCaching: [
