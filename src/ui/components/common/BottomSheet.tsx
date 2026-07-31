@@ -34,7 +34,7 @@ export interface BottomSheetProps {
   sheetClassName?: string
   /** Enter/exit transition for the sheet slide. Overridden by a fade under reduced motion. */
   transition?: Transition
-  /** Backdrop fade transition. Omitted → motion default (preserves legacy consumers). */
+  /** Backdrop fade transition. Omitted → the sheet's own curve, so the two move together. */
   backdropTransition?: Transition
   /** Disable drag-to-dismiss (sheets that must be dismissed via an explicit action). */
   disableDrag?: boolean
@@ -72,7 +72,16 @@ export interface BottomSheetProps {
 }
 
 const DEFAULT_SHEET_CLASS = 'bg-background-elevated rounded-t-lg max-h-[85vh] overflow-hidden'
-const DEFAULT_TRANSITION: Transition = { duration: 0.25, ease: 'easeOut' }
+/**
+ * The presentation curve iOS sheets use, at the settle time Apple's drawer spring
+ * (damping 0.8, response 0.3) lands in. Shared with the home drawer so a sheet
+ * arrives at one speed everywhere — this used to be a 250ms easeOut, half the
+ * drawer's, which made the same gesture read differently depending on which
+ * surface answered it.
+ */
+const SHEET_EASE = [0.32, 0.72, 0, 1] as const
+const DEFAULT_TRANSITION: Transition = { duration: 0.5, ease: SHEET_EASE }
+const DEFAULT_BACKDROP_TRANSITION: Transition = { duration: 0.5, ease: SHEET_EASE }
 /** Past this much travel a press is a drag, not a tap on what sat under it. */
 const DRAG_SLOP_PX = 8
 /** Movement needed over a carousel before paging vs dismissing is decided. */
@@ -99,7 +108,7 @@ export function BottomSheet({
   backdropOpacity = 0.5,
   sheetClassName = DEFAULT_SHEET_CLASS,
   transition = DEFAULT_TRANSITION,
-  backdropTransition,
+  backdropTransition = DEFAULT_BACKDROP_TRANSITION,
   disableDrag = false,
   scrollable = true,
   showHandle = true,
