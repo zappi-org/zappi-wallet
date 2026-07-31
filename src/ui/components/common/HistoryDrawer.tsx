@@ -17,6 +17,10 @@ const PEEK_VISIBLE_PX = 220
 const FULL_SNAP = 1
 /** Past this much travel a press is a drag, not a tap on what sat under it. */
 const DRAG_SLOP_PX = 8
+/** Matches the shared sheet: same scrim weight, same presentation curve. */
+const SCRIM_OPACITY = 0.5
+const SHEET_EASE = 'cubic-bezier(0.32, 0.72, 0, 1)'
+const SHEET_MS = 500
 
 /**
  * Vaul measures a px snap point from the top of the drawer element, not from the
@@ -136,6 +140,28 @@ export function HistoryDrawer({
   const [dragging, setDragging] = useState(false)
   const surfaced = expanded || dragging
 
+  // The scrim belongs to the sheet's position, not to the detent it ends on: it
+  // follows the finger while dragging and settles on the same curve and duration
+  // as every other sheet in the app. Written straight to the node during a drag —
+  // a state update per frame would be a re-render per frame.
+  const dimProgress = useRef(expanded ? 1 : 0)
+  const peekTop = viewportHeight - PEEK_VISIBLE_PX
+  const fullTop = viewportHeight * (1 - SHEET_HEIGHT_RATIO)
+  const trackDrag = useCallback(() => {
+    setListMounted(true)
+    setDragging(true)
+    const node = contentRef.current
+    if (!node) return
+    const progress = (peekTop - node.getBoundingClientRect().y) / (peekTop - fullTop)
+    dimProgress.current = Math.min(1, Math.max(0, progress))
+    if (scrimRef.current) scrimRef.current.style.opacity = String(dimProgress.current * SCRIM_OPACITY)
+  }, [peekTop, fullTop])
+
+  const settleDim = useCallback(() => {
+    setDragging(false)
+    dimProgress.current = expanded ? 1 : 0
+  }, [expanded])
+
   // Dragging the peek row upwards would otherwise also count as a tap on it and
   // open that transaction behind the sheet you just pulled up. A pointer that
   // travelled is a drag, and its click is not the user's intent.
@@ -167,16 +193,20 @@ export function HistoryDrawer({
       // Our own keyboard inset handling applies here too: Vaul's viewport math
       // has thrown sheets to the top of the screen on iOS (see MemoSheet).
       repositionInputs={false}
-      onDrag={() => { setListMounted(true); setDragging(true) }}
-      onRelease={() => setDragging(false)}
+      onDrag={trackDrag}
+      onRelease={settleDim}
     >
       <Drawer.Portal>
         <div
           ref={scrimRef}
           aria-hidden
           onClick={collapse}
-          className={`fixed inset-0 bg-black transition-opacity duration-300 motion-reduce:transition-none ${expanded ? 'z-[55]' : 'z-30'}`}
-          style={{ opacity: expanded ? 0.5 : 0, pointerEvents: expanded ? 'auto' : 'none' }}
+          className={`fixed inset-0 bg-black motion-reduce:transition-none ${expanded ? 'z-[55]' : 'z-30'}`}
+          style={{
+            opacity: (dragging ? dimProgress.current : expanded ? 1 : 0) * SCRIM_OPACITY,
+            transition: dragging ? 'none' : `opacity ${SHEET_MS}ms ${SHEET_EASE}`,
+            pointerEvents: expanded ? 'auto' : 'none',
+          }}
         />
         <Drawer.Content
           ref={setContentNode}
