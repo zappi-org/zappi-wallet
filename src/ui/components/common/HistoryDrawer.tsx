@@ -21,6 +21,8 @@ const DRAG_SLOP_PX = 8
 const SCRIM_OPACITY = 0.5
 const SHEET_EASE = 'var(--sheet-ease)'
 const SHEET_MS = 500
+/** The material arrives under the finger, so it fades in far faster than it leaves. */
+const SURFACE_IN_MS = 150
 
 /**
  * Vaul measures a px snap point from the top of the drawer element, not from the
@@ -238,11 +240,25 @@ export function HistoryDrawer({
           aria-describedby={undefined}
           // Collapsed the drawer is only a drag surface: home's own background has
           // to stay visible behind the peek row, which is what it sat on before.
-          // The sheet material appears with the expanded detent.
-          className={`fixed inset-x-0 bottom-0 flex h-[94%] flex-col outline-none transition-[background-color,border-radius] duration-200 motion-reduce:transition-none ${
+          className={`fixed inset-x-0 bottom-0 flex h-[94%] flex-col outline-none ${
             expanded ? 'z-[60]' : 'z-40'
-          } ${surfaced ? 'rounded-t-[32px] bg-white' : 'rounded-t-none bg-transparent'}`}
+          }`}
         >
+          {/* The sheet material is a layer of its own rather than this element's
+              background: vaul writes `transition` inline on the drawer, which
+              overrides any transition set on it, so the background switched with
+              no fade at all — at the first frame of a collapse the surface was
+              already gone and the peek row appeared to travel down on its own.
+              Owning a child means owning its timing: it arrives quickly under the
+              finger and leaves over the length of the slide it is riding. */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 rounded-t-[32px] bg-white"
+            style={{
+              opacity: surfaced ? 1 : 0,
+              transition: `opacity ${surfaced ? SURFACE_IN_MS : SHEET_MS}ms ${SHEET_EASE}`,
+            }}
+          />
           {/* The grabber belongs to the expanded sheet — collapsed, the peek row
               is home's own bottom edge and carried no bar before. */}
           <div
@@ -253,6 +269,7 @@ export function HistoryDrawer({
           </div>
 
           <Drawer.Title className="sr-only">{t('history.title')}</Drawer.Title>
+
 
           {/* Both detents' content live in the same box and cross-fade, so the
               swap doesn't land as a jump once the snap settles. */}
