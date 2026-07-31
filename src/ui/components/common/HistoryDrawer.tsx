@@ -1,4 +1,4 @@
-import { lazy, Suspense, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type React from 'react'
 import { Drawer } from 'vaul'
 import { useTranslation } from 'react-i18next'
@@ -24,13 +24,14 @@ const SHEET_MS = 500
 /** The material arrives under the finger, so it fades in far faster than it leaves. */
 const SURFACE_IN_MS = 150
 /**
- * On the way out it waits while the sheet does most of its travel and then goes
- * quickly, landing exactly as the sheet does. Fading it evenly across the slide
- * left the sheet half transparent in the middle of the screen, which reads as the
- * sheet dissolving in mid-air rather than descending.
+ * Leaving is driven by where the sheet is rather than by a clock. Fading evenly
+ * over the slide left it half transparent in mid-screen; waiting and then fading
+ * on a timer changed the surface while the sheet was already parked, which reads
+ * as a switch rather than a departure. Cubing the travel keeps it solid through
+ * the part of the descent the eye follows and drains it over the last stretch —
+ * and because the sheet is decelerating there, the drain slows with it.
  */
-const SURFACE_OUT_DELAY_MS = 300
-const SURFACE_OUT_MS = 200
+const SURFACE_FADE_POWER = 3
 
 /**
  * Vaul measures a px snap point from the top of the drawer element, not from the
@@ -172,6 +173,43 @@ export function HistoryDrawer({
     dimProgress.current = expanded ? 1 : 0
   }, [expanded])
 
+  // The material's opacity is written here rather than through JSX: React would
+  // otherwise set it to its resting value on the render that starts a collapse,
+  // blanking the surface for a frame before the first driven value lands. Layout
+  // effect, so the value is in place before the browser paints.
+  const surfaceRef = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const surface = surfaceRef.current
+    if (!surface) return
+    if (surfaced) {
+      surface.style.transition = `opacity ${SURFACE_IN_MS}ms ${SHEET_EASE}`
+      surface.style.opacity = '1'
+      return
+    }
+    // On the way down it is drawn frame by frame from how far the sheet has
+    // travelled, so the two can only ever stop together. Cubing keeps it solid
+    // through the part of the descent the eye follows and drains it over the last
+    // stretch — and since the sheet is decelerating there, the drain slows with it.
+    surface.style.transition = 'none'
+    let frame = 0
+    const draw = () => {
+      // The sheet lives in a portal that attaches after this effect first runs;
+      // returning without drawing would leave the material at its stylesheet
+      // default and paint a white panel over the collapsed peek.
+      const node = contentRef.current
+      if (!node) {
+        frame = requestAnimationFrame(draw)
+        return
+      }
+      const travelled = (node.getBoundingClientRect().y - fullTop) / (peekTop - fullTop)
+      const progress = Math.min(1, Math.max(0, travelled))
+      surface.style.opacity = String(1 - progress ** SURFACE_FADE_POWER)
+      if (progress < 1) frame = requestAnimationFrame(draw)
+    }
+    draw()
+    return () => cancelAnimationFrame(frame)
+  }, [surfaced, contentReady, peekTop, fullTop])
+
   // Two ways out of the dragging state, because leaving it to vaul's onRelease
   // alone is what made the X button leave the shell dimmed under a white sheet
   // on device: the press that hit it was enough of a drag to arm this, the
@@ -260,14 +298,9 @@ export function HistoryDrawer({
               Owning a child means owning its timing: it arrives quickly under the
               finger and leaves over the length of the slide it is riding. */}
           <div
+            ref={surfaceRef}
             aria-hidden
             className="pointer-events-none absolute inset-0 rounded-t-[32px] bg-white"
-            style={{
-              opacity: surfaced ? 1 : 0,
-              transition: surfaced
-                ? `opacity ${SURFACE_IN_MS}ms ${SHEET_EASE}`
-                : `opacity ${SURFACE_OUT_MS}ms ${SHEET_EASE} ${SURFACE_OUT_DELAY_MS}ms`,
-            }}
           />
           {/* The grabber belongs to the expanded sheet — collapsed, the peek row
               is home's own bottom edge and carried no bar before. */}
