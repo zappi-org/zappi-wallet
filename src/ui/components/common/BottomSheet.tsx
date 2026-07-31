@@ -73,13 +73,13 @@ export interface BottomSheetProps {
 
 const DEFAULT_SHEET_CLASS = 'bg-background-elevated rounded-t-lg max-h-[85vh] overflow-hidden'
 /**
- * The presentation curve iOS sheets use, at the settle time Apple's drawer spring
- * (damping 0.8, response 0.3) lands in. Shared with the home drawer so a sheet
- * arrives at one speed everywhere — this used to be a 250ms easeOut, half the
- * drawer's, which made the same gesture read differently depending on which
- * surface answered it.
+ * Fitted to Apple's system spring (Animation.smooth: duration 0.5, bounce 0) —
+ * see --sheet-ease in index.css, which carries the same numbers for the drawer.
+ * A spring leaves rest slowly and spends its speed in the middle; the curve this
+ * replaces was at 78% of the distance a quarter of the way through, which is why
+ * an animation of the right length still read as rushed.
  */
-const SHEET_EASE = [0.32, 0.72, 0, 1] as const
+const SHEET_EASE = [0.18, 0.08, 0.24, 1] as const
 const DEFAULT_TRANSITION: Transition = { duration: 0.5, ease: SHEET_EASE }
 const DEFAULT_BACKDROP_TRANSITION: Transition = { duration: 0.5, ease: SHEET_EASE }
 /** Past this much travel a press is a drag, not a tap on what sat under it. */

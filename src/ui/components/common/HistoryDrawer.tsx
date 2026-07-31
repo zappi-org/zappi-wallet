@@ -19,7 +19,7 @@ const FULL_SNAP = 1
 const DRAG_SLOP_PX = 8
 /** Matches the shared sheet: same scrim weight, same presentation curve. */
 const SCRIM_OPACITY = 0.5
-const SHEET_EASE = 'cubic-bezier(0.32, 0.72, 0, 1)'
+const SHEET_EASE = 'var(--sheet-ease)'
 const SHEET_MS = 500
 
 /**

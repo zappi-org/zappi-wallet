@@ -338,6 +338,25 @@
 
 
 /* ============================================================
+   Sheet presentation curve
+   Fitted to Apple's system spring (Animation.smooth: duration 0.5, bounce 0):
+   at a quarter of the time it has covered 47% of the distance, at half 82%.
+   The curve this replaces reached 78% in that first quarter — the same half
+   second on paper, but nearly all of the movement crammed into its front, which
+   is what read as rushed. Vaul writes its own timing function inline on the
+   drawer, so only !important can reach it; it also sets `transition: none` while
+   a finger is down, which stays untouched here.
+   ============================================================ */
+:root {
+  --sheet-ease: cubic-bezier(0.18, 0.08, 0.24, 1);
+  --sheet-duration: 500ms;
+}
+
+[data-vaul-drawer] {
+  transition-timing-function: var(--sheet-ease) !important;
+}
+
+/* ============================================================
    Typography — font-weight & font-family are now separate.
    Size + line-height are registered in @theme as --text-* variables
    so Tailwind generates native text-display, text-caption, etc.
