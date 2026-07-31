@@ -29,8 +29,10 @@ const SCRIM_OPACITY = 0.5
 const DRAG_SLOP_PX = 8
 /** Movement needed over the list before scrolling vs dismissing is decided. */
 const DIRECTION_SLOP_PX = 6
-/** Of a flick's speed, the distance credited to it when picking a resting state. */
-const FLICK_PROJECTION_S = 0.12
+/** Past this much of the travel, a drag has committed to the other state. */
+const COMMIT_FRACTION = 0.25
+/** A release faster than this decides on its own, however far it got. */
+const FLICK_VELOCITY = 500
 
 export interface HistoryDrawerProps {
   expanded: boolean
@@ -140,10 +142,19 @@ export function HistoryDrawer({
 
   const handleDragStart = useCallback(() => setListMounted(true), [])
 
+  // Measured against where the drag began, not against the midpoint of the
+  // screen: from open, letting go halfway down should close, and asking for half
+  // the sheet's height before it commits means it never does.
   const handleDragEnd = useCallback(
     (_: unknown, info: PanInfo) => {
-      const projected = y.get() + info.velocity.y * FLICK_PROJECTION_S
-      const open = projected < closedY / 2
+      const travelled = expanded ? y.get() : closedY - y.get()
+      const committed = travelled >= closedY * COMMIT_FRACTION
+      const open =
+        Math.abs(info.velocity.y) > FLICK_VELOCITY
+          ? info.velocity.y < 0
+          : expanded
+            ? !committed
+            : committed
       // A drag that ends on the side it started changes no state, so nothing
       // would animate it home; settle it here instead.
       if (open === expanded) settleTo(open)
