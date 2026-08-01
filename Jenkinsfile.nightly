@@ -1,0 +1,155 @@
+pipeline {
+    agent any
+
+    options {
+        skipDefaultCheckout(true)
+        disableConcurrentBuilds()
+        timeout(time: 45, unit: 'MINUTES')
+        timestamps()
+        buildDiscarder(logRotator(numToKeepStr: '30'))
+    }
+
+    parameters {
+        string(
+            name: 'GIT_REF',
+            defaultValue: 'main',
+            description: 'Branch name (for example: feature/qr-fix) or full 40-character commit SHA'
+        )
+    }
+
+    environment {
+        IMAGE_NAME = 'zappi-wallet'
+    }
+
+    stages {
+        stage('Validate Reference') {
+            steps {
+                script {
+                    def requestedRef = params.GIT_REF.trim()
+                    def isCommit = requestedRef ==~ /^[0-9a-fA-F]{40}$/
+                    def branchName = requestedRef
+                    if (branchName.startsWith('refs/heads/')) {
+                        branchName = branchName.substring('refs/heads/'.length())
+                    }
+                    def isBranch = branchName ==~ /^[A-Za-z0-9][A-Za-z0-9._\/-]*$/
+                    def hasInvalidSequence = branchName.contains('..') ||
+                        branchName.contains('//') ||
+                        branchName.contains('@{') ||
+                        branchName.endsWith('/') ||
+                        branchName.endsWith('.') ||
+                        branchName.endsWith('.lock')
+
+                    if (!isCommit && (!isBranch || hasInvalidSequence)) {
+                        error "Invalid GIT_REF: ${requestedRef}"
+                    }
+
+                    env.REQUESTED_REF = requestedRef
+                    env.RESOLVED_REF = isCommit ? requestedRef : "refs/heads/${branchName}"
+                }
+            }
+        }
+
+        stage('Checkout Trusted Deploy Config') {
+            steps {
+                dir('ci') {
+                    checkout scm
+                }
+            }
+        }
+
+        stage('Checkout Target') {
+            steps {
+                dir('app') {
+                    script {
+                        def remote = scm.userRemoteConfigs[0]
+                        def scmVars = checkout scmGit(
+                            branches: [[name: env.RESOLVED_REF]],
+                            userRemoteConfigs: [[
+                                url: remote.url,
+                                credentialsId: remote.credentialsId ?: ''
+                            ]]
+                        )
+
+                        env.DEPLOY_SHA = scmVars.GIT_COMMIT ?: sh(
+                            script: 'git rev-parse HEAD',
+                            returnStdout: true
+                        ).trim()
+                        currentBuild.displayName = "#${env.BUILD_NUMBER} ${env.DEPLOY_SHA.take(12)}"
+                        currentBuild.description = "${env.REQUESTED_REF} -> nightly"
+                    }
+
+                    sh 'git show -s --format="Target: %H %s" HEAD'
+                }
+            }
+        }
+
+        stage('Approve Nightly Deployment') {
+            options {
+                timeout(time: 15, unit: 'MINUTES')
+            }
+            steps {
+                input(
+                    message: "Deploy ${env.REQUESTED_REF} (${env.DEPLOY_SHA}) to nightly?",
+                    ok: 'Deploy'
+                )
+            }
+        }
+
+        stage('Build') {
+            steps {
+                dir('app') {
+                    sh '''
+                        docker build \
+                            --build-arg VITE_ZAPPI_CHANNEL=nightly \
+                            -t "${IMAGE_NAME}:nightly-${DEPLOY_SHA}" .
+                    '''
+                }
+            }
+        }
+
+        stage('Deploy Nightly') {
+            steps {
+                sh '''
+                    if docker image inspect "${IMAGE_NAME}:nightly" >/dev/null 2>&1; then
+                        docker tag \
+                            "${IMAGE_NAME}:nightly" \
+                            "${IMAGE_NAME}:nightly-previous"
+                    fi
+
+                    docker tag \
+                        "${IMAGE_NAME}:nightly-${DEPLOY_SHA}" \
+                        "${IMAGE_NAME}:nightly"
+
+                    docker compose \
+                        -f ci/docker-compose.nightly.yml \
+                        -p zappi-wallet-nightly \
+                        up -d --force-recreate
+                '''
+            }
+        }
+
+        stage('Verify Nightly') {
+            steps {
+                retry(10) {
+                    sleep time: 3, unit: 'SECONDS'
+                    sh 'curl -fsS http://127.0.0.1:3022/ >/dev/null'
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "SUCCESS: nightly now runs ${env.DEPLOY_SHA}"
+        }
+        failure {
+            echo 'FAILED: nightly deployment failed'
+        }
+        aborted {
+            echo 'CANCELLED: nightly deployment was not approved'
+        }
+        always {
+            cleanWs()
+        }
+    }
+}
