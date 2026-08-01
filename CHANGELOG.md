@@ -1,5 +1,17 @@
 # zappi-wallet
 
+## 0.4.3
+
+### Patch Changes
+
+- refactor: reanimate bottom sheet
+
+## 0.4.2
+
+### Patch Changes
+
+- 4d639ed: fix: self-host Pretendard font to bypass CSP style-src restriction
+
 ## 0.4.0
 
 ### Minor Changes
