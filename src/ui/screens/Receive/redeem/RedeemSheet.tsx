@@ -5,7 +5,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import QrScannerLib from 'qr-scanner'
+import { scanImageFile } from '@/ui/lib/qr-engine'
 import { Image as ImageIcon, ClipboardPaste } from 'lucide-react'
 import { BottomSheet } from '@/ui/components/common/BottomSheet'
 import { Button } from '@/ui/components/common/Button'
@@ -94,8 +94,7 @@ export function RedeemSheet({ isOpen, onClose, onValidated, onRouteValidated }: 
     e.target.value = ''
     if (!file) return
     try {
-      const result = await QrScannerLib.scanImage(file, { returnDetailedScanResult: true })
-      await handleRaw(result.data)
+      await handleRaw(await scanImageFile(file))
     } catch {
       hapticError()
       setError(t('scanner.noQrFound'))
@@ -107,7 +106,7 @@ export function RedeemSheet({ isOpen, onClose, onValidated, onRouteValidated }: 
       {/* The sheet owns the bottom clearance; this only sets the side gutters. */}
       <div className="flex flex-col px-6">
         <div className="mt-2 overflow-hidden rounded-2xl bg-black aspect-square">
-          {isOpen && <QrScanner onScan={(r) => void handleRaw(r)} active={isOpen} />}
+          {isOpen && <QrScanner onScan={(r) => void handleRaw(r)} active={isOpen} paused={validating} />}
         </div>
 
         <div className="h-6 mt-2 text-center">

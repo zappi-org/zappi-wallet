@@ -315,8 +315,7 @@ export default function MainApp() {
       }
     }
 
-    const detectedType = inputParser.detectAndClassify(raw)
-    if (detectedType.type === 'unknown') {
+    if (detected.type === 'unknown') {
       addToast({ type: 'error', message: t('scanner.unrecognizedFormat'), duration: 3000 })
       return
     }

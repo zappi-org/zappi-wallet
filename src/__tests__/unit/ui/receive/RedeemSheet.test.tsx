@@ -3,7 +3,13 @@ import { describe, it, expect, vi } from 'vitest'
 import { RedeemSheet } from '@/ui/screens/Receive/redeem/RedeemSheet'
 
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }))
-vi.mock('@/ui/components/common/QrScanner', () => ({ QrScanner: () => <div data-testid="camera" /> }))
+let capturedScannerProps: { onScan: (raw: string) => void; paused?: boolean } | null = null
+vi.mock('@/ui/components/common/QrScanner', () => ({
+  QrScanner: (props: { onScan: (raw: string) => void; paused?: boolean }) => {
+    capturedScannerProps = props
+    return <div data-testid="camera" />
+  },
+}))
 
 const validated = { type: 'cashu-token', token: 'cashuA...', mintUrl: 'https://mint.a', amount: { value: 10n, unit: 'sat' } }
 const validateAsync = vi.fn().mockResolvedValue(validated)
@@ -64,5 +70,20 @@ describe('RedeemSheet', () => {
     await Promise.resolve()
     expect(validateAsync).not.toHaveBeenCalled()
     expect(onValidated).not.toHaveBeenCalled()
+  })
+
+  it('pauses camera decoding during validation and resumes after a rejected scan', async () => {
+    let rejectValidation: (error: Error) => void = () => {}
+    validateAsync.mockImplementationOnce(() => new Promise((_, reject) => { rejectValidation = reject }))
+    render(<RedeemSheet isOpen onClose={vi.fn()} onValidated={vi.fn()} />)
+
+    expect(capturedScannerProps?.paused).toBe(false)
+    act(() => capturedScannerProps?.onScan('cashuA...'))
+    await waitFor(() => expect(capturedScannerProps?.paused).toBe(true))
+
+    await act(async () => rejectValidation(new Error('invalid token')))
+
+    await waitFor(() => expect(capturedScannerProps?.paused).toBe(false))
+    expect(screen.getByText('scanner.invalidToken')).toBeInTheDocument()
   })
 })
