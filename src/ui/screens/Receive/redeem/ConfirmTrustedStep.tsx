@@ -61,10 +61,7 @@ export function ConfirmTrustedStep({
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
-    if (!onEstimateRedeemFee) {
-      setFee(null)
-      return
-    }
+    if (!onEstimateRedeemFee) return
     let cancelled = false
     onEstimateRedeemFee(token.token)
       .then((estimate) => {
@@ -90,7 +87,7 @@ export function ConfirmTrustedStep({
     } catch (error) {
       hapticError()
       addToast({ type: 'error', message: translateError(error, t) })
-    } finally {
+      // Keep busy until the receipt replaces this screen.
       setBusy(false)
     }
   }, [busy, onReceive, sourceMintUrl, addToast, t])
@@ -187,6 +184,7 @@ export function ConfirmTrustedStep({
           variant="brand"
           size="xl"
           onClick={handleReceive}
+          loading={busy}
           disabled={busy}
           className="w-full"
         >

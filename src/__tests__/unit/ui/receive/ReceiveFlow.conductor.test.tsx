@@ -9,7 +9,9 @@ vi.mock('react-i18next', () => ({
 }))
 
 vi.mock('motion/react', () => ({
-  AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  AnimatePresence: ({ children, initial }: { children: React.ReactNode; initial?: boolean }) => (
+    <div data-testid="receive-step-presence" data-initial={String(initial)}>{children}</div>
+  ),
 }))
 
 vi.mock('@/ui/components/common/PageTransition', () => ({
@@ -235,6 +237,21 @@ describe('ReceiveFlow conductor — overlay + review races', () => {
     expect(screen.getByTestId('step-confirm-trusted')).toBeInTheDocument()
     expect(screen.queryByTestId('redeem-sheet')).not.toBeInTheDocument()
     expect(screen.queryByTestId('step-redeem')).not.toBeInTheDocument()
+  })
+
+  it('lets the activity transition solely own a routed token launch', () => {
+    const props = baseProps()
+    render(
+      <ReceiveFlow
+        {...props}
+        incomingReview={null}
+        launch={{
+          redeemToken: { type: 'cashu-token', token: 'cashuB_motion', amount: sat(21), mintUrl: 'https://trusted.mint' },
+        }}
+      />,
+    )
+
+    expect(screen.getByTestId('receive-step-presence')).toHaveAttribute('data-initial', 'false')
   })
 
   // Back must retrace the way in. A routed token never passed through the sheet,

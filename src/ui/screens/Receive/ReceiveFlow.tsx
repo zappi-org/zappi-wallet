@@ -655,7 +655,8 @@ export function ReceiveFlow({
 
   return (
     <div className="h-full bg-background text-foreground font-primary flex flex-col pt-safe">
-      <AnimatePresence mode="wait">
+      {/* Avoid stacking the initial Stackflow and nested transitions. */}
+      <AnimatePresence mode="wait" initial={false}>
         {state.step === 'redeem' && (
           <PageTransition key="receive-redeem" variant="fade" className="flex-1">
             <div data-testid="step-redeem" className="h-full bg-background" />
