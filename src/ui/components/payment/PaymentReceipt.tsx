@@ -1,6 +1,14 @@
-import { useId, useState, type ReactNode } from 'react'
+import { useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
 import { Eye, EyeOff } from 'lucide-react'
+import { shouldStartReceiptTorn, type PaymentReceiptStatus } from './payment-receipt-motion'
+
+export type { PaymentReceiptStatus } from './payment-receipt-motion'
+
+const PAPER_HIDDEN_TRANSFORM = 'translate3d(0, -101%, 0)'
+const PAPER_PRINTED_TRANSFORM = 'translate3d(0, -7%, 0)'
+const PAPER_REST_TRANSFORM = 'translate3d(0, 0, 0)'
+const PAPER_EASING = 'cubic-bezier(0.23, 1, 0.32, 1)'
 
 /**
  * printing  — paper crawls out continuously, decelerating (fake progress);
@@ -9,8 +17,6 @@ import { Eye, EyeOff } from 'lucide-react'
  * pending   — torn receipt, no stamp (settlement still confirming);
  * done      — torn receipt with the seal already on (complete screen).
  */
-export type PaymentReceiptStatus = 'printing' | 'finishing' | 'pending' | 'done'
-
 export interface PaymentReceiptRow {
   label: string
   value: string
@@ -78,10 +84,11 @@ export function PaymentReceipt({
   const reduceMotion = useReducedMotion()
   const teethId = useId()
   const teethTopId = useId()
+  const supportsPaperAnimation = typeof Element !== 'undefined' && typeof Element.prototype.animate === 'function'
 
   // Tear phase: complete-screen states start torn; finishing tears after the
-  // fast feed-out lands (onAnimationComplete below).
-  const startsTorn = status === 'done' || status === 'pending'
+  // fast feed-out animation resolves below.
+  const startsTorn = shouldStartReceiptTorn(status, supportsPaperAnimation)
   const [torn, setTorn] = useState(startsTorn)
   // Render-phase adjustment (codebase pattern — see MemoSheet): torn is forced
   // for complete-screen states and reduced motion without an effect cascade.
@@ -91,6 +98,9 @@ export function PaymentReceipt({
   // my-auto-centered receipt. Captured at mount: a standalone done/pending
   // receipt never had a slot and stays flush.
   const [hadSlot] = useState(!startsTorn)
+  const paperRef = useRef<HTMLDivElement>(null)
+  const paperAnimationRef = useRef<Animation | null>(null)
+  const paperAnimationRunRef = useRef(0)
 
   const printing = status === 'printing' && !reduceMotion
   const feeding = status === 'finishing' && !torn && !reduceMotion
@@ -101,6 +111,63 @@ export function PaymentReceipt({
   // finishing feed tears off, then settles straight. 'finishing' can linger
   // (awaiting claim, receive arrival), so a fixed -1.4° would sit crooked.
   const joltActive = torn && status === 'finishing' && !reduceMotion
+
+  useLayoutEffect(() => {
+    const paper = paperRef.current
+    if (!paper) return
+
+    const run = ++paperAnimationRunRef.current
+    const currentTransform = feeding ? getComputedStyle(paper).transform : ''
+    paperAnimationRef.current?.cancel()
+    paperAnimationRef.current = null
+
+    if (reduceMotion || (!printing && !feeding)) {
+      paper.style.transform = PAPER_REST_TRANSFORM
+      paper.style.willChange = ''
+      return
+    }
+
+    const from = printing
+      ? PAPER_HIDDEN_TRANSFORM
+      : currentTransform && currentTransform !== 'none'
+        ? currentTransform
+        : PAPER_REST_TRANSFORM
+    const to = printing ? PAPER_PRINTED_TRANSFORM : PAPER_REST_TRANSFORM
+    const duration = printing ? 8000 : 320
+
+    if (typeof paper.animate !== 'function') {
+      paper.style.transform = to
+      paper.style.willChange = ''
+      if (feeding) {
+        void Promise.resolve().then(() => {
+          if (paperAnimationRunRef.current === run) setTorn(true)
+        })
+      }
+      return
+    }
+
+    paper.style.willChange = 'transform'
+    const animation = paper.animate(
+      [{ transform: from }, { transform: to }],
+      { duration, easing: PAPER_EASING, fill: 'forwards' },
+    )
+    paperAnimationRef.current = animation
+
+    void animation.finished.then(() => {
+      if (paperAnimationRunRef.current !== run) return
+      paper.style.transform = to
+      paper.style.willChange = ''
+      animation.cancel()
+      if (paperAnimationRef.current === animation) paperAnimationRef.current = null
+      if (feeding) setTorn(true)
+    }).catch(() => {})
+  }, [feeding, printing, reduceMotion])
+
+  useLayoutEffect(() => () => {
+    paperAnimationRunRef.current += 1
+    paperAnimationRef.current?.cancel()
+    paperAnimationRef.current = null
+  }, [])
 
   return (
     <div className="flex w-full flex-col items-center">
@@ -132,26 +199,7 @@ export function PaymentReceipt({
               : { duration: reduceMotion ? 0 : 0.22, ease: [0.16, 1, 0.3, 1] }
           }
         >
-          <motion.div
-            initial={printing ? { y: '-101%' } : { y: 0 }}
-            animate={
-              printing
-                ? // One continuous emergence that decelerates into a crawl —
-                  // the asymptotic fake-progress; finishing snaps it to 0.
-                  { y: ['-101%', '-16%', '-7%'] }
-                : { y: 0 }
-            }
-            transition={
-              printing
-                ? { duration: 8, times: [0, 0.34, 1], ease: ['easeOut', 'linear'] }
-                : feeding
-                  ? { duration: 0.32, ease: [0.16, 1, 0.3, 1] }
-                  : { duration: 0 }
-            }
-            onAnimationComplete={() => {
-              if (status === 'finishing' && !torn) setTorn(true)
-            }}
-          >
+          <div ref={paperRef} data-testid="receipt-paper">
             {/* Torn top edge — appears the moment the paper leaves the roll */}
             {torn && (
               <svg className="block" width={width} height="8" viewBox={`0 0 ${width} 8`} aria-hidden>
@@ -230,17 +278,13 @@ export function PaymentReceipt({
                     {(status === 'printing' || status === 'finishing') && (
                       <span aria-hidden>
                         {[0, 1, 2].map((i) => (
-                          <motion.span
+                          <span
                             key={i}
-                            animate={dotsAlive ? { opacity: [0, 1, 1, 0] } : { opacity: 1 }}
-                            transition={
-                              dotsAlive
-                                ? { duration: 1.2, times: [0, 0.3, 0.8, 1], repeat: Infinity, delay: i * 0.2 }
-                                : { duration: 0 }
-                            }
+                            className={dotsAlive ? 'receipt-status-dot--active' : undefined}
+                            style={dotsAlive ? { animationDelay: `${i * 200}ms` } : undefined}
                           >
                             .
-                          </motion.span>
+                          </span>
                         ))}
                       </span>
                     )}
@@ -290,7 +334,7 @@ export function PaymentReceipt({
               </defs>
               <rect width={width} height="8" fill={`url(#${teethId})`} />
             </svg>
-          </motion.div>
+          </div>
         </motion.div>
       </div>
     </div>
