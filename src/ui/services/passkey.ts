@@ -19,6 +19,7 @@ const OLD_ENCRYPTED_PIN_KEYS = ['passkey_encrypted_pin', 'passkey_encrypted_pin_
 
 interface StoredCredential {
   credentialId: string
+  transports?: AuthenticatorTransport[]
   version: 3 // Track format version for future migrations
 }
 
@@ -207,6 +208,42 @@ function extractPRFResult(
   return prf.results.first
 }
 
+function getCredentialTransports(credential: PublicKeyCredential): AuthenticatorTransport[] | undefined {
+  const response = credential.response as AuthenticatorAttestationResponse
+  if (typeof response.getTransports !== 'function') return undefined
+  const transports = response.getTransports() as AuthenticatorTransport[]
+  return transports.length > 0 ? transports : undefined
+}
+
+/** Requests PRF output with a user-verified assertion. */
+async function requestPRFOutput(
+  credentialId: ArrayBuffer,
+  transports?: AuthenticatorTransport[],
+): Promise<ArrayBuffer | null> {
+  const descriptor: PublicKeyCredentialDescriptor = {
+    id: credentialId,
+    type: 'public-key',
+    ...(transports && { transports }),
+  }
+  const assertion = await navigator.credentials.get({
+    publicKey: {
+      challenge: generateChallenge(),
+      allowCredentials: [descriptor],
+      userVerification: 'required',
+      timeout: 60000,
+      extensions: {
+        prf: {
+          eval: {
+            first: PRF_SALT,
+          },
+        },
+      } as AuthenticationExtensionsClientInputs & { prf: PRFExtensionInput },
+    },
+  }) as PublicKeyCredential | null
+
+  return assertion ? extractPRFResult(assertion.getClientExtensionResults()) : null
+}
+
 /**
  * Register a new passkey with PRF extension.
  * Returns true on success. Throws PasskeyPRFNotSupportedError if PRF is unavailable.
@@ -259,10 +296,19 @@ export async function registerPasskey(pin: string): Promise<boolean> {
       return false
     }
 
-    // Check PRF support
-    const prfOutput = extractPRFResult(credential.getClientExtensionResults())
+    const extensionResults = credential.getClientExtensionResults()
+    const prf = (extensionResults as AuthenticationExtensionsClientOutputs & {
+      prf?: PRFExtensionOutput
+    }).prf
+    const transports = getCredentialTransports(credential)
+
+    // Some providers return PRF output only during assertion.
+    let prfOutput = extractPRFResult(extensionResults)
+    if (!prfOutput && prf?.enabled === true) {
+      prfOutput = await requestPRFOutput(credential.rawId, transports)
+    }
     if (!prfOutput) {
-      // PRF not supported by this authenticator — cannot securely encrypt PIN
+      // PRF output is required to decrypt the local wallet.
       throw new Error('PRF_NOT_SUPPORTED')
     }
 
@@ -272,6 +318,7 @@ export async function registerPasskey(pin: string): Promise<boolean> {
     // Store credential ID (needed for allowCredentials in authentication)
     const storedCredential: StoredCredential = {
       credentialId: bufferToBase64(credential.rawId),
+      transports,
       version: 3,
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(storedCredential))
@@ -309,38 +356,10 @@ export async function authenticateWithPasskey(): Promise<string | null> {
       return null
     }
 
-    const challenge = generateChallenge()
-
-    const publicKeyCredentialRequestOptions: PublicKeyCredentialRequestOptions = {
-      challenge,
-      allowCredentials: [
-        {
-          id: base64ToBuffer(stored.credentialId),
-          type: 'public-key',
-          transports: ['internal'],
-        },
-      ],
-      userVerification: 'required',
-      timeout: 60000,
-      extensions: {
-        prf: {
-          eval: {
-            first: PRF_SALT,
-          },
-        },
-      } as AuthenticationExtensionsClientInputs & { prf: PRFExtensionInput },
-    }
-
-    const assertion = await navigator.credentials.get({
-      publicKey: publicKeyCredentialRequestOptions,
-    }) as PublicKeyCredential | null
-
-    if (!assertion) {
-      return null
-    }
-
-    // Get PRF output from assertion
-    const prfOutput = extractPRFResult(assertion.getClientExtensionResults())
+    const prfOutput = await requestPRFOutput(
+      base64ToBuffer(stored.credentialId),
+      stored.transports,
+    )
     if (!prfOutput) {
       // PRF failed during authentication — this shouldn't happen if registration succeeded
       return null
@@ -383,36 +402,10 @@ export async function updatePasskeyPin(newPin: string): Promise<boolean> {
       return false
     }
 
-    const challenge = generateChallenge()
-
-    // Must authenticate (biometric) to get PRF output
-    const publicKeyCredentialRequestOptions: PublicKeyCredentialRequestOptions = {
-      challenge,
-      allowCredentials: [
-        {
-          id: base64ToBuffer(stored.credentialId),
-          type: 'public-key',
-          transports: ['internal'],
-        },
-      ],
-      userVerification: 'required',
-      timeout: 60000,
-      extensions: {
-        prf: {
-          eval: {
-            first: PRF_SALT,
-          },
-        },
-      } as AuthenticationExtensionsClientInputs & { prf: PRFExtensionInput },
-    }
-
-    const assertion = await navigator.credentials.get({
-      publicKey: publicKeyCredentialRequestOptions,
-    }) as PublicKeyCredential | null
-
-    if (!assertion) return false
-
-    const prfOutput = extractPRFResult(assertion.getClientExtensionResults())
+    const prfOutput = await requestPRFOutput(
+      base64ToBuffer(stored.credentialId),
+      stored.transports,
+    )
     if (!prfOutput) return false
 
     // Re-encrypt with new PIN (new salt and IV)

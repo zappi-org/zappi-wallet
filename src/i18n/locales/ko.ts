@@ -347,8 +347,8 @@ export default {
     // Passkey
     passkeyDescription: '생체인증 등록을 위해 PIN을 입력하세요',
     register: '등록하기',
-    passkeyRegisterFailed: 'Passkey 등록에 실패했습니다.',
-    passkeyPRFNotSupported: '이 기기는 안전한 생체인증 암호화(PRF)를 지원하지 않습니다.',
+    passkeyRegisterFailed: 'Passkey를 등록하지 못했습니다. Passkey 제공자가 활성화되어 있는지 확인한 뒤 다시 시도하세요.',
+    passkeyPRFNotSupported: '선택한 Passkey 제공자가 이 지갑에 필요한 보안 암호화(PRF)를 지원하지 않습니다.',
     passkeyRemoveDescription: '생체인증 해제를 위해 PIN을 입력하세요',
     remove: '해제하기',
 
