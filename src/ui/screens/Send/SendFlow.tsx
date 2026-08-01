@@ -590,6 +590,7 @@ export function SendFlow({
         setState((prev) => ({
           ...prev,
           step: 'amount',
+          skippedAmount: false,
           selectedMintUrl: sourceMintUrl,
           destination: data.destination,
           validatedData: validated!,
@@ -631,6 +632,7 @@ export function SendFlow({
       setState((prev) => ({
         ...prev,
         step: 'confirm',
+        skippedAmount: false,
         amount: data.amount,
         memo: data.memo,
         isFiatMode: data.isFiatMode,
@@ -779,9 +781,16 @@ export function SendFlow({
     setState((prev) => ({
       ...prev,
       directTransfer: true,
+      skippedAmount: false,
       selectedMintUrl: mint,
+      // Clear input state before entering direct transfer.
+      destination: '',
+      validatedData: null,
       amount: 0,
       memo: '',
+      fee: 0,
+      quotedBalance: null,
+      routeSelection: null,
       step: 'amount',
       error: null,
     }))
@@ -797,6 +806,7 @@ export function SendFlow({
         isFiatMode: data.isFiatMode,
         fiatAmount: data.fiatAmount,
         step: 'confirm',
+        skippedAmount: false,
         error: null,
       }))
     },
@@ -946,7 +956,6 @@ export function SendFlow({
         fee: routeResult.fee,
         quotedBalance: routeResult.quotedBalance,
         routeSelection: routeResult.routeSelection,
-        skippedAmount: true,
         error: routeResult.error ?? null,
       }))
     })
@@ -996,6 +1005,27 @@ export function SendFlow({
         error: null,
       }))
     }
+  }
+
+  const handleConfirmBack = () => {
+    // Fixed requests entered at confirm return to the parent screen.
+    if (getInitialStep() === 'confirm') {
+      onBack()
+      return
+    }
+
+    setState((prev) => {
+      const returnToDestination = prev.skippedAmount
+      return {
+        ...prev,
+        step: returnToDestination ? 'destination' : 'amount',
+        skippedAmount: false,
+        error: null,
+        ...(returnToDestination
+          ? { routeSelection: null, fee: 0, quotedBalance: null }
+          : {}),
+      }
+    })
   }
 
   // ============= Render =============
@@ -1053,7 +1083,7 @@ export function SendFlow({
                       state.step === 'sending'
                         ? () => {}
                         : state.step === 'confirm'
-                          ? () => setState((prev) => ({ ...prev, step: 'amount', error: null }))
+                          ? handleConfirmBack
                           : handleAmountBack
                     }
                     onNext={state.directTransfer ? handleDirectAmountNext : handleAmountNext}
@@ -1101,7 +1131,7 @@ export function SendFlow({
                     confirmError={state.error}
                     confirmMemo={state.memo}
                     onEditMemo={(memo) => setState((prev) => ({ ...prev, memo }))}
-                    onCancelConfirm={() => setState((prev) => ({ ...prev, step: 'amount', error: null }))}
+                    onCancelConfirm={handleConfirmBack}
                     onConfirmSend={state.directTransfer ? handleCreateTokenConfirm : handleConfirmSend}
                   />
                 </motion.div>

@@ -7,12 +7,13 @@
  * SendFlow's own state machine — no real keypad/DOM interaction needed.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, act } from '@testing-library/react'
+import { render, act, screen } from '@testing-library/react'
 import { SendFlow } from '@/ui/screens/Send/SendFlow'
 
 // Neither child step exports its props interface — extract via ComponentProps
 // instead of duplicating the shape (and drifting from it) here.
 import type { ComponentProps, ReactNode } from 'react'
+import type { ValidatedCashuRequest } from '@/core/domain/input-types'
 import type { SendInputStep as SendInputStepComponent } from '@/ui/screens/Send/steps/SendInputStep'
 import type { SendAmountStep as SendAmountStepComponent } from '@/ui/screens/Send/steps/SendAmountStep'
 
@@ -43,14 +44,14 @@ vi.mock('motion/react', () => ({
 vi.mock('@/ui/screens/Send/steps/SendInputStep', () => ({
   SendInputStep: (props: SendInputStepProps) => {
     capturedInput = props
-    return null
+    return <div data-testid="send-input-step" />
   },
 }))
 
 vi.mock('@/ui/screens/Send/steps/SendAmountStep', () => ({
   SendAmountStep: (props: SendAmountStepProps) => {
     capturedAmount = props
-    return null
+    return <div data-testid="send-amount-step" />
   },
 }))
 
@@ -102,7 +103,7 @@ const addToastMock = vi.fn()
 const storeState = {
   addToast: addToastMock,
   settings: { relays: [], mints: [] },
-  balance: { byMint: {} },
+  balance: { byMint: {} as Record<string, number> },
   nostrPrivkey: null,
 }
 
@@ -129,6 +130,23 @@ const baseProps = {
   initialMintUrl: 'https://mint.example.com',
 }
 
+function fixedCashuRequest(request: string): ValidatedCashuRequest {
+  return {
+    type: 'cashu-request',
+    request,
+    parsed: {
+      id: 'request-id',
+      unit: 'sat',
+      amount: 50,
+      mints: ['https://mint.example.com'],
+      transports: [{ type: 'nostr', target: 'npub1recipient' }],
+      hasNostrTransport: true,
+      nostrTarget: 'npub1recipient',
+      hasPostTransport: false,
+    },
+  }
+}
+
 /** Drives SendFlow from destination-scene → direct-confirm with the given amount. */
 function enterDirectConfirm(amount = 50) {
   act(() => {
@@ -145,6 +163,7 @@ describe('SendFlow direct-transfer fee quote', () => {
     capturedAmount = null
     completeMounted = false
     addToastMock.mockClear()
+    storeState.balance.byMint = {}
     estimateRouteFeeMock.mockReset()
     estimateRouteFeeMock.mockResolvedValue({ fee: 0, availableBalance: 1000 })
   })
@@ -244,6 +263,83 @@ describe('SendFlow direct-transfer fee quote', () => {
     })
 
     expect(capturedAmount!.initialAmount).toBe(0)
+  })
+
+  it('back from an externally scanned fixed request exits to the screen that launched Send', async () => {
+    const onBack = vi.fn()
+    render(
+      <SendFlow
+        {...baseProps}
+        onBack={onBack}
+        validatedData={fixedCashuRequest('creqAscanned')}
+      />,
+    )
+
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(capturedAmount!.confirming).toBe(true)
+
+    act(() => {
+      capturedAmount!.onBack({ amount: 50, memo: '', isFiatMode: false, fiatAmount: '' })
+    })
+
+    expect(onBack).toHaveBeenCalledOnce()
+    expect(capturedAmount!.confirming).toBe(true)
+  })
+
+  it('back from a fixed request entered on the destination screen returns to destination', async () => {
+    storeState.balance.byMint['https://mint.example.com'] = 1000
+    const onBack = vi.fn()
+    const request = fixedCashuRequest('creqAinternal')
+
+    render(<SendFlow {...baseProps} onBack={onBack} />)
+    await act(async () => {
+      await capturedInput!.onNext({
+        destination: request.request,
+        validatedData: request,
+        amountFromInvoice: 50,
+        mintUrl: 'https://mint.example.com',
+      })
+    })
+    expect(capturedAmount!.confirming).toBe(true)
+
+    act(() => {
+      capturedAmount!.onBack({ amount: 50, memo: '', isFiatMode: false, fiatAmount: '' })
+    })
+
+    expect(screen.getByTestId('send-input-step')).toBeInTheDocument()
+    expect(screen.queryByTestId('send-amount-step')).not.toBeInTheDocument()
+    expect(onBack).not.toHaveBeenCalled()
+  })
+
+  it('does not restore a scanned destination after clearing it and returning from direct transfer', async () => {
+    storeState.balance.byMint['https://mint.example.com'] = 1000
+    const request = fixedCashuRequest('creqAstale')
+
+    render(<SendFlow {...baseProps} />)
+    await act(async () => {
+      await capturedInput!.onNext({
+        destination: request.request,
+        validatedData: request,
+        amountFromInvoice: 50,
+        mintUrl: 'https://mint.example.com',
+      })
+    })
+
+    act(() => {
+      capturedAmount!.onBack({ amount: 50, memo: '', isFiatMode: false, fiatAmount: '' })
+    })
+    act(() => {
+      capturedInput!.onDirectTransfer()
+    })
+    act(() => {
+      capturedAmount!.onBack({ amount: 0, memo: '', isFiatMode: false, fiatAmount: '' })
+    })
+
+    expect(capturedInput!.initialDestination).toBe('')
+    expect(capturedInput!.initialValidatedData).toBeNull()
   })
 
   it('shows an unavailable routed fee instead of a false zero when quoting fails', async () => {
