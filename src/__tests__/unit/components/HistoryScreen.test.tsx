@@ -48,4 +48,16 @@ describe('HistoryScreen', () => {
     expect(document.activeElement).not.toBe(searchInput)
     expect(document.activeElement).toBe(document.body)
   })
+
+  it('reserves the sheet header for vertical drag gestures', () => {
+    const { container } = render(
+      <HistoryScreen
+        onBack={vi.fn()}
+        transactions={[]}
+        isSheet
+      />
+    )
+
+    expect((container.querySelector('header') as HTMLElement).style.touchAction).toBe('none')
+  })
 })

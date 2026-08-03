@@ -343,8 +343,8 @@ export default {
     // Passkey
     passkeyDescription: 'Masukkan PIN untuk mendaftarkan autentikasi biometrik',
     register: 'Daftar',
-    passkeyRegisterFailed: 'Pendaftaran Passkey gagal.',
-    passkeyPRFNotSupported: 'Perangkat ini tidak mendukung enkripsi biometrik aman (PRF).',
+    passkeyRegisterFailed: 'Passkey tidak dapat didaftarkan. Pastikan penyedia passkey telah diaktifkan, lalu coba lagi.',
+    passkeyPRFNotSupported: 'Penyedia passkey yang dipilih tidak mendukung enkripsi aman (PRF) yang diperlukan dompet ini.',
     passkeyRemoveDescription: 'Masukkan PIN untuk menghapus autentikasi biometrik',
     remove: 'Hapus',
 

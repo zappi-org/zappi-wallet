@@ -14,6 +14,7 @@
     "check:phantom": "node scripts/check-phantom-deps.mjs"
   },
   "dependencies": {
+    "@agicash/qr-scanner": "0.1.2",
     "@cashu/cashu-ts": "^3.5.0",
     "@cashu/coco-core": "1.0.1",
     "@cashu/coco-indexeddb": "1.0.1",
@@ -42,7 +43,6 @@
     "motion": "^12.31.0",
     "nostr-cs": "0.0.4",
     "nostr-tools": "^2.19.4",
-    "qr-scanner": "^1.4.2",
     "qrcode.react": "^4.2.0",
     "react": "^19.2.0",
     "react-day-picker": "^9.13.0",
@@ -51,7 +51,8 @@
     "recharts": "^3.7.0",
     "tailwind-merge": "^3.4.0",
     "vite-plugin-pwa": "^1.2.0",
-    "zustand": "^5.0.10"
+    "zustand": "^5.0.10",
+    "zxing-wasm": "2.2.4"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.0",

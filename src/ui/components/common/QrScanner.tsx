@@ -1,7 +1,12 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import QrScannerLib from "qr-scanner";
-type ScanResult = QrScannerLib.ScanResult;
+import {
+  CameraNotFoundError,
+  CameraPermissionError,
+  ManagedQrScanner,
+  type ScanResult,
+} from "@/ui/lib/qr-engine";
+import { createQrPerformanceRecorder } from "@/ui/lib/qr-performance";
 import { URDecoder } from "@gandlaf21/bc-ur";
 import { usePinchZoom } from "@/ui/hooks/use-pinch-zoom";
 
@@ -9,14 +14,17 @@ export interface QrScannerProps {
   onScan: (result: string) => void;
   onError?: (error: string) => void;
   active?: boolean;
+  paused?: boolean;
 }
 
-export function QrScanner({ onScan, onError, active = true }: QrScannerProps) {
+export function QrScanner({ onScan, onError, active = true, paused = false }: QrScannerProps) {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const scannerRef = useRef<QrScannerLib | null>(null);
+  const scannerRef = useRef<ManagedQrScanner | null>(null);
+  const resetUrPerformanceMarkRef = useRef<(() => void) | null>(null);
   const urDecoderRef = useRef<URDecoder | null>(null);
+  const seenUrFragmentsRef = useRef(new Set<string>());
   const lastScannedDataRef = useRef<string | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [hasCamera, setHasCamera] = useState(true);
@@ -24,12 +32,23 @@ export function QrScanner({ onScan, onError, active = true }: QrScannerProps) {
   const [urProgress, setUrProgress] = useState(0);
 
   // Pinch-to-zoom
-  const { zoomLevel, videoStyle, getScanRegion } = usePinchZoom({
+  const {
+    zoomLevel,
+    videoStyle,
+    scanGuideStyle,
+    getGuideScanRegion,
+  } = usePinchZoom({
     containerRef,
-    scannerRef,
+    videoRef,
     enabled: active && isReady,
   });
-  const getScanRegionRef = useRef(getScanRegion);
+  const getGuideScanRegionRef = useRef(getGuideScanRegion);
+  const activeRef = useRef(active);
+  const pausedRef = useRef(paused);
+  useLayoutEffect(() => {
+    activeRef.current = active;
+    pausedRef.current = paused;
+  }, [active, paused]);
 
   // Stable callback refs
   const onScanRef = useRef(onScan);
@@ -37,16 +56,23 @@ export function QrScanner({ onScan, onError, active = true }: QrScannerProps) {
   useEffect(() => {
     onScanRef.current = onScan;
     onErrorRef.current = onError;
-    getScanRegionRef.current = getScanRegion;
-  }, [onScan, onError, getScanRegion]);
-
-  const handleScan = useCallback((result: ScanResult) => {
+    getGuideScanRegionRef.current = getGuideScanRegion;
+  }, [onScan, onError, getGuideScanRegion]);
+  const handleScan = useCallback((
+    result: ScanResult,
+    markFirstUrFragment: () => void,
+  ) => {
+    if (!activeRef.current || pausedRef.current) return;
     if (!result?.data) return;
 
     const data = result.data;
 
     // Check if this is a UR (animated/multipart) QR code
     if (data.toLowerCase().startsWith("ur:")) {
+      if (import.meta.env.DEV) markFirstUrFragment();
+      if (seenUrFragmentsRef.current.has(data)) return;
+      seenUrFragmentsRef.current.add(data);
+
       // Initialize decoder if needed
       if (!urDecoderRef.current) {
         urDecoderRef.current = new URDecoder();
@@ -57,13 +83,15 @@ export function QrScanner({ onScan, onError, active = true }: QrScannerProps) {
       setUrProgress(decoder.estimatedPercentComplete() || 0);
 
       // Check if complete
-      if (decoder.isComplete() && decoder.isSuccess()) {
-        const ur = decoder.resultUR();
-        const decoded = ur.decodeCBOR();
-        lastScannedDataRef.current = decoded.toString();
-        onScanRef.current(decoded.toString());
-        // Reset decoder for next scan
+      if (decoder.isComplete()) {
+        if (decoder.isSuccess()) {
+          const ur = decoder.resultUR();
+          const decoded = ur.decodeCBOR();
+          lastScannedDataRef.current = decoded.toString();
+          onScanRef.current(decoded.toString());
+        }
         urDecoderRef.current = null;
+        seenUrFragmentsRef.current.clear();
         setUrProgress(0);
       }
     } else {
@@ -78,41 +106,57 @@ export function QrScanner({ onScan, onError, active = true }: QrScannerProps) {
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
+    const seenUrFragments = seenUrFragmentsRef.current;
 
     let mounted = true;
+    let resetUrPerformanceMark: (() => void) | null = null;
 
     const initScanner = async () => {
-      // Check camera availability
-      const cameraAvailable = await QrScannerLib.hasCamera();
+      // Let StrictMode cleanup finish before acquiring the camera.
+      await Promise.resolve();
       if (!mounted) return;
 
-      if (!cameraAvailable) {
-        setHasCamera(false);
-        setErrorMessage(t("scanner.cameraNotFound"));
-        onErrorRef.current?.(t("scanner.cameraNotFound"));
-        return;
-      }
+      const performanceRecorder = import.meta.env.DEV
+        ? createQrPerformanceRecorder({
+            enabled: true,
+            now: () => performance.now(),
+            sink: (stage, elapsed) => console.debug(stage, elapsed),
+          })
+        : undefined;
+      let firstUrFragmentMarked = false;
+      const markFirstUrFragment = import.meta.env.DEV
+        ? () => {
+            if (firstUrFragmentMarked) return;
+            firstUrFragmentMarked = true;
+            performanceRecorder?.mark('first-ur-fragment');
+          }
+        : () => {};
+      resetUrPerformanceMark = () => {
+        firstUrFragmentMarked = false;
+      };
+      resetUrPerformanceMarkRef.current = resetUrPerformanceMark;
 
       // Create scanner instance
-      const scanner = new QrScannerLib(video, handleScan, {
-        returnDetailedScanResult: true,
-        highlightScanRegion: false,
-        highlightCodeOutline: false,
-        onDecodeError: () => {},
-        preferredCamera: "environment",
-        maxScansPerSecond: 10,
-        calculateScanRegion: (v) => getScanRegionRef.current(v),
-      });
-
-      // Enable both normal and inverted QR code recognition
-      scanner.setInversionMode("both");
+      const scanner = new ManagedQrScanner(
+        video,
+        (result) => handleScan(result, markFirstUrFragment),
+        {
+          highlightScanRegion: false,
+          highlightCodeOutline: false,
+          onDecodeError: () => {},
+          preferredCamera: "environment",
+          maxScansPerSecond: 15,
+          calculateScanRegion: (v) => getGuideScanRegionRef.current(v),
+          performanceRecorder,
+        },
+      );
 
       scannerRef.current = scanner;
 
-      if (active) {
+      if (activeRef.current && !pausedRef.current) {
         try {
           await scanner.start();
-          if (mounted) {
+          if (mounted && activeRef.current && !pausedRef.current) {
             setIsReady(true);
             setErrorMessage("");
           }
@@ -121,10 +165,10 @@ export function QrScanner({ onScan, onError, active = true }: QrScannerProps) {
           console.error("[QrScanner] Failed to start:", err);
 
           const error = err as Error;
-          if (error?.name === "NotAllowedError") {
+          if (error instanceof CameraPermissionError || error?.name === "NotAllowedError") {
             setErrorMessage(t("scanner.cameraPermission"));
             onErrorRef.current?.(t("scanner.cameraPermission"));
-          } else if (error?.name === "NotFoundError") {
+          } else if (error instanceof CameraNotFoundError || error?.name === "NotFoundError") {
             setHasCamera(false);
             setErrorMessage(t("scanner.cameraNotFound"));
             onErrorRef.current?.(t("scanner.cameraNotFound"));
@@ -140,40 +184,62 @@ export function QrScanner({ onScan, onError, active = true }: QrScannerProps) {
 
     return () => {
       mounted = false;
+      if (resetUrPerformanceMarkRef.current === resetUrPerformanceMark) {
+        resetUrPerformanceMarkRef.current = null;
+      }
       if (scannerRef.current) {
-        scannerRef.current.destroy();
+        void scannerRef.current.destroy();
         scannerRef.current = null;
       }
       urDecoderRef.current = null;
+      seenUrFragments.clear();
       lastScannedDataRef.current = null;
       setUrProgress(0);
       setIsReady(false);
     };
-  }, [handleScan, active, t]);
+  }, [handleScan, t]);
 
-  // Handle active state changes
+  // Pausing keeps the stream; inactive scanners release it.
   useEffect(() => {
     const scanner = scannerRef.current;
     if (!scanner) return;
+    let current = true;
 
-    if (active) {
+    if (!active) {
+      resetUrPerformanceMarkRef.current?.();
+      lastScannedDataRef.current = null;
+      scanner.stop();
+      void Promise.resolve().then(() => {
+        if (current) setIsReady(false);
+      });
+    } else if (paused) {
+      resetUrPerformanceMarkRef.current?.();
+      seenUrFragmentsRef.current.clear();
+      lastScannedDataRef.current = null;
+      void scanner.pause().catch((err) => {
+        if (err?.name !== "AbortError") {
+          console.error("[QrScanner] Pause error:", err);
+        }
+      });
+    } else {
       scanner
         .start()
         .then(() => {
-          setIsReady(true);
-          setErrorMessage("");
+          if (current) {
+            setIsReady(true);
+            setErrorMessage("");
+          }
         })
         .catch((err) => {
           if (err?.name !== "AbortError") {
             console.error("[QrScanner] Start error:", err);
           }
         });
-    } else {
-      scanner.stop();
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync reset on active toggle
-      setIsReady(false);
     }
-  }, [active]);
+    return () => {
+      current = false;
+    };
+  }, [active, paused]);
 
   if (!hasCamera) {
     return (
@@ -226,11 +292,16 @@ export function QrScanner({ onScan, onError, active = true }: QrScannerProps) {
         </div>
       )}
 
-      {/* Corner brackets — viewfinder guides */}
-      <div className="absolute top-4 left-4 w-7 h-7 border-t-[3px] border-l-[3px] border-brand rounded-tl-[6px] z-10" />
-      <div className="absolute top-4 right-4 w-7 h-7 border-t-[3px] border-r-[3px] border-brand rounded-tr-[6px] z-10" />
-      <div className="absolute bottom-4 left-4 w-7 h-7 border-b-[3px] border-l-[3px] border-brand rounded-bl-[6px] z-10" />
-      <div className="absolute bottom-4 right-4 w-7 h-7 border-b-[3px] border-r-[3px] border-brand rounded-br-[6px] z-10" />
+      <div
+        data-testid="qr-scan-guide"
+        className="pointer-events-none absolute top-1/2 left-1/2 z-10 aspect-square -translate-x-1/2 -translate-y-1/2"
+        style={scanGuideStyle}
+      >
+        <div className="absolute top-0 left-0 w-7 h-7 border-t-[3px] border-l-[3px] border-brand rounded-tl-[6px]" />
+        <div className="absolute top-0 right-0 w-7 h-7 border-t-[3px] border-r-[3px] border-brand rounded-tr-[6px]" />
+        <div className="absolute bottom-0 left-0 w-7 h-7 border-b-[3px] border-l-[3px] border-brand rounded-bl-[6px]" />
+        <div className="absolute bottom-0 right-0 w-7 h-7 border-b-[3px] border-r-[3px] border-brand rounded-br-[6px]" />
+      </div>
 
       {/* Loading overlay */}
       {!isReady && !errorMessage && (

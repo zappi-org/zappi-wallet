@@ -152,4 +152,16 @@ describe('HistoryDrawer focus containment', () => {
     expect(action).toHaveFocus()
     expect(screen.getByText('background')).not.toHaveFocus()
   })
+
+  it('provides a 44px touch-reserved drag surface', async () => {
+    render(
+      <HistoryDrawer expanded onExpandedChange={() => {}} peek={null} transactions={[]} />,
+    )
+
+    const drawer = await screen.findByRole('dialog', { name: 'history.title' })
+    const handle = drawer.querySelector('[data-sheet-drag-handle]')
+    expect(handle).not.toBeNull()
+    expect((handle as HTMLElement).style.minHeight).toBe('44px')
+    expect((handle as HTMLElement).style.touchAction).toBe('none')
+  })
 })

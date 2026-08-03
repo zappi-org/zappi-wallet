@@ -157,9 +157,8 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
-  optimizeDeps: {
-    // Exclude qr-scanner from pre-bundling to allow dynamic worker import to work correctly
-    exclude: ['qr-scanner'],
+  worker: {
+    format: 'es',
   },
   test: {
     globals: true,
@@ -240,7 +239,7 @@ export default defineConfig({
       workbox: {
         // webp is listed too: the logo and card art moved to it, and anything missing here
         // is simply absent offline rather than served stale.
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff,woff2}'],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff,woff2,wasm}'],
         clientsClaim: true,
         cleanupOutdatedCaches: true,
         runtimeCaching: [

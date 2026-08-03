@@ -545,7 +545,10 @@ export function HistoryScreen({
   return (
     <div className={`${isSheet ? 'h-full' : 'h-dvh'} bg-white text-foreground flex flex-col font-primary relative overflow-hidden z-[60] ${isSheet ? '' : 'pt-safe'}`}>
       {/* Header */}
-      <header className="relative flex items-center justify-between px-[20px] h-14 shrink-0 z-50">
+      <header
+        className="relative flex items-center justify-between px-[20px] h-14 shrink-0 z-50"
+        style={isSheet ? { touchAction: 'none' } : undefined}
+      >
         <button
           onClick={onBack}
           aria-label={isSheet ? t('common.close') : t('common.back')}

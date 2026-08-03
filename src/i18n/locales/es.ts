@@ -343,8 +343,8 @@ export default {
     // Passkey
     passkeyDescription: 'Ingresa tu PIN para registrar autenticación biométrica',
     register: 'Registrar',
-    passkeyRegisterFailed: 'Error al registrar Passkey.',
-    passkeyPRFNotSupported: 'Este dispositivo no admite cifrado biométrico seguro (PRF).',
+    passkeyRegisterFailed: 'No se pudo registrar la passkey. Comprueba que haya un proveedor de passkeys activado e inténtalo de nuevo.',
+    passkeyPRFNotSupported: 'El proveedor de passkeys seleccionado no admite el cifrado seguro (PRF) que requiere esta cartera.',
     passkeyRemoveDescription: 'Ingresa tu PIN para eliminar autenticación biométrica',
     remove: 'Eliminar',
 
