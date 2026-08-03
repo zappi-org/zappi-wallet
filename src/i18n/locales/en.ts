@@ -347,8 +347,8 @@ export default {
     // Passkey
     passkeyDescription: 'Enter your PIN to register biometric authentication',
     register: 'Register',
-    passkeyRegisterFailed: 'Passkey registration failed.',
-    passkeyPRFNotSupported: 'This device does not support secure biometric encryption (PRF).',
+    passkeyRegisterFailed: 'Could not register a passkey. Check that a passkey provider is enabled and try again.',
+    passkeyPRFNotSupported: 'The selected passkey provider does not support the secure encryption (PRF) this wallet requires.',
     passkeyRemoveDescription: 'Enter your PIN to remove biometric authentication',
     remove: 'Remove',
 

@@ -18,6 +18,7 @@ import { useFocusTrap } from '@/ui/hooks/use-focus-trap'
 import { useIsActivityTop } from '@/ui/navigation/use-is-activity-top'
 import { sheetSettleMs, SHEET_EASE } from '@/ui/utils/motion'
 import type { PendingItemDetailCallbacks } from '@/ui/screens/MintDetail/PendingItemDetailScreen'
+import { shouldHistoryDrawerStayOpen } from './history-drawer-gesture'
 
 const HistoryScreen = lazy(() => import('@/ui/screens/History/HistoryScreen'))
 
@@ -29,11 +30,6 @@ const SCRIM_OPACITY = 0.5
 const DRAG_SLOP_PX = 8
 /** Movement needed over the list before scrolling vs dismissing is decided. */
 const DIRECTION_SLOP_PX = 6
-/** Past this much of the travel, a drag has committed to the other state. */
-const COMMIT_FRACTION = 0.25
-/** A release faster than this decides on its own, however far it got. */
-const FLICK_VELOCITY = 500
-
 export interface HistoryDrawerProps {
   expanded: boolean
   onExpandedChange: (expanded: boolean) => void
@@ -148,13 +144,11 @@ export function HistoryDrawer({
   const handleDragEnd = useCallback(
     (_: unknown, info: PanInfo) => {
       const travelled = expanded ? y.get() : closedY - y.get()
-      const committed = travelled >= closedY * COMMIT_FRACTION
-      const open =
-        Math.abs(info.velocity.y) > FLICK_VELOCITY
-          ? info.velocity.y < 0
-          : expanded
-            ? !committed
-            : committed
+      const open = shouldHistoryDrawerStayOpen({
+        expanded,
+        travelled,
+        velocityY: info.velocity.y,
+      })
       // A drag that ends on the side it started changes no state, so nothing
       // would animate it home; settle it here instead.
       if (open === expanded) settleTo(open)
@@ -278,7 +272,12 @@ export function HistoryDrawer({
             className="fixed inset-x-0 bottom-0 z-[60] flex h-[94%] flex-col overflow-hidden rounded-t-[32px] bg-white outline-none"
             style={{ y, pointerEvents: expanded ? 'auto' : 'none' }}
           >
-            <div className="flex shrink-0 touch-none justify-center pt-3 pb-2">
+            <div
+              data-sheet-drag-handle=""
+              aria-hidden="true"
+              className="flex shrink-0 items-center justify-center"
+              style={{ minHeight: 44, touchAction: 'none' }}
+            >
               <div className="h-1 w-10 rounded-full bg-foreground-subtle" />
             </div>
 

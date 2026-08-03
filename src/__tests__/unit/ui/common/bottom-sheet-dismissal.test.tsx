@@ -1,8 +1,13 @@
 import { Children, useEffect, useRef, type ReactNode, type Ref } from 'react'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { BottomSheet } from '@/ui/components/common/BottomSheet'
+
+const motionState = vi.hoisted(() => ({
+  reduced: false,
+  startDrag: vi.fn(),
+}))
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -38,12 +43,17 @@ vi.mock('motion/react', () => {
   return {
     motion: { div: Div },
     AnimatePresence,
-    useDragControls: () => ({ start: () => {} }),
-    useReducedMotion: () => false,
+    useDragControls: () => ({ start: motionState.startDrag }),
+    useReducedMotion: () => motionState.reduced,
   }
 })
 
 const backdrop = () => document.querySelector('.bg-black') as HTMLElement
+
+beforeEach(() => {
+  motionState.reduced = false
+  motionState.startDrag.mockReset()
+})
 
 describe('BottomSheet dismissal', () => {
   it('closes on a backdrop tap and on Escape', async () => {
@@ -107,5 +117,23 @@ describe('BottomSheet dismissal', () => {
 
     expect(onClose).not.toHaveBeenCalled()
     isTop.mockReturnValue(true)
+  })
+
+  it('keeps drag dismissal available when reduced motion is requested', () => {
+    motionState.reduced = true
+    render(<BottomSheet isOpen onClose={() => {}} title="sheet"><p>body</p></BottomSheet>)
+
+    fireEvent.pointerDown(screen.getByRole('dialog'), { clientX: 20, clientY: 20 })
+
+    expect(motionState.startDrag).toHaveBeenCalledTimes(1)
+  })
+
+  it('provides a 44px touch-reserved drag surface', () => {
+    render(<BottomSheet isOpen onClose={() => {}} title="sheet"><p>body</p></BottomSheet>)
+
+    const handle = document.querySelector('[data-sheet-drag-handle]')
+    expect(handle).not.toBeNull()
+    expect((handle as HTMLElement).style.minHeight).toBe('44px')
+    expect((handle as HTMLElement).style.touchAction).toBe('none')
   })
 })

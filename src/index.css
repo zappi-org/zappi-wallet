@@ -521,6 +521,14 @@
   animation: scan-line 2s ease-in-out infinite;
 }
 
+@keyframes receipt-status-dot {
+  0%, 100% { opacity: 0; }
+  30%, 80% { opacity: 1; }
+}
+.receipt-status-dot--active {
+  animation: receipt-status-dot 1.2s linear infinite both;
+}
+
 /* Transition animations */
 @keyframes fadeIn {
   from { opacity: 0 }
@@ -553,10 +561,12 @@
   .animate-cardFlipIn,
   .animate-float-slow,
   .animate-shimmer,
-  .animate-scan-line {
+  .animate-scan-line,
+  .receipt-status-dot--active {
     animation: none;
   }
   .animate-scan-line { top: 50%; opacity: 1; }
+  .receipt-status-dot--active { opacity: 1; }
 }
 
 @keyframes scaleIn {

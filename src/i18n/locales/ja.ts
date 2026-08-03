@@ -343,8 +343,8 @@ export default {
     // Passkey
     passkeyDescription: '生体認証を登録するにはPINを入力してください',
     register: '登録',
-    passkeyRegisterFailed: 'Passkeyの登録に失敗しました。',
-    passkeyPRFNotSupported: 'このデバイスは安全な生体認証暗号化（PRF）に対応していません。',
+    passkeyRegisterFailed: 'Passkeyを登録できませんでした。Passkeyプロバイダーが有効か確認して、もう一度お試しください。',
+    passkeyPRFNotSupported: '選択したPasskeyプロバイダーは、このウォレットに必要な安全な暗号化（PRF）に対応していません。',
     passkeyRemoveDescription: '生体認証を解除するにはPINを入力してください',
     remove: '解除',
 

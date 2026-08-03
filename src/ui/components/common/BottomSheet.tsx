@@ -240,7 +240,8 @@ export function BottomSheet({
   useEscapeDismiss(isOpen && dismissible, requestClose)
 
   const position = variant === 'absolute' ? 'absolute' : 'fixed'
-  const dragEnabled = !disableDrag && !reduceMotion
+  // Reduced motion must not disable drag gestures.
+  const dragEnabled = !disableDrag
   const dragProps = dragEnabled
     ? {
         drag: 'y' as const,
@@ -302,7 +303,12 @@ export function BottomSheet({
           >
             {/* Handle — the visual grabber; the whole sheet is the grab area. */}
             {showHandle && (
-              <div className="flex justify-center py-2.5 cursor-grab active:cursor-grabbing touch-none">
+              <div
+                data-sheet-drag-handle=""
+                aria-hidden="true"
+                className="flex justify-center items-center cursor-grab active:cursor-grabbing"
+                style={{ minHeight: 44, touchAction: 'none' }}
+              >
                 <div className="w-10 h-1 bg-foreground-subtle rounded-full" />
               </div>
             )}
