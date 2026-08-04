@@ -684,7 +684,8 @@ export function ReceiveFlow({
              content on short viewports, defeating the step's inner scroller. */
           <PageTransition key="receive-request" variant="page" className="flex-1 min-h-0">
             <ReceiveRequestStep
-              onBack={onBack}
+              /* Back retraces to the amount step; the pending request survives. */
+              onBack={() => openAmountStep('exit')}
               onEdit={() => openAmountStep('request')}
               onRegenerate={() => regenerate(state.amount, state.memo)}
               isRegenerating={isLoading}

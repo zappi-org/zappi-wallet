@@ -81,8 +81,9 @@ vi.mock('@/ui/screens/Receive/steps/ReceiveAmountStep', () => ({
   ),
 }))
 vi.mock('@/ui/screens/Receive/steps/ReceiveRequestStep', () => ({
-  ReceiveRequestStep: ({ onEdit, onPaymentDetected }: { onEdit: () => void; onPaymentDetected: (a: number, m: 'bolt11' | 'ecash') => void }) => (
+  ReceiveRequestStep: ({ onBack, onEdit, onPaymentDetected }: { onBack: () => void; onEdit: () => void; onPaymentDetected: (a: number, m: 'bolt11' | 'ecash') => void }) => (
     <div data-testid="step-request">
+      <button data-testid="request-back" onClick={onBack} />
       <button data-testid="request-edit" onClick={onEdit} />
       <button data-testid="request-pay" onClick={() => onPaymentDetected(100, 'ecash')} />
     </div>
@@ -196,6 +197,26 @@ describe('ReceiveFlow conductor — overlay + review races', () => {
     expect(receiveReq.complete).toHaveBeenCalledWith(expect.any(String), 'bolt11')
     // Signal consumed exactly once (mirrors the request step's watchers).
     expect(storeState.lastRedeemedQuoteId).toBeNull()
+  })
+
+  it('request-step back retraces to the amount step; back again exits the flow', async () => {
+    const props = baseProps()
+    render(<ReceiveFlow {...props} incomingReview={null} />)
+
+    fireEvent.click(screen.getByTestId('amount-step'))
+    await waitFor(() => expect(screen.getByTestId('step-request')).toBeInTheDocument())
+
+    // Back returns to the amount step without cancelling the request.
+    receiveReq.cancel.mockClear()
+    fireEvent.click(screen.getByTestId('request-back'))
+    expect(screen.getByTestId('amount-step')).toBeInTheDocument()
+    expect(screen.queryByTestId('step-request')).not.toBeInTheDocument()
+    expect(props.onBack).not.toHaveBeenCalled()
+    expect(receiveReq.cancel).not.toHaveBeenCalled()
+
+    // From there, back exits the flow.
+    fireEvent.click(screen.getByTestId('amount-back'))
+    expect(props.onBack).toHaveBeenCalledTimes(1)
   })
 
   it('fresh entry: amount-step back exits the flow (amountReturn "exit")', () => {
