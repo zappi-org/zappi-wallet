@@ -392,21 +392,13 @@ export function HomeScreen({
         initialMintUrls={
           mints[clampedMintIndex] ? [mints[clampedMintIndex].url] : undefined
         }
-        peek={
-          recent ? (
-            <HomeRecentCard
-              row={recent.row}
-              onPress={recent.onPress}
-              onSeeAll={() => setHistoryExpanded(true)}
-            />
-          ) : (
-            <div className="shrink-0 px-4 w-full max-w-sm mx-auto">
-              <p className="text-caption text-foreground-muted text-center py-2">
-                {t('home.noTransactions')}
-              </p>
-            </div>
-          )
-        }
+        peek={(
+          <HomeRecentCard
+            row={recent?.row ?? null}
+            onPress={recent?.onPress}
+            onSeeAll={recent ? () => setHistoryExpanded(true) : undefined}
+          />
+        )}
       />
     </motion.div>
   );

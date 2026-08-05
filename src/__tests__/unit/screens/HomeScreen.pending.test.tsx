@@ -100,10 +100,15 @@ describe('HomeScreen pending + empty-state coexistence', () => {
     expect(screen.queryByText('home.noTransactions')).toBeNull()
   })
 
-  it('shows the empty state when there are no transactions and no pending items', () => {
+  it('shows an unboxed empty state in the recent-card position', () => {
     renderScreen()
 
-    expect(screen.getByText('home.noTransactions')).toBeTruthy()
+    const emptyState = screen.getByRole('status')
+    expect(emptyState).toHaveTextContent('home.noTransactions')
+    expect(emptyState.parentElement).toHaveClass('pb-app-nav')
+    expect(emptyState).toHaveClass('min-h-16')
+    expect(emptyState).not.toHaveClass('rounded-card')
+    expect(emptyState).not.toHaveAttribute('style')
   })
 
   // One history area, one row: a pending item outranks the settled ledger row,

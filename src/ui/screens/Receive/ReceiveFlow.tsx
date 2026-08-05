@@ -655,7 +655,8 @@ export function ReceiveFlow({
 
   return (
     <div className="h-full bg-background text-foreground font-primary flex flex-col pt-safe">
-      <AnimatePresence mode="wait">
+      {/* Avoid stacking the initial Stackflow and nested transitions. */}
+      <AnimatePresence mode="wait" initial={false}>
         {state.step === 'redeem' && (
           <PageTransition key="receive-redeem" variant="fade" className="flex-1">
             <div data-testid="step-redeem" className="h-full bg-background" />
@@ -683,7 +684,8 @@ export function ReceiveFlow({
              content on short viewports, defeating the step's inner scroller. */
           <PageTransition key="receive-request" variant="page" className="flex-1 min-h-0">
             <ReceiveRequestStep
-              onBack={onBack}
+              /* Back retraces to the amount step; the pending request survives. */
+              onBack={() => openAmountStep('exit')}
               onEdit={() => openAmountStep('request')}
               onRegenerate={() => regenerate(state.amount, state.memo)}
               isRegenerating={isLoading}

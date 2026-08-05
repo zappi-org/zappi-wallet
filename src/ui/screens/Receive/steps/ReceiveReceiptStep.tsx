@@ -80,7 +80,7 @@ export function ReceiveReceiptStep({ amount, fee = 0, mintUrl, memo, method, rec
       {/* Scrollable so short viewports don't clip; my-auto keeps the receipt
           centered when there is room. Container height stays constant (the
           action row below reserves its space from mount) → no receipt jump. */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6">
+      <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto px-6">
         <div className="my-auto flex w-full shrink-0 flex-col items-center py-4">
           <PaymentReceipt
             status={stamped ? 'done' : 'finishing'}

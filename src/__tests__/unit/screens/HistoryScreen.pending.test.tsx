@@ -279,6 +279,41 @@ describe('HistoryScreen pending ecash section', () => {
     })
   })
 
+  it('returns to the transaction list after its parent drawer closes and reopens', async () => {
+    pendingItemsState.items = [makeSendTokenItem()]
+    const pendingTx = {
+      id: 'p1',
+      direction: 'send',
+      method: 'cashu',
+      protocol: 'cashu-token',
+      amount: { value: 1000n, unit: 'sat' },
+      accountId: 'https://mint.test',
+      status: 'pending',
+      outcome: 'unclaimed',
+      createdAt: Date.now(),
+    } as unknown as Transaction
+    const props = (sheetExpanded: boolean) => ({
+      onBack: () => {},
+      transactions: [pendingTx],
+      isSheet: true,
+      sheetExpanded,
+    }) as React.ComponentProps<typeof HistoryScreen>
+    const view = render(<HistoryScreen {...props(true)} />)
+
+    fireEvent.click(screen.getByText('커피값'))
+    await waitFor(() => {
+      expect(screen.getByText('detail:p1')).toBeTruthy()
+    })
+
+    view.rerender(<HistoryScreen {...props(false)} />)
+    view.rerender(<HistoryScreen {...props(true)} />)
+
+    await waitFor(() => {
+      expect(screen.queryByText('detail:p1')).toBeNull()
+      expect(screen.getByText('history.title')).toBeTruthy()
+    })
+  })
+
   it('falls back to an error toast when no transaction backs the pending card', async () => {
     // Legacy pending rows can outlive their transaction; without a registry
     // the lookup must fail loudly, not no-op.

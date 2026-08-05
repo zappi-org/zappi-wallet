@@ -61,6 +61,8 @@ export interface HistoryScreenProps {
   pendingItemCallbacks?: PendingItemDetailCallbacks
   /** Rendered inside the home history sheet: close affordance instead of back. */
   isSheet?: boolean
+  /** Whether the parent drawer is open. */
+  sheetExpanded?: boolean
 }
 
 interface AnchorText {
@@ -143,6 +145,7 @@ export function HistoryScreen({
   initialMintUrls,
   pendingItemCallbacks,
   isSheet,
+  sheetExpanded,
 }: HistoryScreenProps) {
   'use no memo' // useVirtualizer returns mutable functions incompatible with React Compiler
   const { t, i18n } = useTranslation()
@@ -317,6 +320,15 @@ export function HistoryScreen({
     setSelectedTransaction(tx)
   }, [])
 
+  // Closing the drawer resets nested presentation state.
+  useEffect(() => {
+    if (!isSheet || sheetExpanded !== false) return
+    pendingSelectSeq.current += 1
+    setSelectedTransaction(null)
+    setSelectedPendingItem(null)
+    setOpenSheet(null)
+    setReclaimTargetIds(null)
+  }, [isSheet, sheetExpanded])
   const openPendingById = useCallback(
     async (id: string) => {
       const seq = ++pendingSelectSeq.current

@@ -49,7 +49,7 @@ export function ConfirmUntrustedStep({
     } catch (error) {
       hapticError()
       addToast({ type: 'error', message: translateError(error, t) })
-    } finally {
+      // Keep busy until the receipt replaces this screen.
       setBusy(false)
     }
   }, [busy, onAddAndReceive, addToast, t])

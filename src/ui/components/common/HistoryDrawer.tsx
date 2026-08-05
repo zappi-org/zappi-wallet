@@ -291,6 +291,7 @@ export function HistoryDrawer({
                     initialMintUrls={initialMintUrls}
                     pendingItemCallbacks={pendingItemCallbacks}
                     isSheet
+                    sheetExpanded={expanded}
                   />
                 </Suspense>
               )}

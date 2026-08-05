@@ -9,7 +9,9 @@ vi.mock('react-i18next', () => ({
 }))
 
 vi.mock('motion/react', () => ({
-  AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  AnimatePresence: ({ children, initial }: { children: React.ReactNode; initial?: boolean }) => (
+    <div data-testid="receive-step-presence" data-initial={String(initial)}>{children}</div>
+  ),
 }))
 
 vi.mock('@/ui/components/common/PageTransition', () => ({
@@ -79,8 +81,9 @@ vi.mock('@/ui/screens/Receive/steps/ReceiveAmountStep', () => ({
   ),
 }))
 vi.mock('@/ui/screens/Receive/steps/ReceiveRequestStep', () => ({
-  ReceiveRequestStep: ({ onEdit, onPaymentDetected }: { onEdit: () => void; onPaymentDetected: (a: number, m: 'bolt11' | 'ecash') => void }) => (
+  ReceiveRequestStep: ({ onBack, onEdit, onPaymentDetected }: { onBack: () => void; onEdit: () => void; onPaymentDetected: (a: number, m: 'bolt11' | 'ecash') => void }) => (
     <div data-testid="step-request">
+      <button data-testid="request-back" onClick={onBack} />
       <button data-testid="request-edit" onClick={onEdit} />
       <button data-testid="request-pay" onClick={() => onPaymentDetected(100, 'ecash')} />
     </div>
@@ -196,6 +199,26 @@ describe('ReceiveFlow conductor — overlay + review races', () => {
     expect(storeState.lastRedeemedQuoteId).toBeNull()
   })
 
+  it('request-step back retraces to the amount step; back again exits the flow', async () => {
+    const props = baseProps()
+    render(<ReceiveFlow {...props} incomingReview={null} />)
+
+    fireEvent.click(screen.getByTestId('amount-step'))
+    await waitFor(() => expect(screen.getByTestId('step-request')).toBeInTheDocument())
+
+    // Back returns to the amount step without cancelling the request.
+    receiveReq.cancel.mockClear()
+    fireEvent.click(screen.getByTestId('request-back'))
+    expect(screen.getByTestId('amount-step')).toBeInTheDocument()
+    expect(screen.queryByTestId('step-request')).not.toBeInTheDocument()
+    expect(props.onBack).not.toHaveBeenCalled()
+    expect(receiveReq.cancel).not.toHaveBeenCalled()
+
+    // From there, back exits the flow.
+    fireEvent.click(screen.getByTestId('amount-back'))
+    expect(props.onBack).toHaveBeenCalledTimes(1)
+  })
+
   it('fresh entry: amount-step back exits the flow (amountReturn "exit")', () => {
     const props = baseProps()
     render(<ReceiveFlow {...props} incomingReview={null} />)
@@ -235,6 +258,21 @@ describe('ReceiveFlow conductor — overlay + review races', () => {
     expect(screen.getByTestId('step-confirm-trusted')).toBeInTheDocument()
     expect(screen.queryByTestId('redeem-sheet')).not.toBeInTheDocument()
     expect(screen.queryByTestId('step-redeem')).not.toBeInTheDocument()
+  })
+
+  it('lets the activity transition solely own a routed token launch', () => {
+    const props = baseProps()
+    render(
+      <ReceiveFlow
+        {...props}
+        incomingReview={null}
+        launch={{
+          redeemToken: { type: 'cashu-token', token: 'cashuB_motion', amount: sat(21), mintUrl: 'https://trusted.mint' },
+        }}
+      />,
+    )
+
+    expect(screen.getByTestId('receive-step-presence')).toHaveAttribute('data-initial', 'false')
   })
 
   // Back must retrace the way in. A routed token never passed through the sheet,
