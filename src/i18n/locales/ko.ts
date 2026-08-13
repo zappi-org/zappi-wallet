@@ -17,7 +17,6 @@ export default {
     receive: '받기',
     balance: '잔액',
     amount: '금액',
-    min: '분',
     offlineRequired: '인터넷 연결이 필요합니다',
     paste: '붙여넣기',
     change: '변경',

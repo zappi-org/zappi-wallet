@@ -17,7 +17,6 @@ export default {
     receive: 'Recibir',
     balance: 'Saldo',
     amount: 'Monto',
-    min: 'min',
     offlineRequired: 'Se requiere conexión a Internet',
     paste: 'Pegar',
     change: 'Cambiar',

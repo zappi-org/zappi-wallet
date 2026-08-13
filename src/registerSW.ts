@@ -41,9 +41,8 @@ function hasActiveController(): boolean {
     && Boolean(navigator.serviceWorker.controller)
 }
 
-/** Single availability predicate shared by the phase watcher and the manual
- *  check: an install counts as an update only when an old SW controls the
- *  page — a first install has no controller and is not an "update". */
+/** An install counts as an update only when an old SW controls the page —
+ *  a first install has no controller and is not an "update". */
 function isUpdateReady(registration: ServiceWorkerRegistration, worker?: ServiceWorker | null): boolean {
   return hasActiveController() && (Boolean(registration.waiting) || worker?.state === 'installed')
 }
@@ -52,11 +51,8 @@ function isUpdateReady(registration: ServiceWorkerRegistration, worker?: Service
 // backstop the settings button would stay disabled for the whole session.
 const INSTALL_WATCHDOG_MS = 5 * 60_000
 
-/**
- * Single owner of the store's updatePhase for install progress — covers both
- * browser-initiated background installs and manual checks, so the settings
- * button reflects reality across screen changes.
- */
+/** Single owner of the store's updatePhase — covers browser-initiated and
+ *  manual installs, so the settings button survives screen changes. */
 function watchRegistrationForInstalls(registration: ServiceWorkerRegistration) {
   const watchWorker = (worker: ServiceWorker | null) => {
     if (!worker) return
@@ -68,13 +64,11 @@ function watchRegistrationForInstalls(registration: ServiceWorkerRegistration) {
       if (isUpdateReady(registration, worker)) {
         markUpdateAvailable()
       }
-      // Still mid-install (the immediate call below): an update already parked
-      // in registration.waiting must not repaint this phase as settled.
+      // Mid-install: a parked waiting update must not repaint the phase as settled.
       if (worker.state === 'installing') return
       window.clearTimeout(watchdog)
-      // Replaced by a newer installing worker — that install owns the phase.
-      // 'redundant' itself is terminal here: the spec clears
-      // registration.installing asynchronously after the event.
+      // A newer installing worker owns the phase. Comparing against `worker`
+      // matters: the spec clears registration.installing only after 'redundant'.
       if (registration.installing && registration.installing !== worker) return
       setUpdatePhase('idle')
     }
@@ -221,9 +215,8 @@ async function doCheckForAppUpdate(): Promise<AppUpdateCheckResult> {
   } finally {
     manualUpdateCheckInFlight = false
     suppressAutoUpdateToastUntil = Date.now() + 1500
-    // Only settle a plain check back to idle — an in-flight install keeps its
-    // phase until the global watcher sees the worker leave the installing state
-    // (a 30s-timeout return must not repaint "installing" as done).
+    // Only settle a plain check — an in-flight install keeps its phase until
+    // the watcher sees the worker settle (30s timeout must not fake "done").
     if (useAppStore.getState().updatePhase === 'checking') {
       setUpdatePhase('idle')
     }

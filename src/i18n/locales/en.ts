@@ -17,7 +17,6 @@ export default {
     receive: 'Receive',
     balance: 'Balance',
     amount: 'Amount',
-    min: 'min',
     offlineRequired: 'Internet connection required',
     paste: 'Paste',
     change: 'Change',

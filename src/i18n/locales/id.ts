@@ -17,7 +17,6 @@ export default {
     receive: 'Terima',
     balance: 'Saldo',
     amount: 'Jumlah',
-    min: 'menit',
     offlineRequired: 'Diperlukan koneksi internet',
     paste: 'Tempel',
     change: 'Ubah',

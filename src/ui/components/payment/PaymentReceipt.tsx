@@ -275,9 +275,8 @@ export function PaymentReceipt({
                   <div className="mb-1.5 mt-2.5 border-t-[1.5px] border-dashed border-border" />
                   <div className="py-2.5 text-center text-caption text-foreground-muted">
                     {doneLine ?? statusLine}
-                    {/* Progress dots belong to statusLine only — a doneLine is a
-                        final timestamp even while the paper is still moving
-                        (claim racing the crawl). */}
+                    {/* Dots belong to statusLine only — a doneLine is final even
+                        while the paper still moves (claim racing the crawl). */}
                     {(status === 'printing' || status === 'finishing') && !doneLine && (
                       <span aria-hidden>
                         {[0, 1, 2].map((i) => (

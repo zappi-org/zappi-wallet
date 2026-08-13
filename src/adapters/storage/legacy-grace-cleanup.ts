@@ -1,17 +1,14 @@
 /**
  * Legacy cleanup for the removed unlock-grace store: older builds persisted a
- * PIN-free decryptable mnemonic copy in the dedicated 'zappi-grace' IndexedDB.
- * Deleting a non-existent DB succeeds, so this is safe to call every boot.
- * Removable once no pre-removal builds remain in the field.
+ * PIN-free decryptable mnemonic copy in the 'zappi-grace' IndexedDB. Idempotent
+ * — safe to call every boot. Removable once no pre-removal builds remain.
  */
 
 const DB_NAME = 'zappi-grace'
 const DELETE_TIMEOUT_MS = 10_000
 
-/**
- * Rejects on failure/timeout so logout's wipe can abort instead of leaving the
- * blob beside a destroyed account; boot callers treat it as fire-and-forget.
- */
+/** Rejects on failure/timeout so logout's wipe can abort; boot callers
+ *  treat it as fire-and-forget. */
 export async function deleteLegacyGraceDatabase(opts?: { timeoutMs?: number }): Promise<void> {
   const timeoutMs = opts?.timeoutMs ?? DELETE_TIMEOUT_MS
   await new Promise<void>((resolve, reject) => {

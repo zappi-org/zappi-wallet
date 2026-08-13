@@ -26,9 +26,8 @@ function App() {
   // Check if wallet exists (determines onboarding vs main app)
   useEffect(() => {
     const check = async () => {
-      // Legacy cleanup: older builds persisted a PIN-free session blob. Runs
-      // here (not MainApp) so onboarding/no-wallet boots clean it up too.
-      // Fire-and-forget — a blocked delete must not stall boot; retried next boot.
+      // Runs here (not MainApp) so onboarding/no-wallet boots clean up too.
+      // Fire-and-forget: a blocked delete must not stall boot; retried next boot.
       deleteLegacyGraceDatabase().catch((e) => console.error('[Init] legacy grace cleanup failed:', e))
       try {
         // Load settings early so they're available in Zustand for all paths

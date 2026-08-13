@@ -17,7 +17,6 @@ export default {
     receive: '受取',
     balance: '残高',
     amount: '金額',
-    min: '分',
     offlineRequired: 'インターネット接続が必要です',
     paste: '貼り付け',
     change: '変更',
