@@ -325,9 +325,10 @@
     height: 100dvh;
     background-color: var(--background);
   }
-  /* html.standalone is set by an inline script in index.html before first
-     paint — the display-mode media query is unreliable in installed iOS web
-     apps (measured false on iOS 26.3). */
+  /* html.standalone is set by an inline script in index.html: installed
+     AND verified full-bleed geometry (env top probe). Legacy installs made
+     under the default status-bar mode keep a non-bleed webview that lvh
+     overshoots — they stay on the dvh shell above, unchanged. */
   html.standalone, .standalone body, .standalone #root {
     height: 100vh;
     height: 100lvh;
