@@ -8,7 +8,9 @@
 //     height. env(safe-area-inset-top) > 0 is the physical signal of
 //     full-bleed; it can read 0 for the first frames after a cold launch,
 //     so keep probing briefly. The class is add-only. Legacy installs and
-//     Android stay on the dvh shell.
+//     Android stay on the dvh shell. If Android ever exposes a top inset
+//     (Chromium edge-to-edge), promotion to the lvh path is intended —
+//     the units are equal in Android standalone, so it is a no-op there.
 // External file, not inline: the production CSP allows same-origin scripts
 // only (script-src 'self'), so an inline gate would be silently blocked —
 // exactly the failure it exists to prevent.
