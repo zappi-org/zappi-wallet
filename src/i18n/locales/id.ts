@@ -254,7 +254,6 @@ export default {
     security: 'Keamanan',
     securityDesc: 'PIN, Face ID, Kunci Otomatis',
     autoLock: 'Kunci Otomatis',
-    autoLockTimeout: 'Kunci setelah',
     faceIdTouchId: 'Face ID / Touch ID',
     changePin: 'Ubah PIN',
 
@@ -390,7 +389,6 @@ export default {
     senderPrivacyModeDescription: 'Pilih rute di mana mint tidak dapat menghubungkan pengirim dan penerima, meskipun biaya lebih tinggi',
 
     // Descriptions
-    autoLockDescription: 'Terkunci setelah waktu tidak aktif yang Anda atur. Membuka kembali dalam waktu itu melewati PIN.',
   },
 
   // Add Mint Screen

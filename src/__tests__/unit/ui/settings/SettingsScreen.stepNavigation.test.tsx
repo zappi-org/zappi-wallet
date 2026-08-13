@@ -98,7 +98,6 @@ vi.mock('@/ui/screens/Settings/pages/WalletCategoryPage', () => ({ WalletCategor
 vi.mock('@/ui/screens/Settings/pages/LanguageSettingPage', () => ({ LanguageSettingPage: () => null }))
 vi.mock('@/ui/screens/Settings/pages/UnitDisplaySettingPage', () => ({ UnitDisplaySettingPage: () => null }))
 vi.mock('@/ui/screens/Settings/pages/FiatSettingPage', () => ({ FiatSettingPage: () => null }))
-vi.mock('@/ui/screens/Settings/pages/AutoLockSettingPage', () => ({ AutoLockSettingPage: () => null }))
 vi.mock('@/ui/screens/Settings/pages/POSSettingPage', () => ({ POSSettingPage: () => null }))
 vi.mock('@/ui/screens/Settings/pages/PrivacySettingPage', () => ({ PrivacySettingPage: () => null }))
 vi.mock('@/ui/screens/Settings/pages/LightningDetailPage', () => ({ LightningDetailPage: () => null }))

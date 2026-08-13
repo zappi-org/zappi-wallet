@@ -254,7 +254,6 @@ export default {
     security: 'セキュリティ',
     securityDesc: 'PIN変更、Face ID、自動ロック',
     autoLock: '自動ロック',
-    autoLockTimeout: 'ロック時間',
     faceIdTouchId: 'Face ID / Touch ID',
     changePin: 'PINを変更',
 
@@ -390,7 +389,6 @@ export default {
     senderPrivacyModeDescription: '手数料が高くてもミントが送受信者をリンクできない経路を選択します',
 
     // Descriptions
-    autoLockDescription: '設定した無操作時間で自動ロックします。その時間内に開き直すとPINを省略します。',
   },
 
   // Add Mint Screen

@@ -6,7 +6,7 @@ function makeSettings(mints: string[]): WalletSettings {
   return {
     mints,
     relays: [],
-    autoLockTimeoutMinutes: 5,
+    autoLockEnabled: true,
     soundEnabled: false,
     expertModeEnabled: false,
     manualMintSelectionEnabled: false,

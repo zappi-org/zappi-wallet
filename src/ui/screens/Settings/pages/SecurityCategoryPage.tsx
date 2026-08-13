@@ -4,28 +4,25 @@ import { isPasskeySupported, isPasskeyRegistered } from '@/ui/services/passkey'
 import { SettingsDetailPage } from '../components/SettingsDetailPage'
 import { SettingsRow } from '../components/SettingsRow'
 import { Switch } from '@/ui/components/common/Switch'
-import type { SettingsPage } from '../SettingsScreen'
 
 interface SecurityCategoryPageProps {
   onBack: () => void
-  onNavigate: (page: SettingsPage) => void
   onFaceIdToggle: (enabled: boolean) => void
   onOpenPinChange: () => void
+  saveSettings: (updates: Record<string, unknown>) => Promise<void>
 }
 
 export function SecurityCategoryPage({
   onBack,
-  onNavigate,
   onFaceIdToggle,
   onOpenPinChange,
+  saveSettings,
 }: SecurityCategoryPageProps) {
   const { t } = useTranslation()
   const settings = useAppStore((s) => s.settings)
 
   const passkeySupported = isPasskeySupported()
   const passkeyEnabled = isPasskeyRegistered()
-  // Auto-lock is always on — show the active timeout, never an off state.
-  const autoLockValue = `${settings.autoLockTimeoutMinutes}${t('common.min')}`
 
   return (
     <SettingsDetailPage title={t('settings.security')} onBack={onBack}>
@@ -41,11 +38,13 @@ export function SecurityCategoryPage({
               <Switch checked={passkeyEnabled} onChange={onFaceIdToggle} />
             </div>
           )}
-          <SettingsRow
-            label={t('settings.autoLock')}
-            value={autoLockValue}
-            onPress={() => onNavigate('autoLock')}
-          />
+          <div className="px-4 py-3.5 flex items-center justify-between min-h-[52px]">
+            <span className="text-body font-medium">{t('settings.autoLock')}</span>
+            <Switch
+              checked={settings.autoLockEnabled ?? true}
+              onChange={(enabled) => { void saveSettings({ autoLockEnabled: enabled }) }}
+            />
+          </div>
         </div>
       </div>
     </SettingsDetailPage>

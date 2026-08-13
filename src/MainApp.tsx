@@ -89,8 +89,7 @@ import type { Transaction } from '@/core/domain/transaction'
 import type { PendingItem } from '@/ui/hooks/usePendingItems'
 import type { PendingIncomingReview } from '@/core/types'
 import { removePasskey } from '@/ui/services/passkey'
-import { resumeGraceOnBoot } from '@/ui/services/grace-boot'
-import { isLockoutActive } from '@/ui/utils/lockout'
+import { deleteLegacyGraceDatabase } from '@/adapters/storage/legacy-grace-cleanup'
 import { formatSats } from '@/utils/format'
 
 
@@ -435,40 +434,18 @@ export default function MainApp() {
     }
   }, [currentScreen, addToast, t, setCurrentScreen, setPreviousScreen])
 
-  // Single-flight init: StrictMode/HMR invokes the effect twice, but boot work (the
-  // grace resume in particular) must run exactly once. Both invocations share this
-  // in-flight promise and setInitializing(false) waits on it, so LockScreen can't
-  // flash mid-resume and let a PIN unlock overlap a pending bootstrap.
+  // Single-flight init: StrictMode/HMR invokes the effect twice, but boot work
+  // must run exactly once. Both invocations share this in-flight promise and
+  // setInitializing(false) waits on it.
   const initPromiseRef = useRef<Promise<void> | null>(null)
 
   // Initialize app — Coco-independent work only (Coco inits after unlock in setupSubscription)
   useEffect(() => {
     const init = async () => {
-      // Attempt grace resume FIRST — it only needs the blob (expiry is self-contained),
-      // so it must not sit behind fallible settings/store loads: an earlier rejection
-      // would otherwise strand a valid session on the PIN screen. An active lockout
-      // skips resume and drops the blob (defense-in-depth). Resume failure degrades to
-      // PIN. Note: a transient init error showing PIN while a valid blob persists is
-      // accepted (conservative-safe, not a bypass) — the spec's LockScreen invariant
-      // targets lock/lockout, and the spec is being amended by the controller.
-      if (useAppStore.getState().isLocked) {
-        try {
-          await resumeGraceOnBoot({
-            isLockoutActive,
-            tryResumeSession: () => preUnlock.security.tryResumeSession(),
-            clearGrace: () => preUnlock.security.clearGrace(),
-            // Settings may not be loaded yet — the ?? 5 default T is acceptable; the
-            // next heartbeat / timeout-change re-clamps grace to the real timeout.
-            applyUnlock: (resumed) =>
-              applyUnlockRef.current(resumed, useAppStore.getState().settings.autoLockTimeoutMinutes ?? 5),
-          })
-        } catch (e) {
-          console.error('[Init] Grace resume failed:', e)
-        }
-      }
+      // Legacy cleanup: older builds persisted a PIN-free session blob here.
+      // Fire-and-forget — a blocked delete must not stall boot; retried next boot.
+      deleteLegacyGraceDatabase().catch((e) => console.error('[Init] legacy grace cleanup failed:', e))
 
-      // Fallible loads run after resume — their failure only degrades data freshness,
-      // never the resume decision.
       try {
         const savedSettings = await preUnlock.settingsRepo.getSettings()
         setSettings(savedSettings)
@@ -595,17 +572,13 @@ export default function MainApp() {
     }
   }, [isLocked, isInitializing, serviceRegistry, refreshAndRecover])
 
-  // Shared post-unlock wiring for BOTH the PIN path (handleUnlock) and the boot
-  // grace-resume path — one function so the two can't drift. Persists grace here
-  // (now + timeout) so a reload within the auto-lock window resumes without a PIN;
-  // onboarding's createWallet deliberately does not run through here, so a first
-  // run still reloads to PIN.
-  // Single-flight guard: the boot resume and a LockScreen PIN/passkey unlock can both
-  // reach applyUnlock in the mid-resume window (passkey auto-submits on mount). A
-  // second concurrent run would double-bootstrap — skip it. The in-flight run still
-  // unlocks the UI, so the skipped caller lands unlocked too.
+  // Post-unlock wiring for the PIN/passkey path.
+  // Single-flight guard: a passkey auto-submit and a manual PIN unlock can both
+  // reach applyUnlock concurrently. A second concurrent run would double-bootstrap
+  // — skip it. The in-flight run still unlocks the UI, so the skipped caller lands
+  // unlocked too.
   const applyingUnlockRef = useRef(false)
-  const applyUnlock = useCallback(async (result: UnlockResult, timeoutMinutes: number): Promise<void> => {
+  const applyUnlock = useCallback(async (result: UnlockResult): Promise<void> => {
     if (applyingUnlockRef.current) return
     applyingUnlockRef.current = true
     try {
@@ -616,15 +589,6 @@ export default function MainApp() {
       // (fast re-unlock, bootstrap) handle it at one point.
       if (result.migrated) {
         notifyKdfMigrated()
-      }
-
-      // Persist grace so a reload within the auto-lock window resumes without a PIN.
-      // Awaited so a write failure is observed (logged), but wrapped so it never blocks
-      // the unlock — the session is live regardless of whether the resume blob persisted.
-      try {
-        await preUnlock.security.saveGrace(Date.now() + timeoutMinutes * 60_000)
-      } catch (e) {
-        console.error('[Unlock] Grace save failed:', e)
       }
 
       // Lightweight unlock path: if the session (registry / socket / subscriptions)
@@ -660,7 +624,7 @@ export default function MainApp() {
     } finally {
       applyingUnlockRef.current = false
     }
-  }, [preUnlock.security, setLocked, setNostrKeyPair, setP2pkPubkey, serviceRegistry])
+  }, [setLocked, setNostrKeyPair, setP2pkPubkey, serviceRegistry])
 
   const handleUnlock = useCallback(async (password: string): Promise<boolean> => {
     const result = await preUnlock.security.unlock(password)
@@ -672,16 +636,9 @@ export default function MainApp() {
       if (result.error.code === 'INVALID_PASSWORD') return false
       throw result.error
     }
-    await applyUnlock(result.value, settings.autoLockTimeoutMinutes ?? 5)
+    await applyUnlock(result.value)
     return true
-  }, [preUnlock.security, applyUnlock, settings.autoLockTimeoutMinutes])
-
-  // Latest applyUnlock in a ref so the boot init effect can resume without taking
-  // applyUnlock as a dependency (which would re-run init on every unlock).
-  const applyUnlockRef = useRef(applyUnlock)
-  useEffect(() => {
-    applyUnlockRef.current = applyUnlock
-  }, [applyUnlock])
+  }, [preUnlock.security, applyUnlock])
 
   // Security handlers (auto-lock / PIN change·verify / mnemonic backup / logout).
   // handleUnlock stays in MainApp — it's the bootstrap shim (registry generation
@@ -701,13 +658,9 @@ export default function MainApp() {
   } = useSecurityHandlers({ security: preUnlock.security, wipeAccount })
 
   useAutoLock({
-    timeoutMinutes: settings.autoLockTimeoutMinutes ?? 5,
+    enabled: settings.autoLockEnabled ?? true,
     isLocked,
     onLock: handleAutoLock,
-    // Heartbeat + clamp: keep grace alive while active, and shrink it immediately
-    // when the timeout setting is shortened.
-    onExtendGrace: (expiresAt) =>
-      preUnlock.security.extendGrace(expiresAt).catch((e) => console.error('[Grace] extend failed:', e)),
   })
 
   const clearIncomingReviewState = useCallback(() => {
@@ -964,15 +917,7 @@ export default function MainApp() {
   }
 
   if (isLocked) {
-    return (
-      <LockScreen
-        onUnlock={handleUnlock}
-        onLockout={() => {
-          // PIN lockout must invalidate grace so a relaunch can't resume without a PIN.
-          preUnlock.security.clearGrace().catch((e) => console.error('[Lock] Grace clear on lockout failed:', e))
-        }}
-      />
-    )
+    return <LockScreen onUnlock={handleUnlock} />
   }
 
   // Shared by mint detail and history — both open the same pending-item detail.

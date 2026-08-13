@@ -16,7 +16,7 @@ function makeEvent(kind: number, tags: string[][]): NostrEvent {
 const DEFAULT_SETTINGS: WalletSettings = {
   mints: [],
   relays: [],
-  autoLockTimeoutMinutes: 5,
+  autoLockEnabled: true,
   soundEnabled: true,
   expertModeEnabled: false,
   manualMintSelectionEnabled: false,

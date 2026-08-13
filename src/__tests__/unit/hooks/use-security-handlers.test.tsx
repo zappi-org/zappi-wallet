@@ -173,7 +173,7 @@ describe('useSecurityHandlers — Result discriminant (.ok) semantics', () => {
       expect(useAppStore.getState().isLocked).toBe(true)
     })
 
-    it('awaits security.lock (grace clear) BEFORE flipping the UI to locked', async () => {
+    it('awaits security.lock (memory wipe) BEFORE flipping the UI to locked', async () => {
       useAppStore.setState({ isLocked: false })
       let lockSettled = false
       const security = createSecurityMock({
@@ -185,7 +185,7 @@ describe('useSecurityHandlers — Result discriminant (.ok) semantics', () => {
       const { handlers } = render(security)
 
       const pending = handlers.handleAutoLock()
-      // lock() is in-flight — the UI must not be locked until grace clear resolves.
+      // lock() is in-flight — the UI must not be locked until the wipe resolves.
       expect(useAppStore.getState().isLocked).toBe(false)
       expect(lockSettled).toBe(false)
 

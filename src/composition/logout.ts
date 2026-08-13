@@ -15,12 +15,11 @@
  * plaintext bearer proofs left behind + retry impossible (NO_WALLET→wrongPin
  * misindication) + the next onboarded account inheriting the prior funds/history.
  *
- * ⊗ Grace DB (before ⓪) — deletes the whole dedicated zappi-grace DB, which holds a
- *    PIN-free decryptable mnemonic copy (more sensitive than the wallet record).
- *    Throws on failure so a half-completed wipe can never leave a resumable mnemonic
- *    beside a destroyed account. Repeated best-effort in a finally at the very end to
- *    catch a blob a concurrent tab's unlock recreated mid-wipe (logged; never masks
- *    the original error, never fakes success).
+ * ⊗ Legacy grace DB (before ⓪) — deletes the zappi-grace DB an older build may have
+ *    left (or a still-open old-bundle tab may recreate); it holds a PIN-free
+ *    decryptable mnemonic copy. Throws on failure so a half-completed wipe can never
+ *    leave that copy beside a destroyed account. Repeated best-effort in a finally at
+ *    the very end (logged; never masks the original error, never fakes success).
  * ⓪ Other-tab reload signal (first) — closes the window in which another tab's
  *    in-progress writes revive data mid-erasure. Reloaded tabs sit on lock/onboarding
  *    and don't open coco (coco init is post-unlock). ⑥ fires once more after erasure
@@ -50,7 +49,7 @@
  */
 
 import { getDatabase } from '@/adapters/storage/dexie/schema'
-import { deleteGraceDatabase } from '@/adapters/storage/unlock-grace.adapter'
+import { deleteLegacyGraceDatabase } from '@/adapters/storage/legacy-grace-cleanup'
 import { AnchorStoreAdapter } from '@/adapters/storage/anchor-store.adapter'
 import { LocalStorageBalanceCache } from '@/adapters/cache/local-storage-balance-cache.adapter'
 import { deleteCocoData } from '@/modules/cashu'
@@ -72,12 +71,11 @@ export interface WipeAccountDeps {
 
 export async function wipeAccountData(deps: WipeAccountDeps): Promise<void> {
   try {
-    // Grace DB (before every other step). The grace blob is a PIN-free decryptable
-    // mnemonic copy — more sensitive than the wallet record — so destroy the whole
-    // dedicated DB first and throw on failure: a half-completed wipe must never leave
-    // a resumable mnemonic beside a destroyed account, and the user drops to a
+    // Legacy grace DB (before every other step). The blob is a PIN-free decryptable
+    // mnemonic copy an older build may have left — throw on failure: a half-completed
+    // wipe must never leave it beside a destroyed account, and the user drops to a
     // retryable lock screen with all data still intact.
-    await deleteGraceDatabase()
+    await deleteLegacyGraceDatabase()
 
     // ⓪ Stop other tabs (reload) — blocks reviving writes from other tabs during the
     // erasure window. Residual window (accepted): if a user completes PIN entry in a
@@ -125,11 +123,10 @@ export async function wipeAccountData(deps: WipeAccountDeps): Promise<void> {
     // ⑦ Store reset — prevents residue before reload
     useAppStore.getState().resetAll()
   } finally {
-    // ⊗ Grace DB again (last, best-effort): a concurrent unlock in another tab can
-    // recreate zappi-grace after the first delete (its applyUnlock save races the
-    // wipe window). Logged only — never masks the original error and never fakes
-    // success: if the FIRST delete (or any step) threw, that error still propagates.
-    await deleteGraceDatabase().catch((e) => {
+    // ⊗ Legacy grace DB again (last, best-effort): an old-bundle tab's unlock can
+    // recreate zappi-grace after the first delete. Logged only — never masks the
+    // original error and never fakes success.
+    await deleteLegacyGraceDatabase().catch((e) => {
       console.warn('[Logout] Final grace DB delete failed:', e)
     })
   }

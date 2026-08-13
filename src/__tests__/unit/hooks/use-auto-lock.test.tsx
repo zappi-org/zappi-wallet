@@ -1,13 +1,12 @@
 /**
- * useAutoLock — auto-lock behavior (always on) + grace heartbeat/clamp.
+ * useAutoLock — idle auto-lock behavior (fixed 5-minute timeout, on/off flag).
  *
  * Key invariants:
- * - onLock fires after timeoutMinutes of idle time
+ * - onLock fires after the fixed idle timeout when enabled
  * - user input resets the timer
  * - visibility return re-checks immediately — covers timers stopped by page freeze
- * - does nothing when already locked
- * - onExtendGrace fires at most once per activity burst (deterministic throttle)
- * - a timeout change re-clamps grace to now + new timeout immediately
+ * - does nothing when already locked or disabled
+ * - toggling enabled resets the idle baseline
  */
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
@@ -32,7 +31,7 @@ describe('useAutoLock', () => {
       (props: Parameters<typeof useAutoLock>[0]) => useAutoLock(props),
       {
         initialProps: {
-          timeoutMinutes: 5,
+          enabled: true,
           isLocked: false,
           onLock,
           ...over,
@@ -41,7 +40,7 @@ describe('useAutoLock', () => {
     )
   }
 
-  it('locks after the idle timeout elapses', () => {
+  it('locks after the fixed 5-minute idle timeout elapses', () => {
     render()
 
     act(() => { vi.advanceTimersByTime(5 * MINUTE + 15_000) })
@@ -83,6 +82,42 @@ describe('useAutoLock', () => {
     locked.unmount()
   })
 
+  it('does nothing when disabled — no timers, no listeners', () => {
+    render({ enabled: false })
+
+    act(() => { vi.advanceTimersByTime(60 * MINUTE) })
+    expect(onLock).not.toHaveBeenCalled()
+
+    // freeze-return path is inert too
+    act(() => { document.dispatchEvent(new Event('visibilitychange')) })
+    expect(onLock).not.toHaveBeenCalled()
+  })
+
+  it('enabling mid-session starts a fresh idle baseline', () => {
+    const { rerender } = render({ enabled: false })
+
+    act(() => { vi.advanceTimersByTime(60 * MINUTE) })
+    expect(onLock).not.toHaveBeenCalled()
+
+    // turning it on must not count prior idle time
+    rerender({ enabled: true, isLocked: false, onLock })
+    act(() => { vi.advanceTimersByTime(15_000) })
+    expect(onLock).not.toHaveBeenCalled()
+
+    act(() => { vi.advanceTimersByTime(5 * MINUTE + 15_000) })
+    expect(onLock).toHaveBeenCalled()
+  })
+
+  it('disabling mid-session releases the running timer', () => {
+    const { rerender } = render()
+
+    act(() => { vi.advanceTimersByTime(4 * MINUTE) })
+    rerender({ enabled: false, isLocked: false, onLock })
+
+    act(() => { vi.advanceTimersByTime(60 * MINUTE) })
+    expect(onLock).not.toHaveBeenCalled()
+  })
+
   it('unlock resets the baseline — prior session idle time does not trigger an immediate re-lock', () => {
     const { rerender } = render()
 
@@ -90,60 +125,18 @@ describe('useAutoLock', () => {
     expect(onLock).toHaveBeenCalled()
 
     // switch to locked — listeners/timers released, no firing while locked
-    rerender({ timeoutMinutes: 5, isLocked: true, onLock })
+    rerender({ enabled: true, isLocked: true, onLock })
     onLock.mockClear()
     act(() => { vi.advanceTimersByTime(60 * MINUTE) })
     expect(onLock).not.toHaveBeenCalled()
 
     // unlock — recompute from the unlock moment, not prior idle time
-    rerender({ timeoutMinutes: 5, isLocked: false, onLock })
+    rerender({ enabled: true, isLocked: false, onLock })
     act(() => { vi.advanceTimersByTime(15_000) })
     expect(onLock).not.toHaveBeenCalled()
 
     // locks again after another 5 minutes idle
     act(() => { vi.advanceTimersByTime(5 * MINUTE + 15_000) })
     expect(onLock).toHaveBeenCalled()
-  })
-
-  // ─── grace heartbeat / clamp ───
-
-  it('extends grace after activity, throttled to once per burst', () => {
-    const onExtendGrace = vi.fn<(expiresAt: number) => void>()
-    render({ onExtendGrace })
-
-    // No activity yet → the first check does not extend
-    act(() => { vi.advanceTimersByTime(15_000) })
-    expect(onExtendGrace).not.toHaveBeenCalled()
-
-    // Activity advances the baseline; the next check extends to activity + timeout
-    let activityAt = 0
-    act(() => { window.dispatchEvent(new Event('pointerdown')); activityAt = Date.now() })
-    act(() => { vi.advanceTimersByTime(15_000) })
-    expect(onExtendGrace).toHaveBeenCalledTimes(1)
-    expect(onExtendGrace).toHaveBeenCalledWith(activityAt + 5 * MINUTE)
-
-    // No new activity → next check does not re-extend (deterministic throttle)
-    act(() => { vi.advanceTimersByTime(15_000) })
-    expect(onExtendGrace).toHaveBeenCalledTimes(1)
-  })
-
-  it('does not extend on the initial unlock (applyUnlock already saved grace)', () => {
-    const onExtendGrace = vi.fn<(expiresAt: number) => void>()
-    render({ onExtendGrace })
-    // Mount alone (no activity, no timeout change) must not extend
-    act(() => { vi.advanceTimersByTime(14_000) })
-    expect(onExtendGrace).not.toHaveBeenCalled()
-  })
-
-  it('re-clamps grace to now + new timeout when the timeout changes', () => {
-    const onExtendGrace = vi.fn<(expiresAt: number) => void>()
-    const { rerender } = render({ timeoutMinutes: 5, onExtendGrace })
-
-    expect(onExtendGrace).not.toHaveBeenCalled() // initial mount does not clamp
-
-    // Shorten the timeout → immediate re-clamp to now + 1 minute
-    const now = Date.now()
-    rerender({ timeoutMinutes: 1, isLocked: false, onLock, onExtendGrace })
-    expect(onExtendGrace).toHaveBeenCalledWith(now + 1 * MINUTE)
   })
 })

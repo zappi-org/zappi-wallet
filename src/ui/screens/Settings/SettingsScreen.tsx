@@ -24,7 +24,6 @@ import {
   registerPasskey,
   removePasskey,
 } from '@/ui/services/passkey'
-import { AutoLockSettingPage } from './pages/AutoLockSettingPage'
 import { POSSettingPage } from './pages/POSSettingPage'
 import { PrivacySettingPage } from './pages/PrivacySettingPage'
 import { NpubDetailPage } from './pages/NpubDetailPage'
@@ -44,7 +43,7 @@ function normalizeRecoveryPhraseWords(value: string): string[] {
 
 export type SettingsPage =
   | 'category-profile' | 'category-preferences' | 'category-security' | 'category-wallet'
-  | 'language' | 'unitDisplay' | 'fiat' | 'autoLock' | 'pos' | 'privacy' | 'npubDetail' | 'lightningDetail' | 'support'
+  | 'language' | 'unitDisplay' | 'fiat' | 'pos' | 'privacy' | 'npubDetail' | 'lightningDetail' | 'support'
   | 'diagnostics'
 
 export interface SettingsScreenProps {
@@ -509,9 +508,9 @@ export function SettingsScreen({
         return (
           <SecurityCategoryPage
             onBack={closeTopPage}
-            onNavigate={navigateTo}
             onFaceIdToggle={handleFaceIdToggle}
             onOpenPinChange={pinChange.open}
+            saveSettings={saveSettings}
           />
         )
       case 'category-wallet':
@@ -579,8 +578,6 @@ export function SettingsScreen({
         return <UnitDisplaySettingPage onBack={closeDetail} saveSettings={saveSettings} />
       case 'fiat':
         return <FiatSettingPage onBack={closeDetail} saveSettings={saveSettings} />
-      case 'autoLock':
-        return <AutoLockSettingPage onBack={closeDetail} saveSettings={saveSettings} />
       case 'pos':
         return (
           <POSSettingPage

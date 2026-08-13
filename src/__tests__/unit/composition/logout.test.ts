@@ -34,7 +34,7 @@ const { deleteCocoDataMock, broadcastSyncMock, deleteGraceDatabaseMock, dbHolder
 vi.mock('@/modules/cashu', () => ({ deleteCocoData: deleteCocoDataMock }))
 vi.mock('@/utils/cross-tab-sync', () => ({ broadcastSync: broadcastSyncMock }))
 vi.mock('@/adapters/storage/dexie/schema', () => ({ getDatabase: () => dbHolder.db }))
-vi.mock('@/adapters/storage/unlock-grace.adapter', () => ({ deleteGraceDatabase: deleteGraceDatabaseMock }))
+vi.mock('@/adapters/storage/legacy-grace-cleanup', () => ({ deleteLegacyGraceDatabase: deleteGraceDatabaseMock }))
 
 function makeDb(over?: { failClear?: boolean; deleteImpl?: () => Promise<void> }) {
   const tables = [

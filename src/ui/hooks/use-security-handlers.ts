@@ -51,9 +51,8 @@ export function useSecurityHandlers(deps: UseSecurityHandlersDeps): SecurityHand
   // would revive a reconnect burst on every unlock. Re-evaluate immediately on
   // screen return (compensates for timers frozen during freeze).
   const handleAutoLock = useCallback(async () => {
-    // Await the grace clear before flipping the UI to locked — reaching LockScreen
-    // must guarantee the PIN-free grace blob is already gone. A clear failure still
-    // locks (security.lock logs internally and resolves — fail toward locked).
+    // Await the memory wipe before flipping the UI to locked — reaching
+    // LockScreen must guarantee the session secrets are already gone.
     await security.lock()
     setLocked(true)
   }, [security, setLocked])
