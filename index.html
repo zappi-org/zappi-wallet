@@ -10,19 +10,13 @@
 
     <!-- iOS PWA Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <!-- black-translucent is the only full-bleed mechanism (backdrops must dim
-         the status bar). The 2026-07 "dead band" was NOT this mode: iOS grants
-         the full-screen coordinate space only while the document is at least
-         screen-height tall, and the shell was then sized from dvh, which
-         standalone misreports small at cold start — so the app locked itself
-         into the reduced space. The shell now sizes standalone from lvh (see
-         index.css), verified on iOS 18.7 device + 26.3 simulator across
-         keyboard/relaunch/lock. Android ignores this tag entirely. -->
+    <!-- The only full-bleed mechanism; iOS bakes it at install time, so the
+         shell probes the actual geometry (standalone-gate.js) instead of
+         assuming it. Baked at add-to-home-screen; served changes don't
+         reach existing installs. -->
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="ZAPPI Wallet" />
-    <!-- Full-bleed gate. External file on purpose: the production CSP only
-         allows same-origin scripts, so an inline version is silently blocked
-         in prod while working in dev. Must run before first paint. -->
+    <!-- External: the production CSP blocks inline scripts. -->
     <script src="/standalone-gate.js"></script>
 
     <!-- Icons -->

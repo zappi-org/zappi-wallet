@@ -307,28 +307,20 @@
   button, input, select, textarea {
     font: inherit;
   }
-  /* The shell is the ONLY place that measures the viewport; every screen
-     inside uses h-full. Browser tabs: 100dvh tracks the real viewport under
-     dynamic toolbars (100vh is the no-dvh fallback, Chrome Android <108).
-     Installed (standalone) full-bleed: iOS grants the full-screen coordinate
-     space only while the document is at least screen-height tall — dvh
-     misreports the reduced value (screen minus status bar) at cold start, and
-     a dvh-sized shell locks the app into that reduced space forever (the
-     2026-07 dead band). lvh always resolves to the full screen (standalone
-     has no retractable chrome), so the document starts screen-sized and iOS
-     converges to the correct geometry — verified on iOS 18.7 device and 26.3
-     simulator across keyboard/relaunch/lock cycles. Do not size anything in
-     standalone from dvh/svh/100% chains. */
+  /* The shell is the ONLY viewport measurer; screens use h-full. Full-bleed
+     standalone needs lvh: iOS only grants the full-screen space while the
+     document is at least screen-height tall, and dvh misreports small at
+     cold start, locking the app into the reduced space. Never size
+     standalone layout from dvh/svh/100% chains. vh lines are the no-lvh
+     fallback. */
   html, body, #root {
     @apply overflow-hidden;
     height: 100vh;
     height: 100dvh;
     background-color: var(--background);
   }
-  /* html.standalone is set by an inline script in index.html: installed
-     AND verified full-bleed geometry (env top probe). Legacy installs made
-     under the default status-bar mode keep a non-bleed webview that lvh
-     overshoots — they stay on the dvh shell above, unchanged. */
+  /* .standalone = installed iOS with verified full-bleed geometry, set by
+     standalone-gate.js. Legacy default-mode installs keep the dvh shell. */
   html.standalone, .standalone body, .standalone #root {
     height: 100vh;
     height: 100lvh;
@@ -363,11 +355,8 @@
   --safe-area-inset-right: env(safe-area-inset-right, 0px);
   --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
   --safe-area-inset-left: env(safe-area-inset-left, 0px);
-  /* viewport-fit=cover keeps the shell painting the home-indicator strip
-     (no white band). Screen action paddings clear the home indicator via
-     max(): where the inset exists (iOS: 34px) actions sit above it with a
-     small gap; where it is 0 (Android, desktop) the base spacing wins
-     unchanged. The nav dock stays env()-free — see TabToolbar/styles.ts. */
+  /* Bottom paddings clear the home indicator via max(); with a 0 inset
+     (Android, desktop) the base spacing wins unchanged. */
   --app-bottom-padding: max(1.5rem, calc(var(--safe-area-inset-bottom) + 0.5rem));
   --app-bottom-nav-height: 3.5rem;
   --app-bottom-nav-top-padding: 0.5rem;
@@ -381,24 +370,18 @@
   padding-top: var(--safe-area-inset-top);
 }
 
-/* Standalone full-bleed geometry patches, gated on html.standalone (set
-   before first paint in index.html — the display-mode media query is
-   unreliable in installed iOS web apps). Unlayered on purpose: they must
-   beat Tailwind's utilities layer (inset-0's own bottom:0), not rely on
-   CSS over-constraint resolution. */
-/* Full-cover overlays: with top+bottom anchoring iOS sizes the box from
-   the ICB, which it reports minus the status bar — every backdrop then
-   stops one status-bar height above the physical bottom, leaving an
-   undimmed strip. Anchor the top and give them the real screen height. */
+/* Full-bleed geometry patches. Unlayered so they beat the utilities layer
+   (inset-0's own bottom:0). iOS sizes top+bottom-anchored fixed boxes from
+   an ICB it reports minus the status bar, so backdrops would stop short of
+   the physical bottom — anchor the top and give the real screen height. */
 .standalone .fixed.inset-0 {
   top: 0;
   bottom: auto;
   height: 100vh;
   height: 100lvh;
 }
-/* Bottom-anchored chrome (nav dock): iOS transiently mis-anchors fixed
-   bottom:0 after rotation. Same cure — anchor from the top with a real
-   screen-height box and let the content sit at its flex end. */
+/* Fixed bottom:0 chrome mis-anchors transiently after rotation; same cure,
+   content sits at the flex end. */
 .standalone .bottom-dock {
   top: 0;
   bottom: auto;

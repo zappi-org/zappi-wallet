@@ -8,10 +8,8 @@ export const bottomDockInnerClass =
 
 export const bottomDockStyle: CSSProperties = {
   paddingTop: 'var(--app-bottom-nav-top-padding)',
-  // env()-aware again: the historical inset flip-flop was the dvh-sized shell
-  // locking iOS into the reduced coordinate space (fixed 2026-08 — lvh shell,
-  // html.standalone gate); inset now reads a stable 34px after boot on device
-  // and simulator, so the dock floats above the home indicator per HIG.
+  // env-aware: the dock floats above the home indicator; a 0 inset keeps
+  // the base padding.
   paddingBottom: 'var(--app-bottom-nav-bottom-padding)',
 }
 

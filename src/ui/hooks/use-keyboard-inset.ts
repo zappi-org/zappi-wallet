@@ -2,13 +2,10 @@ import { useEffect, useState } from 'react'
 
 /**
  * Height (px) the soft keyboard covers at the bottom of the layout viewport.
- * WHY: this is a PWA with no native wrapper, so VisualViewport is the only way
- * to observe the keyboard — the layout viewport does not shrink on iOS Safari.
- * In full-bleed standalone iOS reports visualViewport.height minus safe-area
- * insets even with no keyboard (WebKit 254868) — measured phantoms range up
- * to the status-bar height (62px on Dynamic Island). Real soft keyboards are
- * 216px+, so the floor filters every phantom; the ~55px hardware-keyboard
- * accessory bar is knowingly sacrificed (it falls between the two). */
+ * VisualViewport is the only way to observe the keyboard in a PWA. Full-bleed
+ * standalone reports phantom insets up to the status-bar height with no
+ * keyboard; real keyboards are 216px+, so the floor filters every phantom
+ * (the ~55px hardware-keyboard accessory bar is knowingly sacrificed). */
 const MIN_KEYBOARD_PX = 100
 
 export function computeInset(innerHeight: number, vv: { height: number; offsetTop: number }): number {
