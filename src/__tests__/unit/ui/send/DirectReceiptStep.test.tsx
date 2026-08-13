@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import { DirectReceiptStep } from '@/ui/screens/Send/steps/DirectReceiptStep'
+import { RECEIPT_PRINT_CRAWL_MS } from '@/ui/components/payment/payment-receipt-motion'
 
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k, i18n: { language: 'ko' } }) }))
 vi.mock('@/utils/format', () => ({
@@ -43,8 +44,11 @@ describe('DirectReceiptStep', () => {
   })
 
   it('stamps and collapses to exit-only once the token is claimed', () => {
+    vi.useFakeTimers()
     const onExit = vi.fn()
     render(<DirectReceiptStep {...base} onExit={onExit} />)
+    // The stamp needs the paper fed and torn — pass the crawl first.
+    act(() => { vi.advanceTimersByTime(RECEIPT_PRINT_CRAWL_MS) })
     act(() => claimCb?.())
     expect(screen.getByText('send.direct.claimed')).toBeInTheDocument()
     // Reclaim is hidden + inert after the claim (kept in the layout only to
@@ -56,5 +60,16 @@ describe('DirectReceiptStep', () => {
     // completion screens.
     fireEvent.click(screen.getByText('receive.request.exit'))
     expect(onExit).toHaveBeenCalled()
+    vi.useRealTimers()
+  })
+
+  it('holds the stamp until the paper has fed and torn when the claim races the crawl', () => {
+    vi.useFakeTimers()
+    render(<DirectReceiptStep {...base} />)
+    act(() => claimCb?.())
+    expect(screen.queryByText('send.direct.claimed')).toBeNull()
+    act(() => { vi.advanceTimersByTime(RECEIPT_PRINT_CRAWL_MS) })
+    expect(screen.getByText('send.direct.claimed')).toBeInTheDocument()
+    vi.useRealTimers()
   })
 })

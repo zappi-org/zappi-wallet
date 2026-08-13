@@ -1,7 +1,7 @@
-import { render, screen, fireEvent, act } from '@testing-library/react'
+import { render, renderHook, screen, fireEvent, act } from '@testing-library/react'
 import { beforeEach, describe, it, expect, vi } from 'vitest'
 import { PaymentReceipt } from '@/ui/components/payment/PaymentReceipt'
-import { shouldStartReceiptTorn } from '@/ui/components/payment/payment-receipt-motion'
+import { shouldStartReceiptTorn, useReceiptPrintCrawl, RECEIPT_PRINT_CRAWL_MS } from '@/ui/components/payment/payment-receipt-motion'
 
 interface AnimationHarness {
   animation: Animation
@@ -106,6 +106,31 @@ describe('PaymentReceipt paper motion', () => {
   it('starts a finishing receipt torn when the Web Animations API is unavailable', () => {
     expect(shouldStartReceiptTorn('finishing', false)).toBe(true)
     expect(shouldStartReceiptTorn('finishing', true)).toBe(false)
+  })
+})
+
+describe('useReceiptPrintCrawl', () => {
+  it("starts at 'printing' and hands off to 'finishing' after the crawl", () => {
+    vi.useFakeTimers()
+    const { result } = renderHook(() => useReceiptPrintCrawl(false))
+    expect(result.current).toBe('printing')
+    act(() => { vi.advanceTimersByTime(RECEIPT_PRINT_CRAWL_MS) })
+    expect(result.current).toBe('finishing')
+    vi.useRealTimers()
+  })
+
+  it("skips straight to 'finishing' under reduced motion", () => {
+    const { result } = renderHook(() => useReceiptPrintCrawl(true))
+    expect(result.current).toBe('finishing')
+  })
+
+  it('clears the crawl timer on unmount', () => {
+    vi.useFakeTimers()
+    const { unmount } = renderHook(() => useReceiptPrintCrawl(false))
+    expect(vi.getTimerCount()).toBe(1)
+    unmount()
+    expect(vi.getTimerCount()).toBe(0)
+    vi.useRealTimers()
   })
 })
 

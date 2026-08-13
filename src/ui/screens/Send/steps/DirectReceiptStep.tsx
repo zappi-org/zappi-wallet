@@ -1,17 +1,19 @@
 /**
  * DirectReceiptStep — the bearer token printed as a receipt with the QR on the
- * paper (the gift card you hand over). Creation is instant, so the receipt feeds
- * out fast (no printing crawl) and waits, unstamped, "awaiting pickup". The seal
- * lands only when useSendClaimed reports the recipient claimed it — same grammar
- * as a routed send's pending→settled stamp.
+ * paper (the gift card you hand over). The receipt runs a short print crawl,
+ * feeds out, and waits, unstamped, "awaiting pickup". The seal drops only when
+ * useSendClaimed reports the recipient claimed it — same falling-stamp grammar
+ * as the receive receipt, so status stays 'finishing' until the stamp lands.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useReducedMotion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
 import { Check, Copy, Share2 } from 'lucide-react'
 import { BottomActionBar } from '@/ui/components/common/BottomActionBar'
 import { Button } from '@/ui/components/common/Button'
 import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
 import { PaymentReceipt, type PaymentReceiptRow } from '@/ui/components/payment/PaymentReceipt'
+import { useReceiptPrintCrawl } from '@/ui/components/payment/payment-receipt-motion'
 import sendSuccessImg from '@/assets/send-success.png'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
 import { useCopyFeedback } from '@/ui/hooks/use-copy-feedback'
@@ -57,8 +59,12 @@ export function DirectReceiptStep({
   const { getDisplayName } = useMintMetadata(mintUrls)
   const mintName = getDisplayName(mintUrl)
 
+  const reduceMotion = useReducedMotion()
+  const printStatus = useReceiptPrintCrawl(reduceMotion)
   const [veiled, setVeiled] = useState(true)
   const [claimed, setClaimed] = useState(false)
+  // 'done' only after the stamp lands — gating on `claimed` would skip the drop.
+  const [stamped, setStamped] = useState(false)
   const [claimedAt, setClaimedAt] = useState<number | null>(null)
   const [reclaimBusy, setReclaimBusy] = useState(false)
   const [receiveFee, setReceiveFee] = useState<number | null>(null)
@@ -141,7 +147,7 @@ export function DirectReceiptStep({
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6">
         <div className="my-auto flex w-full shrink-0 flex-col items-center py-4">
           <PaymentReceipt
-            status={claimed ? 'done' : 'finishing'}
+            status={stamped ? 'done' : printStatus}
             title={claimed ? t('send.receipt.title') : t('send.receipt.pendingTitle')}
             amount={formatSats(amount)}
             fiat={formatFiat(amount) || null}
@@ -154,6 +160,7 @@ export function DirectReceiptStep({
             doneLine={claimed ? stampedAt : undefined}
             stampSrc={claimed ? sendSuccessImg : undefined}
             stampLabel={t('send.direct.claimed')}
+            onStampComplete={() => { if (!stamped) setStamped(true) }}
           />
         </div>
       </div>
