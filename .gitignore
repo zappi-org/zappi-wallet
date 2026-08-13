@@ -50,3 +50,14 @@ screenshots/
 
 # Local security notes — never commit
 .private-notes/
+
+# ShipStudio metadata
+.shipstudio/
+
+# Local agent/AI tooling — per-developer, never shared
+.agents/
+.claude/
+.codex/
+.impeccable/
+skills-lock.json
+PRODUCT.md
