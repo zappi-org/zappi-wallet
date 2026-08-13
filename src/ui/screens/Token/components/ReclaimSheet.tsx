@@ -58,7 +58,7 @@ export function ReclaimSheet({
       // A reclaim in flight must not be dismissed out from under itself.
       dismissible={!busy}
       ariaLabelledBy={TITLE_ID}
-      sheetClassName="rounded-t-3xl max-h-[85vh] bg-background-elevated"
+      sheetClassName="rounded-t-sheet max-h-[85vh] bg-background-elevated"
     >
             <div className="px-5 pb-1">
               <h3 id={TITLE_ID} className="text-title-sm font-bold text-foreground text-center">

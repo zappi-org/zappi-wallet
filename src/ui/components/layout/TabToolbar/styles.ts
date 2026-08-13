@@ -1,15 +1,17 @@
 import type { CSSProperties } from 'react'
 
 export const bottomDockClass =
-  'fixed inset-x-0 bottom-0 z-50 pointer-events-none px-4'
+  'bottom-dock fixed inset-x-0 bottom-0 z-50 pointer-events-none px-4'
 
 export const bottomDockInnerClass =
   'mx-auto flex w-full max-w-sm items-center justify-between gap-2 pointer-events-auto'
 
 export const bottomDockStyle: CSSProperties = {
   paddingTop: 'var(--app-bottom-nav-top-padding)',
-  // No env() here: iOS standalone flip-flops the bottom inset between
-  // relaunch paths, which made the dock jump ~34px across reloads.
+  // env()-aware again: the historical inset flip-flop was the dvh-sized shell
+  // locking iOS into the reduced coordinate space (fixed 2026-08 — lvh shell,
+  // html.standalone gate); inset now reads a stable 34px after boot on device
+  // and simulator, so the dock floats above the home indicator per HIG.
   paddingBottom: 'var(--app-bottom-nav-bottom-padding)',
 }
 

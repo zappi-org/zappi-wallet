@@ -75,7 +75,7 @@ export interface BottomSheetProps {
   dismissible?: boolean
 }
 
-const DEFAULT_SHEET_CLASS = 'bg-background-elevated rounded-t-lg max-h-[85vh] overflow-hidden'
+const DEFAULT_SHEET_CLASS = 'bg-background-elevated rounded-t-sheet max-h-[85vh] overflow-hidden'
 /** Past this much travel a press is a drag, not a tap on what sat under it. */
 const DRAG_SLOP_PX = 8
 /** Movement needed over a carousel before paging vs dismissing is decided. */

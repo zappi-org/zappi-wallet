@@ -54,7 +54,7 @@ export function CSPage({
       <div
         className={cn(
           'relative flex-1',
-          noScroll ? 'overflow-hidden flex flex-col' : 'overflow-y-auto',
+          noScroll ? 'overflow-hidden flex flex-col' : 'overflow-y-auto pb-app',
         )}
       >
         {children}

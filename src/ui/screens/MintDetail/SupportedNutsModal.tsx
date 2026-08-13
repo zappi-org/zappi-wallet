@@ -15,12 +15,12 @@ export function SupportedNutsModal({ isOpen, nuts, nutNames, onClose }: Supporte
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center pointer-events-none">
+    <div className="fixed inset-0 z-[110] flex items-center justify-center pointer-events-none py-[max(1rem,var(--safe-area-inset-top))]">
       <div
         onClick={onClose}
         className="absolute inset-0 bg-black/30 backdrop-blur-sm pointer-events-auto animate-fadeIn"
       />
-      <div className="bg-background w-[340px] max-h-[70vh] rounded-2xl pointer-events-auto relative z-10 shadow-2xl animate-slideInUp overflow-hidden flex flex-col">
+      <div className="bg-background w-[340px] max-h-full rounded-2xl pointer-events-auto relative z-10 shadow-2xl animate-slideInUp overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-5 shrink-0">
           <div className="w-9" />

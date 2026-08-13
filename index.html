@@ -10,13 +10,28 @@
 
     <!-- iOS PWA Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <!-- default, not black-translucent: the translucent mode is deprecated and its
-         full-bleed geometry (screen height incl. status bar) randomly collapses to
-         the non-bleed size across keyboard/relaunch cycles, leaving a dead band at
-         the bottom (measured 896→852 on device). default mode is the stable
-         non-bleed geometry anchored to the screen bottom — no band possible. -->
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <!-- black-translucent is the only full-bleed mechanism (backdrops must dim
+         the status bar). The 2026-07 "dead band" was NOT this mode: iOS grants
+         the full-screen coordinate space only while the document is at least
+         screen-height tall, and the shell was then sized from dvh, which
+         standalone misreports small at cold start — so the app locked itself
+         into the reduced space. The shell now sizes standalone from lvh (see
+         index.css), verified on iOS 18.7 device + 26.3 simulator across
+         keyboard/relaunch/lock. Android ignores this tag entirely. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="ZAPPI Wallet" />
+    <script>
+      // Full-bleed CSS is gated on html.standalone: installed iOS web apps do
+      // not reliably match the display-mode media query (measured false on
+      // iOS 26.3), so detect before first paint with the same test the
+      // install guard uses.
+      if (
+        window.matchMedia('(display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui)').matches ||
+        navigator.standalone === true
+      ) {
+        document.documentElement.classList.add('standalone');
+      }
+    </script>
 
     <!-- Icons -->
     <link rel="icon" type="image/png" href="/favicon.png" />
@@ -36,6 +51,7 @@
       <style>
         .pwa-loading {
           min-height: 100vh;
+          min-height: 100dvh;
           display: flex;
           align-items: center;
           justify-content: center;

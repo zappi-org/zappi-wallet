@@ -338,13 +338,13 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
           onClick={() => setIsMintSelectorOpen(null)}
         >
           <div
-            className="animate-slideInUp bg-background w-full rounded-t-2xl overflow-hidden shadow-2xl"
+            className="animate-slideInUp bg-background w-full rounded-t-sheet overflow-hidden shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-4 pt-4 pb-3 border-b border-border">
               <h3 className="text-caption font-semibold text-foreground">{t('payment.selectMint')}</h3>
             </div>
-            <div className="p-2 flex flex-col gap-1 max-h-[50vh] overflow-y-auto">
+            <div className="p-2 pb-app flex flex-col gap-1 max-h-[50vh] overflow-y-auto">
               {mintUrls.map((url) => {
                 const mintBalance = getMintBalance(url)
                 const isSelected =

@@ -534,7 +534,7 @@ export default function TransactionDetailScreen({
       {showDeleteConfirm && (
         <div className="absolute inset-0 z-50 flex items-end bg-black/40" onClick={() => setShowDeleteConfirm(false)}>
           <div
-            className="w-full bg-background-card rounded-t-3xl p-6 space-y-4"
+            className="w-full bg-background-card rounded-t-sheet p-6 pb-app space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
             <p className="text-body font-semibold text-foreground">{t('txDetail.deleteConfirm')}</p>

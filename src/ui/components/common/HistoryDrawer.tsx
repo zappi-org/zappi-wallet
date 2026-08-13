@@ -18,7 +18,7 @@ import { useFocusTrap } from '@/ui/hooks/use-focus-trap'
 import { useIsActivityTop } from '@/ui/navigation/use-is-activity-top'
 import { sheetSettleMs, SHEET_EASE } from '@/ui/utils/motion'
 import type { PendingItemDetailCallbacks } from '@/ui/screens/MintDetail/PendingItemDetailScreen'
-import { shouldHistoryDrawerStayOpen } from './history-drawer-gesture'
+import { isInSystemGestureZone, shouldHistoryDrawerStayOpen } from './history-drawer-gesture'
 
 const HistoryScreen = lazy(() => import('@/ui/screens/History/HistoryScreen'))
 
@@ -85,9 +85,33 @@ export function HistoryDrawer({
     return () => window.removeEventListener('resize', onResize)
   }, [])
 
-  /** Closed sits the sheet on its own height — entirely below the viewport. */
-  const closedY = Math.ceil(viewportHeight * SHEET_HEIGHT_RATIO)
+  // Travel distance, drag constraints and scrim all key off the sheet's real
+  // rendered height — CSS caps it below the status bar under full-bleed, so a
+  // ratio-of-innerHeight estimate would desync from what actually rendered.
+  const [sheetHeight, setSheetHeight] = useState(() =>
+    typeof window === 'undefined' ? 874 * SHEET_HEIGHT_RATIO : window.innerHeight * SHEET_HEIGHT_RATIO,
+  )
+  useEffect(() => {
+    const el = sheetRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(() => {
+      const h = el.getBoundingClientRect().height
+      if (h > 0) setSheetHeight(h)
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  /** Closed sits the sheet on its own height — entirely below the viewport.
+      The extra travel keeps it hidden even when iOS mis-anchors bottom chrome
+      a status-bar height too high after rotation (full-bleed standalone). */
+  const closedY = Math.ceil(sheetHeight) + 64
   const y = useMotionValue(closedY)
+  // A late height measurement while closed must re-seat the sheet fully
+  // offscreen, or it pokes above the bottom edge by the correction amount.
+  useEffect(() => {
+    if (!expanded) y.set(closedY)
+  }, [closedY, expanded, y])
   // The scrim belongs to the sheet's position, not to the state it ends in: it
   // follows the finger on the way up and lifts on the way down, in step.
   const scrimOpacity = useTransform(
@@ -173,15 +197,25 @@ export function HistoryDrawer({
   const pressOrigin = useRef<{ x: number; y: number } | null>(null)
   const awaitingDirection = useRef(false)
 
+  const startsSystemGesture = useCallback((event: React.PointerEvent) => {
+    const inset =
+      parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue('--safe-area-inset-bottom'),
+      ) || 0
+    return isInSystemGestureZone(event.clientY, window.innerHeight, inset)
+  }, [])
+
   const startFromPeek = useCallback((event: React.PointerEvent) => {
+    if (startsSystemGesture(event)) return
     pressOrigin.current = { x: event.clientX, y: event.clientY }
     dragControls.start(event)
-  }, [dragControls])
+  }, [dragControls, startsSystemGesture])
 
   // The whole sheet is the grab area. A list scrolled away from its top keeps
   // the gesture; at the top the first few pixels decide — downwards dismisses,
   // upwards is left to the scroller.
   const handleSheetPointerDown = useCallback((event: React.PointerEvent) => {
+    if (startsSystemGesture(event)) return
     pressOrigin.current = { x: event.clientX, y: event.clientY }
     awaitingDirection.current = false
     const target = event.target as HTMLElement | null
@@ -195,7 +229,7 @@ export function HistoryDrawer({
       return
     }
     dragControls.start(event)
-  }, [dragControls, verticalScroller])
+  }, [dragControls, verticalScroller, startsSystemGesture])
 
   const handleSheetPointerMove = useCallback((event: React.PointerEvent) => {
     if (!awaitingDirection.current) return
@@ -208,6 +242,13 @@ export function HistoryDrawer({
   }, [dragControls])
 
   const endDirectionWatch = useCallback(() => { awaitingDirection.current = false }, [])
+
+  // pointercancel means the system claimed the gesture (home swipe, app
+  // switcher) — whatever the sheet did with the first pixels, put it back.
+  const handlePointerCancel = useCallback(() => {
+    awaitingDirection.current = false
+    settleTo(expanded)
+  }, [settleTo, expanded])
 
   // Dragging the peek row upwards would otherwise also count as a tap on it and
   // open that transaction behind the sheet you just pulled up. A pointer that
@@ -232,6 +273,7 @@ export function HistoryDrawer({
         className="mt-auto shrink-0"
         style={{ touchAction: 'none' }}
         onPointerDown={startFromPeek}
+        onPointerCancel={handlePointerCancel}
         onClickCapture={swallowDragClick}
       >
         {peek}
@@ -267,10 +309,15 @@ export function HistoryDrawer({
             onPointerDown={handleSheetPointerDown}
             onPointerMove={handleSheetPointerMove}
             onPointerUp={endDirectionWatch}
-            onPointerCancel={endDirectionWatch}
+            onPointerCancel={handlePointerCancel}
             onClickCapture={swallowDragClick}
-            className="fixed inset-x-0 bottom-0 z-[60] flex h-[94%] flex-col overflow-hidden rounded-t-[32px] bg-white outline-none"
-            style={{ y, pointerEvents: expanded ? 'auto' : 'none' }}
+            className="fixed inset-x-0 bottom-0 z-[60] flex flex-col overflow-hidden rounded-t-drawer bg-white outline-none"
+            style={{
+              y,
+              pointerEvents: expanded ? 'auto' : 'none',
+              // 94% of the screen, but never into the status bar under full-bleed
+              height: `min(${SHEET_HEIGHT_RATIO * 100}%, calc(100% - var(--safe-area-inset-top) - 12px))`,
+            }}
           >
             <div
               data-sheet-drag-handle=""

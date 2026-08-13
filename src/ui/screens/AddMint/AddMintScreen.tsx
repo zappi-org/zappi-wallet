@@ -345,7 +345,7 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
       </div>
 
       {/* Global Mint List */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto pb-app">
         <p className="text-caption font-medium uppercase tracking-wide text-foreground-muted px-4 pt-3 pb-2">
           {t('addMint.worldwide')}
         </p>

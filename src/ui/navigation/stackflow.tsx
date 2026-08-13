@@ -181,6 +181,10 @@ function ScreenActivity({ screen }: { screen: Screen }) {
             ? { duration: 0 }
             : motionSafeTransition(reduceMotion, { duration: 0.22, ease: [0.32, 0.72, 0, 1] })
         }
+        // The resting translate3d(0,0,0) is load-bearing: it keeps every
+        // activity a containing block for its fixed descendants, so their
+        // geometry follows this (lvh-sized) box instead of the ICB that iOS
+        // mis-reports in full-bleed standalone.
         className="absolute inset-0 bg-background"
         style={{
           zIndex: activity.zIndex,

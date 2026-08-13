@@ -71,10 +71,12 @@ export function QrScannerModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex pb-4 items-end" onClick={onClose}>
+    // Above the tab dock (z-50) and history drawer (z-60): the scan backdrop
+    // must dim the whole screen, chrome included.
+    <div className="fixed inset-0 z-[70] flex pb-[max(1rem,calc(var(--safe-area-inset-bottom)+0.25rem))] items-end" onClick={onClose}>
       <div className="absolute inset-0 bg-black/60" />
       <div
-        className="relative bg-background rounded-2xl mx-3 w-full overflow-hidden animate-slideInUp shadow-sheet"
+        className="relative bg-background rounded-2xl mx-3 w-full max-h-[calc(100%-max(1rem,var(--safe-area-inset-top)))] overflow-y-auto animate-slideInUp shadow-sheet"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="relative flex items-center justify-center px-5 py-6">

@@ -164,7 +164,7 @@ export function MintManagementScreen({
         </span>
       </header>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto pb-app">
         <p className="px-5 pb-2 text-overline font-medium text-foreground-muted">
           {t('settings.reorderHint')}
         </p>
