@@ -397,6 +397,7 @@ export function HomeScreen({
             row={recent?.row ?? null}
             onPress={recent?.onPress}
             onSeeAll={recent ? () => setHistoryExpanded(true) : undefined}
+            blind={settings.balanceHidden}
           />
         )}
       />
