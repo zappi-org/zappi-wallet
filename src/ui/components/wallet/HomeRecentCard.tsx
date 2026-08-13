@@ -2,6 +2,7 @@ import { memo } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { ArrowDownLeft, ArrowUpRight, ChevronUp } from 'lucide-react'
+import { motion } from 'motion/react'
 import { useFormatSats } from '@/utils/format'
 import type { HomeRecentRow } from './homeRecentRow'
 import { cn } from '@/ui/lib/utils'
@@ -25,6 +26,7 @@ export interface HomeRecentCardProps {
   onPress?: () => void
   onSeeAll?: () => void
   className?: string
+  blind?: boolean
 }
 
 export const HomeRecentCard = memo(function HomeRecentCard({
@@ -32,6 +34,7 @@ export const HomeRecentCard = memo(function HomeRecentCard({
   onPress,
   onSeeAll,
   className,
+  blind,
 }: HomeRecentCardProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
@@ -70,6 +73,16 @@ export const HomeRecentCard = memo(function HomeRecentCard({
       )}
 
       {row ? (
+      <motion.div
+        initial={false}
+        className="overflow-hidden"
+        animate={
+          blind
+            ? { y: 80, opacity: 0, height: 0 }
+            : { y: 0, opacity: 1, height: 'auto' }
+        }
+        transition={{ duration: 0.2, ease: 'easeInOut' }}
+      >
         <button
           onClick={onPress}
           className="relative w-full flex items-center gap-3 px-5 py-4 rounded-card overflow-hidden active:opacity-80 transition-opacity text-left"
@@ -110,6 +123,7 @@ export const HomeRecentCard = memo(function HomeRecentCard({
             </div>
           </div>
         </button>
+      </motion.div>
       ) : (
         <div
           role="status"

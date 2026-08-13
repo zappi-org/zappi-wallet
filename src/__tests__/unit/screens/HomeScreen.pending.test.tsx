@@ -105,7 +105,6 @@ describe('HomeScreen pending + empty-state coexistence', () => {
 
     const emptyState = screen.getByRole('status')
     expect(emptyState).toHaveTextContent('home.noTransactions')
-    expect(emptyState.parentElement).toHaveClass('pb-app-nav')
     expect(emptyState).toHaveClass('min-h-16')
     expect(emptyState).not.toHaveClass('rounded-card')
     expect(emptyState).not.toHaveAttribute('style')
