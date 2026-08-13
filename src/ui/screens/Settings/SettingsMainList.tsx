@@ -1,5 +1,5 @@
 import type { TranslationKey } from '@/i18n'
-import { useCallback, useState, type ElementType } from 'react'
+import { useCallback, type ElementType } from 'react'
 import { User, Lock, LifeBuoy, ChevronRight, Download, RefreshCw } from 'lucide-react'
 import { Cog6ToothIcon, WalletIcon } from '@heroicons/react/24/outline'
 import { useTranslation } from 'react-i18next'
@@ -28,8 +28,6 @@ const categories: { Icon: ElementType; titleKey: TranslationKey; descKey: Transl
   { Icon: LifeBuoy, titleKey: 'settings.customerSupport', descKey: 'settings.customerSupportDesc', page: 'support' },
 ]
 
-type UpdateCheckPhase = 'idle' | 'checking' | 'installing'
-
 export function SettingsMainList({
   onNavigate,
   onOpenLogout,
@@ -38,17 +36,16 @@ export function SettingsMainList({
   const updateAvailable = useAppStore((s) => s.updateAvailable)
   const supportUnreadCount = useAppStore((s) => s.supportUnreadCount)
   const addToast = useAppStore((s) => s.addToast)
-  const [updateCheckPhase, setUpdateCheckPhase] = useState<UpdateCheckPhase>('idle')
+  // Global phase (owned by registerSW.ts): survives leaving this screen and
+  // reflects browser-initiated background installs too.
+  const updateCheckPhase = useAppStore((s) => s.updatePhase)
   const isCheckingUpdate = updateCheckPhase !== 'idle'
 
   const handleCheckUpdate = useCallback(async () => {
     if (isCheckingUpdate) return
 
-    setUpdateCheckPhase('checking')
     try {
-      const result = await checkForAppUpdate({
-        onInstalling: () => setUpdateCheckPhase('installing'),
-      })
+      const result = await checkForAppUpdate()
       if (result === 'current') {
         addToast({ type: 'success', message: t('settings.updateCurrent') })
       } else if (result === 'unavailable') {
@@ -57,8 +54,6 @@ export function SettingsMainList({
     } catch (error) {
       console.error('Failed to check for app update:', error)
       addToast({ type: 'error', message: t('settings.updateCheckFailed') })
-    } finally {
-      setUpdateCheckPhase('idle')
     }
   }, [addToast, isCheckingUpdate, t])
 
