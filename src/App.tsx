@@ -5,8 +5,7 @@ import { generateMintAliases } from '@/utils/mint-name'
 
 // Lightweight imports only — no heavy services, hooks, or screens.
 // Adapter/module wiring belongs to composition/onboarding.ts
-import { createOnboardingServices, createOnboardingProfileService } from '@/composition/onboarding'
-import { deleteLegacyGraceDatabase } from '@/adapters/storage/legacy-grace-cleanup'
+import { createOnboardingServices, createOnboardingProfileService, deleteLegacyGraceDatabase } from '@/composition/onboarding'
 import { OnboardingScreen } from '@/ui/screens/Onboarding/OnboardingScreen'
 
 // Lazy-load the main app (heavy: all services, hooks, screens)

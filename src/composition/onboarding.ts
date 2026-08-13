@@ -44,3 +44,7 @@ export async function createOnboardingProfileService(params: {
   await nostrGateway.connect(params.relays)
   return createProfileService(nostrGateway, params.settingsRepo)
 }
+
+// Boot-time legacy cleanup, re-exported so the app shell wires it through
+// composition instead of importing a storage adapter directly.
+export { deleteLegacyGraceDatabase } from '@/adapters/storage/legacy-grace-cleanup'

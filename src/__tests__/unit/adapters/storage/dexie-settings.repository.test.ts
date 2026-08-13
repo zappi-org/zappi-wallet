@@ -41,14 +41,14 @@ describe('DexieSettingsRepository — autoLock setting migration', () => {
     expect(loaded.autoLockEnabled).toBe(false)
   })
 
-  it('drops the legacy key from disk after a save/load roundtrip', async () => {
+  it('writes the migrated record back on load so the legacy key leaves the disk', async () => {
     const base = await repo.getSettings()
     await getDatabase().settings.put({ ...base, autoLockTimeoutMinutes: 15, id: 'current' } as unknown as SettingsRecord)
 
-    // Load (strips) → save (persists without the key) → raw record check.
-    const migrated = await repo.getSettings()
-    await repo.saveSettings(migrated)
+    await repo.getSettings()
+
     const raw = await getDatabase().settings.get('current')
     expect(raw && 'autoLockTimeoutMinutes' in raw).toBe(false)
+    expect(raw && (raw as unknown as { autoLockEnabled: boolean }).autoLockEnabled).toBe(true)
   })
 })

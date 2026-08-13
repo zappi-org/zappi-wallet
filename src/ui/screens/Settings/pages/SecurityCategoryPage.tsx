@@ -41,7 +41,7 @@ export function SecurityCategoryPage({
           <div className="px-4 py-3.5 flex items-center justify-between min-h-[52px]">
             <span className="text-body font-medium">{t('settings.autoLock')}</span>
             <Switch
-              checked={settings.autoLockEnabled ?? true}
+              checked={settings.autoLockEnabled}
               onChange={(enabled) => { void saveSettings({ autoLockEnabled: enabled }) }}
             />
           </div>

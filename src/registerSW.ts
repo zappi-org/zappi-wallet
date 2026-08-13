@@ -41,6 +41,17 @@ function hasActiveController(): boolean {
     && Boolean(navigator.serviceWorker.controller)
 }
 
+/** Single availability predicate shared by the phase watcher and the manual
+ *  check: an install counts as an update only when an old SW controls the
+ *  page — a first install has no controller and is not an "update". */
+function isUpdateReady(registration: ServiceWorkerRegistration, worker?: ServiceWorker | null): boolean {
+  return hasActiveController() && (Boolean(registration.waiting) || worker?.state === 'installed')
+}
+
+// A worker that hangs mid-install emits no further statechange; without a
+// backstop the settings button would stay disabled for the whole session.
+const INSTALL_WATCHDOG_MS = 5 * 60_000
+
 /**
  * Single owner of the store's updatePhase for install progress — covers both
  * browser-initiated background installs and manual checks, so the settings
@@ -50,23 +61,22 @@ function watchRegistrationForInstalls(registration: ServiceWorkerRegistration) {
   const watchWorker = (worker: ServiceWorker | null) => {
     if (!worker) return
     setUpdatePhase('installing')
+    const watchdog = window.setTimeout(() => {
+      if (worker.state === 'installing') setUpdatePhase('idle')
+    }, INSTALL_WATCHDOG_MS)
     const handleStateChange = () => {
-      // An install only counts as an update when an old SW controls the page —
-      // a first install (no controller) activates directly and must not mark
-      // an update or strand the phase at 'installing'.
-      if (hasActiveController() && (registration.waiting || worker.state === 'installed')) {
+      if (isUpdateReady(registration, worker)) {
         markUpdateAvailable()
-        setUpdatePhase('idle')
-      } else if (
-        // 'redundant' is terminal on its own: the spec clears
-        // registration.installing asynchronously after the event, so waiting
-        // for it would strand the phase on a failed install. A worker replaced
-        // by a NEWER installing worker is excluded — that install continues.
-        (worker.state === 'redundant' && (!registration.installing || registration.installing === worker))
-        || (!registration.installing && !registration.waiting)
-      ) {
-        setUpdatePhase('idle')
       }
+      // Still mid-install (the immediate call below): an update already parked
+      // in registration.waiting must not repaint this phase as settled.
+      if (worker.state === 'installing') return
+      window.clearTimeout(watchdog)
+      // Replaced by a newer installing worker — that install owns the phase.
+      // 'redundant' itself is terminal here: the spec clears
+      // registration.installing asynchronously after the event.
+      if (registration.installing && registration.installing !== worker) return
+      setUpdatePhase('idle')
     }
     worker.addEventListener('statechange', handleStateChange)
     handleStateChange()
@@ -89,7 +99,7 @@ function waitForWaitingWorker(
   registration: ServiceWorkerRegistration,
   timeoutMs = 30000,
 ): Promise<WaitingWorkerResult> {
-  if (registration.waiting) return Promise.resolve('available')
+  if (isUpdateReady(registration)) return Promise.resolve('available')
 
   return new Promise((resolve) => {
     let settled = false
@@ -109,7 +119,7 @@ function waitForWaitingWorker(
       installingSeen = true
 
       const handleStateChange = () => {
-        if (registration.waiting || (worker.state === 'installed' && hasActiveController())) {
+        if (isUpdateReady(registration, worker)) {
           done('available')
         } else if (worker.state === 'redundant') {
           done('current')
@@ -172,7 +182,7 @@ async function doCheckForAppUpdate(): Promise<AppUpdateCheckResult> {
     const registration = await getCurrentRegistration()
     if (!registration) return 'unavailable'
 
-    if (registration.waiting || useAppStore.getState().updateAvailable) {
+    if (isUpdateReady(registration) || useAppStore.getState().updateAvailable) {
       markUpdateAvailable()
       return 'available'
     }
@@ -189,7 +199,7 @@ async function doCheckForAppUpdate(): Promise<AppUpdateCheckResult> {
     const updatedRegistration = await registration.update()
     serviceWorkerRegistration = updatedRegistration
 
-    const isAvailable = updatedRegistration.waiting
+    const isAvailable = isUpdateReady(updatedRegistration)
       || useAppStore.getState().updateAvailable
 
     if (isAvailable) {

@@ -160,6 +160,12 @@ describe('PaymentReceipt stamp label and bottom line', () => {
     expect(screen.getByText('전송 완료')).toBeInTheDocument()
   })
 
+  it('renders no progress dots on a doneLine even while the paper is still moving', () => {
+    render(<PaymentReceipt {...base} status="finishing" doneLine="7/29 15:00" />)
+    expect(screen.getByText('7/29 15:00')).toBeInTheDocument()
+    expect(screen.queryAllByText('.')).toHaveLength(0)
+  })
+
   it('keeps a bottom line through finishing (statusLine) → done (doneLine)', () => {
     const { rerender } = render(<PaymentReceipt {...base} status="finishing" statusLine="전송 중" />)
     expect(screen.getByText('전송 중')).toBeInTheDocument()

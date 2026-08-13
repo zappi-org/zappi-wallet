@@ -38,10 +38,15 @@ export class DexieSettingsRepository implements SettingsRepository {
     const record = await this.db.settings.get(CURRENT_ID)
     if (!record) return getDefaultSettings()
     const { id: _, ...saved } = record
-    // Strip the legacy timeout field so the next save drops it from disk; the
-    // defaults merge gives migrated records autoLockEnabled: true.
+    // Strip the legacy timeout field; the defaults merge gives migrated records
+    // autoLockEnabled: true. Written back once so the disk record stops
+    // carrying the legacy shape.
     const { autoLockTimeoutMinutes: _legacy, ...rest } = saved as typeof saved & { autoLockTimeoutMinutes?: number }
-    return { ...getDefaultSettings(), ...rest } as WalletSettings
+    const merged = { ...getDefaultSettings(), ...rest } as WalletSettings
+    if ('autoLockTimeoutMinutes' in saved) {
+      await this.saveSettings(merged)
+    }
+    return merged
   }
 
   async saveSettings(settings: WalletSettings): Promise<void> {

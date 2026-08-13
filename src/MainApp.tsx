@@ -653,7 +653,7 @@ export default function MainApp() {
   } = useSecurityHandlers({ security: preUnlock.security, wipeAccount })
 
   useAutoLock({
-    enabled: settings.autoLockEnabled ?? true,
+    enabled: settings.autoLockEnabled,
     isLocked,
     onLock: handleAutoLock,
   })
