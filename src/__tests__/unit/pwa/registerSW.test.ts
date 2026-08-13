@@ -164,9 +164,11 @@ describe('registerSW update phase', () => {
     await expect(pending).resolves.toBe('unavailable')
     expect(holder.state.updatePhase).toBe('installing')
 
-    // The stalled worker finally dies — the global watcher recomputes to idle.
-    reg.installing = null
+    // The stalled worker finally dies. Per the SW spec, registration.installing
+    // is cleared asynchronously AFTER the redundant statechange — the watcher
+    // must treat 'redundant' as terminal without waiting for that.
     worker.setState('redundant')
+    reg.installing = null
     expect(holder.state.updatePhase).toBe('idle')
   })
 

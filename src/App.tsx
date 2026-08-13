@@ -6,6 +6,7 @@ import { generateMintAliases } from '@/utils/mint-name'
 // Lightweight imports only — no heavy services, hooks, or screens.
 // Adapter/module wiring belongs to composition/onboarding.ts
 import { createOnboardingServices, createOnboardingProfileService } from '@/composition/onboarding'
+import { deleteLegacyGraceDatabase } from '@/adapters/storage/legacy-grace-cleanup'
 import { OnboardingScreen } from '@/ui/screens/Onboarding/OnboardingScreen'
 
 // Lazy-load the main app (heavy: all services, hooks, screens)
@@ -26,6 +27,10 @@ function App() {
   // Check if wallet exists (determines onboarding vs main app)
   useEffect(() => {
     const check = async () => {
+      // Legacy cleanup: older builds persisted a PIN-free session blob. Runs
+      // here (not MainApp) so onboarding/no-wallet boots clean it up too.
+      // Fire-and-forget — a blocked delete must not stall boot; retried next boot.
+      deleteLegacyGraceDatabase().catch((e) => console.error('[Init] legacy grace cleanup failed:', e))
       try {
         // Load settings early so they're available in Zustand for all paths
         const savedSettings = await services.settingsRepo.getSettings()

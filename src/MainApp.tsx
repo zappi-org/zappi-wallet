@@ -89,7 +89,6 @@ import type { Transaction } from '@/core/domain/transaction'
 import type { PendingItem } from '@/ui/hooks/usePendingItems'
 import type { PendingIncomingReview } from '@/core/types'
 import { removePasskey } from '@/ui/services/passkey'
-import { deleteLegacyGraceDatabase } from '@/adapters/storage/legacy-grace-cleanup'
 import { formatSats } from '@/utils/format'
 
 
@@ -442,10 +441,6 @@ export default function MainApp() {
   // Initialize app — Coco-independent work only (Coco inits after unlock in setupSubscription)
   useEffect(() => {
     const init = async () => {
-      // Legacy cleanup: older builds persisted a PIN-free session blob here.
-      // Fire-and-forget — a blocked delete must not stall boot; retried next boot.
-      deleteLegacyGraceDatabase().catch((e) => console.error('[Init] legacy grace cleanup failed:', e))
-
       try {
         const savedSettings = await preUnlock.settingsRepo.getSettings()
         setSettings(savedSettings)

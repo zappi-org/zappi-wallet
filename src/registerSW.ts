@@ -57,7 +57,14 @@ function watchRegistrationForInstalls(registration: ServiceWorkerRegistration) {
       if (hasActiveController() && (registration.waiting || worker.state === 'installed')) {
         markUpdateAvailable()
         setUpdatePhase('idle')
-      } else if (!registration.installing && !registration.waiting) {
+      } else if (
+        // 'redundant' is terminal on its own: the spec clears
+        // registration.installing asynchronously after the event, so waiting
+        // for it would strand the phase on a failed install. A worker replaced
+        // by a NEWER installing worker is excluded — that install continues.
+        (worker.state === 'redundant' && (!registration.installing || registration.installing === worker))
+        || (!registration.installing && !registration.waiting)
+      ) {
         setUpdatePhase('idle')
       }
     }
