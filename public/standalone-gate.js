@@ -1,9 +1,6 @@
-// Adds html.standalone when an installed iOS app has full-bleed geometry.
-// The lvh shell exists only for that case: legacy default-mode installs
-// keep a shorter webview that lvh would overshoot, so geometry is probed
-// (env top > 0), not assumed. env can read 0 right after a cold launch,
-// hence the brief retries. External file: the production CSP blocks
-// inline scripts.
+// Detects installed iOS with full-bleed geometry and adds html.standalone.
+// See docs/viewport-ios.md for the full strategy.
+// External file: the production CSP blocks inline scripts.
 (function () {
   if (navigator.standalone !== true) return;
   var probe = document.createElement('div');

@@ -10,13 +10,11 @@
 
     <!-- iOS PWA Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <!-- The only full-bleed mechanism; iOS bakes it at install time, so the
-         shell probes the actual geometry (standalone-gate.js) instead of
-         assuming it. Baked at add-to-home-screen; served changes don't
-         reach existing installs. -->
+    <!-- black-translucent is the only iOS full-bleed mechanism; the shell
+         probes actual geometry in standalone-gate.js. See docs/viewport-ios.md. -->
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="ZAPPI Wallet" />
-    <!-- External: the production CSP blocks inline scripts. -->
+    <!-- External file: the production CSP blocks inline scripts. -->
     <script src="/standalone-gate.js"></script>
 
     <!-- Icons -->

@@ -8,9 +8,7 @@ export const bottomDockInnerClass =
 
 export const bottomDockStyle: CSSProperties = {
   paddingTop: 'var(--app-bottom-nav-top-padding)',
-  // env-aware: the dock floats above the home indicator; a 0 inset keeps
-  // the base padding.
-  paddingBottom: 'var(--app-bottom-nav-bottom-padding)',
+  paddingBottom: 'var(--app-bottom-nav-bottom-padding)', // env-aware; see docs/viewport-ios.md
 }
 
 export const tabGlassClass =

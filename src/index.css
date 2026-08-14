@@ -307,20 +307,14 @@
   button, input, select, textarea {
     font: inherit;
   }
-  /* The shell is the ONLY viewport measurer; screens use h-full. Full-bleed
-     standalone needs lvh: iOS only grants the full-screen space while the
-     document is at least screen-height tall, and dvh misreports small at
-     cold start, locking the app into the reduced space. Never size
-     standalone layout from dvh/svh/100% chains. vh lines are the no-lvh
-     fallback. */
+  /* Viewport shell strategy: docs/viewport-ios.md. */
   html, body, #root {
     @apply overflow-hidden;
     height: 100vh;
     height: 100dvh;
     background-color: var(--background);
   }
-  /* .standalone = installed iOS with verified full-bleed geometry, set by
-     standalone-gate.js. Legacy default-mode installs keep the dvh shell. */
+  /* .standalone is set by standalone-gate.js. */
   html.standalone, .standalone body, .standalone #root {
     height: 100vh;
     height: 100lvh;
@@ -355,8 +349,7 @@
   --safe-area-inset-right: env(safe-area-inset-right, 0px);
   --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
   --safe-area-inset-left: env(safe-area-inset-left, 0px);
-  /* Bottom paddings clear the home indicator via max(); with a 0 inset
-     (Android, desktop) the base spacing wins unchanged. */
+  /* Bottom paddings clear the home indicator via max(); 0 inset keeps base spacing. */
   --app-bottom-padding: max(1.5rem, calc(var(--safe-area-inset-bottom) + 0.5rem));
   --app-bottom-nav-height: 3.5rem;
   --app-bottom-nav-top-padding: 0.5rem;
@@ -370,18 +363,14 @@
   padding-top: var(--safe-area-inset-top);
 }
 
-/* Full-bleed geometry patches. Unlayered so they beat the utilities layer
-   (inset-0's own bottom:0). iOS sizes top+bottom-anchored fixed boxes from
-   an ICB it reports minus the status bar, so backdrops would stop short of
-   the physical bottom — anchor the top and give the real screen height. */
+/* Full-bleed geometry patches; unlayered to beat utilities. See docs/viewport-ios.md. */
 .standalone .fixed.inset-0 {
   top: 0;
   bottom: auto;
   height: 100vh;
   height: 100lvh;
 }
-/* Fixed bottom:0 chrome mis-anchors transiently after rotation; same cure,
-   content sits at the flex end. */
+/* Bottom-anchored chrome workaround. */
 .standalone .bottom-dock {
   top: 0;
   bottom: auto;
