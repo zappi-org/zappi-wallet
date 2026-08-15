@@ -5,6 +5,8 @@ import { describe, expect, it, vi } from 'vitest'
 import { BottomSheet } from '@/ui/components/common/BottomSheet'
 import { HistoryDrawer } from '@/ui/components/common/HistoryDrawer'
 
+const { animateSpy } = vi.hoisted(() => ({ animateSpy: vi.fn() }))
+
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }))
@@ -80,7 +82,8 @@ vi.mock('motion/react', () => {
     useMotionValue: (initial: unknown) => motionValue(initial),
     useTransform: (source: { get: () => number }, transform: (value: number) => number) =>
       motionValue(transform(source.get())),
-    animate: (value: { set: (next: unknown) => void }, to: unknown) => {
+    animate: (value: { set: (next: unknown) => void }, to: unknown, transition: unknown) => {
+      animateSpy(value, to, transition)
       value.set(to)
       return { stop: () => {} }
     },
@@ -132,6 +135,27 @@ describe('BottomSheet focus containment', () => {
 })
 
 describe('HistoryDrawer focus containment', () => {
+  it('uses the current viewport height when settling after it changes', () => {
+    const originalHeight = window.innerHeight
+    const tree = (expanded: boolean) => (
+      <HistoryDrawer expanded={expanded} onExpandedChange={() => {}} peek={null} transactions={[]} />
+    )
+
+    try {
+      Object.defineProperty(window, 'innerHeight', { configurable: true, value: 1000 })
+      const { rerender } = render(tree(false))
+      animateSpy.mockClear()
+
+      // No resize event: settling should still read the latest viewport.
+      Object.defineProperty(window, 'innerHeight', { configurable: true, value: 2000 })
+      rerender(tree(true))
+
+      expect(animateSpy.mock.lastCall?.[2]).toMatchObject({ duration: 0.385 })
+    } finally {
+      Object.defineProperty(window, 'innerHeight', { configurable: true, value: originalHeight })
+    }
+  })
+
   it('cycles Tab inside the expanded drawer and leaves the background inert', async () => {
     const user = userEvent.setup()
     render(

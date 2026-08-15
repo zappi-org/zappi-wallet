@@ -26,7 +26,8 @@ export function installKeyboardScrollGuard(): void {
     if (panned) window.scrollTo(0, 0)
   }
 
-  // iOS settles the viewport a beat after the keyboard close animation.
+  // The first pass catches a normal keyboard close; the second catches the
+  // late viewport correction WebKit can apply after the animation appears done.
   window.addEventListener('focusout', () => {
     window.setTimeout(reset, 250)
     window.setTimeout(reset, 600)

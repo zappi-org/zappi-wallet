@@ -30,6 +30,8 @@ const SCRIM_OPACITY = 0.5
 const DRAG_SLOP_PX = 8
 /** Movement needed over the list before scrolling vs dismissing is decided. */
 const DIRECTION_SLOP_PX = 6
+/** Conservative extra travel for iOS's status-bar-sized rotation mis-anchor. */
+const OFFSCREEN_GUARD_PX = 64
 export interface HistoryDrawerProps {
   expanded: boolean
   onExpandedChange: (expanded: boolean) => void
@@ -76,21 +78,10 @@ export function HistoryDrawer({
     else restoreFocus()
   }, [expanded, onEntryComplete, restoreFocus])
 
-  const [viewportHeight, setViewportHeight] = useState(() =>
-    typeof window === 'undefined' ? 874 : window.innerHeight,
-  )
-  useEffect(() => {
-    const onResize = () => setViewportHeight(window.innerHeight)
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
-  }, [])
-
   // Travel distance, drag constraints and scrim all key off the sheet's real
   // rendered height — CSS caps it below the status bar under full-bleed, so a
   // ratio-of-innerHeight estimate would desync from what actually rendered.
-  const [sheetHeight, setSheetHeight] = useState(() =>
-    typeof window === 'undefined' ? 874 * SHEET_HEIGHT_RATIO : window.innerHeight * SHEET_HEIGHT_RATIO,
-  )
+  const [sheetHeight, setSheetHeight] = useState(() => window.innerHeight * SHEET_HEIGHT_RATIO)
   useEffect(() => {
     const el = sheetRef.current
     if (!el || typeof ResizeObserver === 'undefined') return
@@ -105,7 +96,7 @@ export function HistoryDrawer({
   /** Closed sits the sheet on its own height — entirely below the viewport.
       The extra travel keeps it hidden even when iOS mis-anchors bottom chrome
       a status-bar height too high after rotation (full-bleed standalone). */
-  const closedY = Math.ceil(sheetHeight) + 64
+  const closedY = Math.ceil(sheetHeight) + OFFSCREEN_GUARD_PX
   const y = useMotionValue(closedY)
   // A late height measurement while closed must re-seat the sheet fully
   // offscreen, or it pokes above the bottom edge by the correction amount.
@@ -124,10 +115,10 @@ export function HistoryDrawer({
   const settleTo = useCallback(
     (open: boolean) => {
       const target = open ? 0 : closedY
-      const duration = sheetSettleMs(Math.abs(y.get() - target), viewportHeight) / 1000
+      const duration = sheetSettleMs(Math.abs(y.get() - target), window.innerHeight) / 1000
       animate(y, target, reduceMotion ? { duration: 0 } : { duration, ease: SHEET_EASE })
     },
-    [y, closedY, viewportHeight, reduceMotion],
+    [y, closedY, reduceMotion],
   )
 
   useEffect(() => { settleTo(expanded) }, [expanded, settleTo])
