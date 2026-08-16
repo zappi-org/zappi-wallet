@@ -181,6 +181,8 @@ function ScreenActivity({ screen }: { screen: Screen }) {
             ? { duration: 0 }
             : motionSafeTransition(reduceMotion, { duration: 0.22, ease: [0.32, 0.72, 0, 1] })
         }
+        // Load-bearing: makes each activity the containing block for fixed descendants.
+        // See docs/viewport-ios.md.
         className="absolute inset-0 bg-background"
         style={{
           zIndex: activity.zIndex,

@@ -238,7 +238,7 @@ export function POSSettingPage({
             <QRCodeDisplay
               value={qrPayload}
               level="L"
-              className="max-w-[min(360px,90dvh_-_290px)]"
+              className="max-w-[min(360px,90lvh_-_290px)]"
             />
           </div>
           <button

@@ -102,7 +102,7 @@ export function Modal({
     <div
       ref={overlayRef}
       onClick={handleOverlayClick}
-      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200 px-4 pt-[max(1rem,var(--safe-area-inset-top))] pb-[max(1rem,var(--safe-area-inset-bottom))]"
       role="dialog"
       aria-modal="true"
       aria-labelledby={title ? 'modal-title' : undefined}
@@ -113,7 +113,7 @@ export function Modal({
           w-full ${sizeStyles[size]}
           bg-background rounded-xl shadow-xl
           animate-in zoom-in-95 duration-200
-          max-h-[90dvh] flex flex-col overflow-hidden
+          max-h-full flex flex-col overflow-hidden
         `}
       >
         {/* Header — pinned, so tall content never scrolls the close button away.

@@ -1,16 +1,14 @@
 import type { CSSProperties } from 'react'
 
 export const bottomDockClass =
-  'fixed inset-x-0 bottom-0 z-50 pointer-events-none px-4'
+  'bottom-dock fixed inset-x-0 bottom-0 z-50 pointer-events-none px-4'
 
 export const bottomDockInnerClass =
   'mx-auto flex w-full max-w-sm items-center justify-between gap-2 pointer-events-auto'
 
 export const bottomDockStyle: CSSProperties = {
   paddingTop: 'var(--app-bottom-nav-top-padding)',
-  // No env() here: iOS standalone flip-flops the bottom inset between
-  // relaunch paths, which made the dock jump ~34px across reloads.
-  paddingBottom: 'var(--app-bottom-nav-bottom-padding)',
+  paddingBottom: 'var(--app-bottom-nav-bottom-padding)', // env-aware; see docs/viewport-ios.md
 }
 
 export const tabGlassClass =

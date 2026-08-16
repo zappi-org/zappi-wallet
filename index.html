@@ -10,13 +10,12 @@
 
     <!-- iOS PWA Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <!-- default, not black-translucent: the translucent mode is deprecated and its
-         full-bleed geometry (screen height incl. status bar) randomly collapses to
-         the non-bleed size across keyboard/relaunch cycles, leaving a dead band at
-         the bottom (measured 896→852 on device). default mode is the stable
-         non-bleed geometry anchored to the screen bottom — no band possible. -->
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <!-- black-translucent is the only iOS full-bleed mechanism; the shell
+         probes actual geometry in standalone-gate.js. See docs/viewport-ios.md. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="ZAPPI Wallet" />
+    <!-- External file: the production CSP blocks inline scripts. -->
+    <script src="/standalone-gate.js"></script>
 
     <!-- Icons -->
     <link rel="icon" type="image/png" href="/favicon.png" />
@@ -36,6 +35,7 @@
       <style>
         .pwa-loading {
           min-height: 100vh;
+          min-height: 100dvh;
           display: flex;
           align-items: center;
           justify-content: center;

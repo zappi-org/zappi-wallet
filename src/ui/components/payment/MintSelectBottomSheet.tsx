@@ -128,7 +128,7 @@ function MintSelectBottomSheetInner({
       bottomOffset={keyboardInset}
       // transition-[bottom] eases the keyboard-inset ride (motion only animates
       // the y transform, so bottom would otherwise snap).
-      sheetClassName="bg-background-card border-t border-border rounded-t-[20px] transition-[bottom] duration-200 ease-out motion-reduce:transition-none"
+      sheetClassName="bg-background-card border-t border-border rounded-t-sheet transition-[bottom] duration-200 ease-out motion-reduce:transition-none"
     >
       {/* Handle */}
       <div className="flex justify-center py-2">

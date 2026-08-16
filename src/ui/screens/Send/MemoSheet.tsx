@@ -47,7 +47,7 @@ export function MemoSheet({ isOpen, memo, onSave, onClose }: MemoSheetProps) {
       closeWhenCovered
       scrollable={false}
       bottomOffset={keyboardInset}
-      sheetClassName="rounded-t-3xl bg-background-card transition-[bottom] duration-200 ease-out motion-reduce:transition-none"
+      sheetClassName="rounded-t-sheet bg-background-card transition-[bottom] duration-200 ease-out motion-reduce:transition-none"
     >
           <div className="px-5 pt-4 pb-app">
             {/* The field must read as a field before focus: the card surface is

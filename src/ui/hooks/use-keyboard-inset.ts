@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react'
 
 /**
  * Height (px) the soft keyboard covers at the bottom of the layout viewport.
- * WHY: this is a PWA with no native wrapper, so VisualViewport is the only way
- * to observe the keyboard — the layout viewport does not shrink on iOS Safari.
+ * See docs/viewport-ios.md for the full-bleed phantom-inset rationale.
  */
+const MIN_KEYBOARD_PX = 100
+
 export function computeInset(innerHeight: number, vv: { height: number; offsetTop: number }): number {
-  return Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop))
+  const raw = Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop))
+  return raw < MIN_KEYBOARD_PX ? 0 : raw
 }
 
 export function useKeyboardInset(): number {
