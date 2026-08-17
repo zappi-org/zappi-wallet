@@ -35,9 +35,18 @@ describeOrSkip('NpubcashAdapter — e2e flow (localhost:8000)', () => {
 
   it('3. setPreferredMint', async () => {
     expect(session).not.toBeNull()
-    const result = await adapter.setPreferredMint(session!, 'https://mint.lemonfizz.st')
+    const mintUrl = 'https://nofee.testnut.cashu.space'
+    const result = await adapter.setPreferredMint(session!, mintUrl)
     console.log('setPreferredMint:', result.ok ? 'OK' : result.error.message)
     expect(result.ok).toBe(true)
+
+    //re-check correctly saved into server
+    const info = await adapter.getAccountInfo(session!)
+    expect(info.ok).toBe(true)
+    if (info.ok) {
+      console.log('  saved mintUrl:', info.value.mintUrl)
+      expect(info.value.mintUrl).toBe(mintUrl)
+    }
   })
 
   it('4. toggleLock', async () => {
