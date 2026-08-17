@@ -45,10 +45,10 @@ export function SettingsMainList({
   // Global phase (owned by registerSW.ts): survives leaving this screen and
   // reflects browser-initiated background installs too.
   const updateCheckPhase = useAppStore((s) => s.updatePhase)
-  const isCheckingUpdate = updateCheckPhase !== 'idle'
+  const isUpdateBusy = updateCheckPhase !== 'idle'
 
   const handleCheckUpdate = useCallback(async () => {
-    if (isCheckingUpdate) return
+    if (isUpdateBusy) return
 
     try {
       const result = await checkForAppUpdate()
@@ -61,7 +61,7 @@ export function SettingsMainList({
       console.error('Failed to check for app update:', error)
       addToast({ type: 'error', message: t('settings.updateCheckFailed') })
     }
-  }, [addToast, isCheckingUpdate, t])
+  }, [addToast, isUpdateBusy, t])
 
   const updateCheckLabel = t(UPDATE_LABEL_KEY[updateCheckPhase])
 
@@ -110,7 +110,7 @@ export function SettingsMainList({
             variant="surface"
             size="lg"
             onClick={handleCheckUpdate}
-            loading={isCheckingUpdate}
+            loading={isUpdateBusy}
             icon={<RefreshCw className="size-4" />}
             className="w-full"
           >
