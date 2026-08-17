@@ -1,5 +1,5 @@
 import { registerSW } from 'virtual:pwa-register'
-import { useAppStore } from '@/store'
+import { useAppStore, type UpdatePhase } from '@/store'
 import i18n from '@/i18n'
 
 let serviceWorkerRegistration: ServiceWorkerRegistration | undefined
@@ -15,7 +15,7 @@ function markUpdateAvailable() {
   useAppStore.getState().setUpdateAvailable(true)
 }
 
-function setUpdatePhase(phase: 'idle' | 'checking' | 'installing') {
+function setUpdatePhase(phase: UpdatePhase) {
   useAppStore.getState().setUpdatePhase(phase)
 }
 

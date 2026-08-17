@@ -64,7 +64,7 @@ export const useAppStore = create<AppState>()(
 export type { WalletState, PendingQuote } from './slices/wallet.slice'
 export type { NetworkSliceState } from './slices/network.slice'
 export type { SyncSliceState } from './slices/sync.slice'
-export type { UISliceState, Toast, ModalState } from './slices/ui.slice'
+export type { UISliceState, Toast, ModalState, UpdatePhase } from './slices/ui.slice'
 export type { SettingsSliceState } from './slices/settings.slice'
 export type { DebugSliceState, GiftWrapLog } from './slices/debug.slice'
 export type { FiatSliceState } from './slices/fiat.slice'

@@ -3,7 +3,7 @@ import { useCallback, type ElementType } from 'react'
 import { User, Lock, LifeBuoy, ChevronRight, Download, RefreshCw } from 'lucide-react'
 import { Cog6ToothIcon, WalletIcon } from '@heroicons/react/24/outline'
 import { useTranslation } from 'react-i18next'
-import { useAppStore } from '@/store'
+import { useAppStore, type UpdatePhase } from '@/store'
 import { Button } from '@/ui/components/common/Button'
 import { checkForAppUpdate, updateSW } from '@/registerSW'
 import { appBuildInfo } from '@/ui/utils/app-build-info'
@@ -27,6 +27,12 @@ const categories: { Icon: ElementType; titleKey: TranslationKey; descKey: Transl
   { Icon: WalletIcon, titleKey: 'settings.walletManagement', descKey: 'settings.walletManagementDesc', page: 'category-wallet' },
   { Icon: LifeBuoy, titleKey: 'settings.customerSupport', descKey: 'settings.customerSupportDesc', page: 'support' },
 ]
+
+const UPDATE_LABEL_KEY: Record<UpdatePhase, TranslationKey> = {
+  idle: 'settings.checkForUpdates',
+  checking: 'settings.updateChecking',
+  installing: 'settings.updateInstalling',
+}
 
 export function SettingsMainList({
   onNavigate,
@@ -57,11 +63,7 @@ export function SettingsMainList({
     }
   }, [addToast, isCheckingUpdate, t])
 
-  const updateCheckLabel = updateCheckPhase === 'installing'
-    ? t('settings.updateInstalling')
-    : updateCheckPhase === 'checking'
-      ? t('settings.updateChecking')
-      : t('settings.checkForUpdates')
+  const updateCheckLabel = t(UPDATE_LABEL_KEY[updateCheckPhase])
 
   return (
     <div className="flex-1 overflow-y-auto pb-app-nav">

@@ -5,6 +5,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { AppUpdateCheckResult } from '@/registerSW'
+import type { UpdatePhase } from '@/store'
 
 interface RegisterSWOptions {
   onNeedRefresh?: () => void
@@ -14,9 +15,9 @@ interface RegisterSWOptions {
 const holder = vi.hoisted(() => {
   const state = {
     updateAvailable: false,
-    updatePhase: 'idle' as 'idle' | 'checking' | 'installing',
+    updatePhase: 'idle' as UpdatePhase,
     setUpdateAvailable(v: boolean) { state.updateAvailable = v },
-    setUpdatePhase(p: 'idle' | 'checking' | 'installing') { state.updatePhase = p },
+    setUpdatePhase(p: UpdatePhase) { state.updatePhase = p },
     addToast: (_t: unknown) => {},
   }
   return {
