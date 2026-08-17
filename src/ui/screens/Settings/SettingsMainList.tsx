@@ -39,10 +39,10 @@ export function SettingsMainList({
   const supportUnreadCount = useAppStore((s) => s.supportUnreadCount)
   const addToast = useAppStore((s) => s.addToast)
   const [updateCheckPhase, setUpdateCheckPhase] = useState<UpdateCheckPhase>('idle')
-  const isCheckingUpdate = updateCheckPhase !== 'idle'
+  const isUpdateBusy = updateCheckPhase !== 'idle'
 
   const handleCheckUpdate = useCallback(async () => {
-    if (isCheckingUpdate) return
+    if (isUpdateBusy) return
 
     setUpdateCheckPhase('checking')
     try {
@@ -60,7 +60,7 @@ export function SettingsMainList({
     } finally {
       setUpdateCheckPhase('idle')
     }
-  }, [addToast, isCheckingUpdate, t])
+  }, [addToast, isUpdateBusy, t])
 
   const updateCheckLabel = updateCheckPhase === 'installing'
     ? t('settings.updateInstalling')
@@ -113,7 +113,7 @@ export function SettingsMainList({
             variant="surface"
             size="lg"
             onClick={handleCheckUpdate}
-            loading={isCheckingUpdate}
+            loading={isUpdateBusy}
             icon={<RefreshCw className="size-4" />}
             className="w-full"
           >
