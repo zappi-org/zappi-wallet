@@ -37,7 +37,6 @@ import type { SupportUseCase } from '@/core/ports/driving/support.usecase'
 import type { NostrDirectPaymentUseCase } from '@/core/ports/driving/nostr-direct-payment.usecase'
 import type { ExternalWalletRecoveryUseCase } from '@/core/ports/driving/external-wallet-recovery.usecase'
 import type { DiagnosticsUseCase } from '@/core/ports/driving/diagnostics.usecase'
-import type { ClaimStorageUseCase } from '@/core/ports/driving/claim-storage.usecase'
 import type { TransferLifecycleService } from '@/core/services/transfer-lifecycle.service'
 
 export interface ServiceRegistry {
@@ -77,5 +76,4 @@ export interface ServiceRegistry {
   /** Diagnostics counter reads — DiagnosticsPage only */
   readonly diagnostics: DiagnosticsUseCase
   readonly transferLifecycle: TransferLifecycleService
-  readonly claimStorage: ClaimStorageUseCase
 }

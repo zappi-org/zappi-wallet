@@ -93,7 +93,6 @@ import { ReceiveRequestFacadeService } from "@/core/services/receive-request-fac
 import { ReclaimService } from "@/core/services/reclaim.service";
 import { PaymentRequestService } from "@/core/services/payment-request.service";
 import { PaymentAliasService } from "@/core/services/payment-alias.service";
-import { ClaimStorageService } from "@/core/services/claim-storage.service";
 import { TrustRegistryService } from "@/core/services/trust-registry.service";
 import { NostrDirectPaymentService } from "@/core/services/nostr-direct-payment.service";
 import { RouteExecutionService } from "@/core/services/route-execution.service";
@@ -148,7 +147,6 @@ import { PaymentDelivery } from "./payment-delivery";
 import { PaymentRecoveredTokenReceiver } from "./recovered-token-receiver";
 import { TokenReceiverAdapter } from "./token-receiver.adapter";
 import { createNpubcashQuoteWatcher } from "./npubcash-quote-watcher";
-import { createClaimStoragePoller } from "./claim-storage-poller";
 import { createNut18HttpPollerFactory } from "./nut18-poller-factory";
 
 // ─── Types ───
@@ -652,8 +650,6 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
 
     npubcashQuoteWatcher.start().catch(console.error);
 
-    claimStoragePoller.start();
-
     transferLifecycle.recoverTransfers().catch(console.error);
     wireTransferSweepSignals();
     if (!paused) {
@@ -691,9 +687,6 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
 
     npubcashQuoteWatcher.stop();
     npubcashQuoteWatcher.start().catch(console.error);
-
-    claimStoragePoller.stop();
-    claimStoragePoller.start();
   };
 
   const onPause = async () => {
@@ -708,7 +701,6 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     stopTransferMonitor();
     void flushNetCounters();
     npubcashQuoteWatcher.stop();
-    claimStoragePoller.stop();
   };
 
   const dispose = () => {
@@ -727,7 +719,6 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     }
     nostrIncomingWatcher.stop();
     npubcashQuoteWatcher.stop();
-    claimStoragePoller.stop();
     disconnectBridge();
     void nostrGateway.disconnect();
   };
@@ -867,22 +858,6 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     NPUBCASH_DOMAIN,
   );
 
-  const claimStorage = new ClaimStorageService(
-    npubcashAdapter,
-    (privkey: string) => new Secp256k1NostrSignerAdapter(privkey),
-    eventBus,
-  );
-
-  const claimStoragePoller = createClaimStoragePoller({
-    provider: npubcashAdapter,
-    createSigner: (privkey: string) => new Secp256k1NostrSignerAdapter(privkey),
-    getPrivkey: () => useAppStore.getState().nostrPrivkey,
-    redeemToken: async (token: string) => {
-      const result = await payment.redeem({ input: token })
-      if (!result.ok) throw result.error
-    },
-  });
-
   const npubcashQuoteWatcher = createNpubcashQuoteWatcher({
     provider: npubcashAdapter,
     mint: routePaymentOperator,
@@ -935,7 +910,6 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     paymentRequest,
     routing,
     paymentAlias,
-    claimStorage,
     trustRegistry,
     support,
     nostrDirectPayment,
@@ -995,9 +969,6 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
 
     // Npubcash quote watcher
     npubcashQuoteWatcher,
-
-    // Claim storage poller
-    claimStoragePoller,
 
     // P2PK + offline token
     p2pkKeyManager,

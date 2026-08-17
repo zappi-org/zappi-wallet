@@ -6,8 +6,6 @@ import type {
   AccountInfo,
   AliasResult,
   PaidQuote,
-  ClaimResult,
-  ClaimStorageMode,
 } from '@/core/ports/driven/payment-alias-provider.port'
 import type { PaymentAliasProvider } from '@/core/ports/driven/payment-alias-provider.port'
 import type { NostrSigner } from '@/core/ports/driven/nostr-signer.port'
@@ -61,8 +59,7 @@ export class NpubcashAdapter implements PaymentAliasProvider {
 
   async getAccountInfo(session: AuthSession): Promise<Result<AccountInfo, BaseError>> {
     const result = await this.authFetch<NpubcashResponse<{
-      user: { name: string; mintUrl: string; lockQuote: boolean; claimStorageMode: ClaimStorageMode }
-      claimBalance: number
+      user: { name: string; mintUrl: string; lockQuote: boolean }
     }>>(
       session,
       `${this.baseUrl}/api/v2/user/info`,
@@ -81,8 +78,6 @@ export class NpubcashAdapter implements PaymentAliasProvider {
       domain: new URL(this.baseUrl).hostname,
       mintUrl: user.mintUrl,
       lockQuote: user.lockQuote,
-      claimStorageMode: user.claimStorageMode ?? 'off',
-      claimBalance: body.data.claimBalance ?? 0,
     })
   }
 
@@ -289,79 +284,6 @@ export class NpubcashAdapter implements PaymentAliasProvider {
     } catch (_e) {
       return Err(new NpubcashApiError(500, 'Failed to connect to quote stream'))
     }
-  }
-
-  // ── Custom / Unmerged APIs ───────────────────────────────
-  // These endpoints are not yet merged into the upstream npubcash API.
-  // Remove this section comment when merged.
-
-  async getBalance(session: AuthSession): Promise<Result<number, BaseError>> {
-    console.log('[npubcash] getBalance')
-    const result = await this.authFetch<NpubcashResponse<number>>(
-      session,
-      `${this.baseUrl}/api/v2/balance`,
-    )
-    if (!result.ok) {
-      console.log('[npubcash] getBalance error:', result.error.message)
-      return result
-    }
-    const body = result.value
-    if (body.error || body.data === undefined) {
-      console.log('[npubcash] getBalance body error:', body.message)
-      return Err(new NpubcashApiError(400, body.message || 'Failed to get balance'))
-    }
-    console.log('[npubcash] getBalance OK:', body.data)
-    return Ok(body.data)
-  }
-
-  async getClaim(session: AuthSession): Promise<Result<ClaimResult, BaseError>> {
-    console.log('[npubcash] getClaim')
-    const result = await this.authFetch<NpubcashResponse<ClaimResult>>(
-      session,
-      `${this.baseUrl}/api/v2/claim`,
-    )
-    if (!result.ok) {
-      console.log('[npubcash] getClaim error:', result.error.message)
-      return result
-    }
-    const body = result.value
-    if (body.error || !body.data) {
-      console.log('[npubcash] getClaim body error:', body.message)
-      return Err(new NpubcashApiError(400, body.message || 'Failed to claim'))
-    }
-    console.log('[npubcash] getClaim OK:', { totalCount: body.data.totalCount, mints: body.data.tokens.map(t => t.mint) })
-    return Ok(body.data)
-  }
-
-  async getClaimStorageMode(session: AuthSession): Promise<Result<ClaimStorageMode, BaseError>> {
-    const result = await this.authFetch<NpubcashResponse<{ mode: ClaimStorageMode }>>(
-      session,
-      `${this.baseUrl}/api/v2/user/claim-storage`,
-    )
-    if (!result.ok) return result
-    const body = result.value
-    if (body.error || !body.data) {
-      return Err(new NpubcashApiError(400, body.message || 'Failed to get claim storage mode'))
-    }
-    return Ok(body.data.mode)
-  }
-
-  async setClaimStorageMode(session: AuthSession, mode: ClaimStorageMode): Promise<Result<ClaimStorageMode, BaseError>> {
-    const result = await this.authFetch<NpubcashResponse<{ mode: ClaimStorageMode }>>(
-      session,
-      `${this.baseUrl}/api/v2/user/claim-storage`,
-      {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode }),
-      },
-    )
-    if (!result.ok) return result
-    const body = result.value
-    if (body.error || !body.data) {
-      return Err(new NpubcashApiError(400, body.message || 'Failed to set claim storage mode'))
-    }
-    return Ok(body.data.mode)
   }
 
   private async authFetch<T>(session: AuthSession, url: string, init?: RequestInit): Promise<Result<T, BaseError>> {
