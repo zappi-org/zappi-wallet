@@ -253,6 +253,7 @@ export default {
     security: 'Seguridad',
     securityDesc: 'PIN, Face ID, Bloqueo automático',
     autoLock: 'Bloqueo automático',
+    autoLockDescription: 'Se bloquea automáticamente después de 5 minutos de inactividad',
     faceIdTouchId: 'Face ID / Touch ID',
     changePin: 'Cambiar PIN',
 

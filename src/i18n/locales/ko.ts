@@ -257,6 +257,7 @@ export default {
     security: '보안',
     securityDesc: 'PIN 변경, Face ID, 자동 잠금',
     autoLock: '자동 잠금',
+    autoLockDescription: '5분간 사용하지 않으면 자동으로 잠깁니다',
     faceIdTouchId: 'Face ID / Touch ID',
     changePin: 'PIN 변경',
 

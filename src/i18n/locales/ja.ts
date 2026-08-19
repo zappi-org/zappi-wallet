@@ -253,6 +253,7 @@ export default {
     security: 'セキュリティ',
     securityDesc: 'PIN変更、Face ID、自動ロック',
     autoLock: '自動ロック',
+    autoLockDescription: '5分間操作がないと自動的にロックします',
     faceIdTouchId: 'Face ID / Touch ID',
     changePin: 'PINを変更',
 

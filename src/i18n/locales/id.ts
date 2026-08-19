@@ -253,6 +253,7 @@ export default {
     security: 'Keamanan',
     securityDesc: 'PIN, Face ID, Kunci Otomatis',
     autoLock: 'Kunci Otomatis',
+    autoLockDescription: 'Terkunci otomatis setelah 5 menit tidak aktif',
     faceIdTouchId: 'Face ID / Touch ID',
     changePin: 'Ubah PIN',
 

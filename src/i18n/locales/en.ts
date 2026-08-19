@@ -257,6 +257,7 @@ export default {
     security: 'Security',
     securityDesc: 'PIN, Face ID, Auto Lock',
     autoLock: 'Auto Lock',
+    autoLockDescription: 'Locks automatically after 5 minutes of inactivity',
     faceIdTouchId: 'Face ID / Touch ID',
     changePin: 'Change PIN',
 
