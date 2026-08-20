@@ -1,21 +1,22 @@
 import { registerSW } from 'virtual:pwa-register'
-import { useAppStore } from '@/store'
+import { useAppStore, type UpdatePhase } from '@/store'
 import i18n from '@/i18n'
 
 let serviceWorkerRegistration: ServiceWorkerRegistration | undefined
 let manualUpdateCheckInFlight = false
 let suppressAutoUpdateToastUntil = 0
 let updateToastShown = false
+let inFlightCheck: Promise<AppUpdateCheckResult> | null = null
 
 export type AppUpdateCheckResult = 'available' | 'current' | 'unavailable'
 type WaitingWorkerResult = 'available' | 'current' | 'unavailable'
 
-export interface AppUpdateCheckOptions {
-  onInstalling?: () => void
-}
-
 function markUpdateAvailable() {
   useAppStore.getState().setUpdateAvailable(true)
+}
+
+function setUpdatePhase(phase: UpdatePhase) {
+  useAppStore.getState().setUpdatePhase(phase)
 }
 
 function shouldSuppressAutoUpdateToast(): boolean {
@@ -40,6 +41,44 @@ function hasActiveController(): boolean {
     && Boolean(navigator.serviceWorker.controller)
 }
 
+/** An install counts as an update only when an old SW controls the page —
+ *  a first install has no controller and is not an "update". */
+function isUpdateReady(registration: ServiceWorkerRegistration, worker?: ServiceWorker | null): boolean {
+  return hasActiveController() && (Boolean(registration.waiting) || worker?.state === 'installed')
+}
+
+// A worker that hangs mid-install emits no further statechange; without a
+// backstop the settings button would stay disabled for the whole session.
+const INSTALL_WATCHDOG_MS = 5 * 60_000
+
+/** Single owner of the store's updatePhase — covers browser-initiated and
+ *  manual installs, so the settings button survives screen changes. */
+function watchRegistrationForInstalls(registration: ServiceWorkerRegistration) {
+  const watchWorker = (worker: ServiceWorker | null) => {
+    if (!worker) return
+    setUpdatePhase('installing')
+    const watchdog = window.setTimeout(() => {
+      if (worker.state === 'installing') setUpdatePhase('idle')
+    }, INSTALL_WATCHDOG_MS)
+    const handleStateChange = () => {
+      if (isUpdateReady(registration, worker)) {
+        markUpdateAvailable()
+      }
+      // Mid-install: a parked waiting update must not repaint the phase as settled.
+      if (worker.state === 'installing') return
+      window.clearTimeout(watchdog)
+      // A newer installing worker owns the phase. Comparing against `worker`
+      // matters: the spec clears registration.installing only after 'redundant'.
+      if (registration.installing && registration.installing !== worker) return
+      setUpdatePhase('idle')
+    }
+    worker.addEventListener('statechange', handleStateChange)
+    handleStateChange()
+  }
+  registration.addEventListener('updatefound', () => watchWorker(registration.installing))
+  watchWorker(registration.installing)
+}
+
 async function getCurrentRegistration(): Promise<ServiceWorkerRegistration | null> {
   if (serviceWorkerRegistration) return serviceWorkerRegistration
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) {
@@ -52,14 +91,13 @@ async function getCurrentRegistration(): Promise<ServiceWorkerRegistration | nul
 
 function waitForWaitingWorker(
   registration: ServiceWorkerRegistration,
-  options: AppUpdateCheckOptions = {},
   timeoutMs = 30000,
 ): Promise<WaitingWorkerResult> {
-  if (registration.waiting) return Promise.resolve('available')
+  if (isUpdateReady(registration)) return Promise.resolve('available')
 
   return new Promise((resolve) => {
     let settled = false
-    let installingNotified = false
+    let installingSeen = false
     const cleanupCallbacks: Array<() => void> = []
 
     const done = (result: WaitingWorkerResult) => {
@@ -72,13 +110,10 @@ function waitForWaitingWorker(
 
     const watchWorker = (worker: ServiceWorker | null) => {
       if (!worker) return
-      if (!installingNotified) {
-        installingNotified = true
-        options.onInstalling?.()
-      }
+      installingSeen = true
 
       const handleStateChange = () => {
-        if (registration.waiting || (worker.state === 'installed' && hasActiveController())) {
+        if (isUpdateReady(registration, worker)) {
           done('available')
         } else if (worker.state === 'redundant') {
           done('current')
@@ -92,7 +127,7 @@ function waitForWaitingWorker(
 
     const handleUpdateFound = () => watchWorker(registration.installing)
 
-    const timeoutId = window.setTimeout(() => done(installingNotified ? 'unavailable' : 'current'), timeoutMs)
+    const timeoutId = window.setTimeout(() => done(installingSeen ? 'unavailable' : 'current'), timeoutMs)
     registration.addEventListener('updatefound', handleUpdateFound)
     cleanupCallbacks.push(() => registration.removeEventListener('updatefound', handleUpdateFound))
     watchWorker(registration.installing)
@@ -101,11 +136,12 @@ function waitForWaitingWorker(
 
 // prompt mode + no skipWaiting: new SW installs in background and waits.
 // Activates automatically on next app start (when old clients are gone).
-// No mid-session reloads.
+// Applying now is user-driven (toast tap / settings button).
 const updateSW = registerSW({
   immediate: true,
   onNeedRefresh() {
     markUpdateAvailable()
+    setUpdatePhase('idle')
     if (!shouldSuppressAutoUpdateToast()) {
       notifyUpdateAvailable()
     }
@@ -115,6 +151,7 @@ const updateSW = registerSW({
   },
   onRegisteredSW(swUrl, registration) {
     serviceWorkerRegistration = registration
+    if (registration) watchRegistrationForInstalls(registration)
     console.log('[SW] Registered:', swUrl)
   },
   onRegisterError(error) {
@@ -122,19 +159,30 @@ const updateSW = registerSW({
   },
 })
 
-async function checkForAppUpdate(options: AppUpdateCheckOptions = {}): Promise<AppUpdateCheckResult> {
+function checkForAppUpdate(): Promise<AppUpdateCheckResult> {
+  // Shared promise: a re-entered settings screen (or double tap) must not fire
+  // a second registration.update() mid-check.
+  if (inFlightCheck) return inFlightCheck
+  inFlightCheck = doCheckForAppUpdate().finally(() => { inFlightCheck = null })
+  return inFlightCheck
+}
+
+async function doCheckForAppUpdate(): Promise<AppUpdateCheckResult> {
   manualUpdateCheckInFlight = true
+  if (useAppStore.getState().updatePhase === 'idle') {
+    setUpdatePhase('checking')
+  }
   try {
     const registration = await getCurrentRegistration()
     if (!registration) return 'unavailable'
 
-    if (registration.waiting || useAppStore.getState().updateAvailable) {
+    if (isUpdateReady(registration) || useAppStore.getState().updateAvailable) {
       markUpdateAvailable()
       return 'available'
     }
 
     if (registration.installing) {
-      const existingWorkerResult = await waitForWaitingWorker(registration, options)
+      const existingWorkerResult = await waitForWaitingWorker(registration)
       if (existingWorkerResult === 'available' || useAppStore.getState().updateAvailable) {
         markUpdateAvailable()
         return 'available'
@@ -145,7 +193,7 @@ async function checkForAppUpdate(options: AppUpdateCheckOptions = {}): Promise<A
     const updatedRegistration = await registration.update()
     serviceWorkerRegistration = updatedRegistration
 
-    const isAvailable = updatedRegistration.waiting
+    const isAvailable = isUpdateReady(updatedRegistration)
       || useAppStore.getState().updateAvailable
 
     if (isAvailable) {
@@ -157,7 +205,7 @@ async function checkForAppUpdate(options: AppUpdateCheckOptions = {}): Promise<A
       return 'current'
     }
 
-    const workerResult = await waitForWaitingWorker(updatedRegistration, options)
+    const workerResult = await waitForWaitingWorker(updatedRegistration)
     if (workerResult === 'available' || useAppStore.getState().updateAvailable) {
       markUpdateAvailable()
       return 'available'
@@ -167,6 +215,11 @@ async function checkForAppUpdate(options: AppUpdateCheckOptions = {}): Promise<A
   } finally {
     manualUpdateCheckInFlight = false
     suppressAutoUpdateToastUntil = Date.now() + 1500
+    // Only settle a plain check — an in-flight install keeps its phase until
+    // the watcher sees the worker settle (30s timeout must not fake "done").
+    if (useAppStore.getState().updatePhase === 'checking') {
+      setUpdatePhase('idle')
+    }
   }
 }
 

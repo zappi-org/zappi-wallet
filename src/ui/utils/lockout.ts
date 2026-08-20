@@ -1,7 +1,6 @@
 /**
  * PIN brute-force lockout marker — the single source of truth for reading the
- * lockout state LockScreen persists in localStorage. Both LockScreen and the boot
- * resume path parse it through here so the two can never diverge on the shape.
+ * lockout state LockScreen persists in localStorage.
  */
 
 const LOCKOUT_KEY = 'lockout'
@@ -24,10 +23,4 @@ export function readLockoutMarker(): LockoutMarker | null {
   } catch {
     return null
   }
-}
-
-/** Whether a lockout is currently in effect (marker present and not yet expired). */
-export function isLockoutActive(now: number = Date.now()): boolean {
-  const marker = readLockoutMarker()
-  return marker !== null && marker.until > now
 }

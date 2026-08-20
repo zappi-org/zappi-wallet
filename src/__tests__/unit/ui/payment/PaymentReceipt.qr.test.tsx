@@ -1,7 +1,7 @@
-import { render, screen, fireEvent, act } from '@testing-library/react'
+import { render, renderHook, screen, fireEvent, act } from '@testing-library/react'
 import { beforeEach, describe, it, expect, vi } from 'vitest'
 import { PaymentReceipt } from '@/ui/components/payment/PaymentReceipt'
-import { shouldStartReceiptTorn } from '@/ui/components/payment/payment-receipt-motion'
+import { shouldStartReceiptTorn, useReceiptPrintCrawl, RECEIPT_PRINT_CRAWL_MS } from '@/ui/components/payment/payment-receipt-motion'
 
 interface AnimationHarness {
   animation: Animation
@@ -109,6 +109,31 @@ describe('PaymentReceipt paper motion', () => {
   })
 })
 
+describe('useReceiptPrintCrawl', () => {
+  it("starts at 'printing' and hands off to 'finishing' after the crawl", () => {
+    vi.useFakeTimers()
+    const { result } = renderHook(() => useReceiptPrintCrawl(false))
+    expect(result.current).toBe('printing')
+    act(() => { vi.advanceTimersByTime(RECEIPT_PRINT_CRAWL_MS) })
+    expect(result.current).toBe('finishing')
+    vi.useRealTimers()
+  })
+
+  it("skips straight to 'finishing' under reduced motion", () => {
+    const { result } = renderHook(() => useReceiptPrintCrawl(true))
+    expect(result.current).toBe('finishing')
+  })
+
+  it('clears the crawl timer on unmount', () => {
+    vi.useFakeTimers()
+    const { unmount } = renderHook(() => useReceiptPrintCrawl(false))
+    expect(vi.getTimerCount()).toBe(1)
+    unmount()
+    expect(vi.getTimerCount()).toBe(0)
+    vi.useRealTimers()
+  })
+})
+
 describe('PaymentReceipt QR slot', () => {
   it('renders the provided QR node when qr is set', () => {
     render(<PaymentReceipt {...base} qr={qrStub} />)
@@ -133,6 +158,12 @@ describe('PaymentReceipt stamp label and bottom line', () => {
   it('prints the stamp label on the seal', () => {
     render(<PaymentReceipt {...base} status="done" stampSrc="/seal.png" stampLabel="전송 완료" />)
     expect(screen.getByText('전송 완료')).toBeInTheDocument()
+  })
+
+  it('renders no progress dots on a doneLine even while the paper is still moving', () => {
+    render(<PaymentReceipt {...base} status="finishing" doneLine="7/29 15:00" />)
+    expect(screen.getByText('7/29 15:00')).toBeInTheDocument()
+    expect(screen.queryAllByText('.')).toHaveLength(0)
   })
 
   it('keeps a bottom line through finishing (statusLine) → done (doneLine)', () => {

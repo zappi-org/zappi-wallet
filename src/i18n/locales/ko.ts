@@ -17,7 +17,6 @@ export default {
     receive: '받기',
     balance: '잔액',
     amount: '금액',
-    min: '분',
     offlineRequired: '인터넷 연결이 필요합니다',
     paste: '붙여넣기',
     change: '변경',
@@ -258,7 +257,7 @@ export default {
     security: '보안',
     securityDesc: 'PIN 변경, Face ID, 자동 잠금',
     autoLock: '자동 잠금',
-    autoLockTimeout: '잠금 시간',
+    autoLockDescription: '5분간 사용하지 않으면 자동으로 잠깁니다',
     faceIdTouchId: 'Face ID / Touch ID',
     changePin: 'PIN 변경',
 
@@ -394,7 +393,6 @@ export default {
     senderPrivacyModeDescription: '수수료가 높더라도 민트가 송수신자를 연결할 수 없는 경로를 선택합니다',
 
     // Descriptions
-    autoLockDescription: '설정한 시간 동안 사용하지 않으면 잠깁니다. 그 시간 안에 다시 열면 PIN 없이 열립니다.',
   },
 
   // Add Mint Screen

@@ -199,8 +199,9 @@ export interface WalletSettings {
   lightningAddress?: string
   /** zappi-link API base URL extracted from LNURL callback (e.g. "https://link.zappi.space") */
   zappiLinkApiUrl?: string
-  /** Idle timeout in minutes. Auto-lock is always on — no separate enable flag. */
-  autoLockTimeoutMinutes: number
+  /** Idle auto-lock toggle (fixed 5-minute timeout). A full app kill always
+   *  relocks regardless — the session is memory-only. */
+  autoLockEnabled: boolean
   soundEnabled: boolean
   expertModeEnabled: boolean
   manualMintSelectionEnabled: boolean

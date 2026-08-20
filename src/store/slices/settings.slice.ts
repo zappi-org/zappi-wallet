@@ -1,6 +1,6 @@
 import type { StateCreator } from 'zustand'
 import type { WalletSettings } from '@/core/types'
-import { DEFAULT_MINTS, DEFAULT_RELAYS, AUTO_LOCK } from '@/core/constants'
+import { DEFAULT_MINTS, DEFAULT_RELAYS } from '@/core/constants'
 
 /**
  * Settings slice state
@@ -33,7 +33,7 @@ export interface SettingsSliceState {
 const defaultSettings: WalletSettings = {
   mints: [...DEFAULT_MINTS],
   relays: [...DEFAULT_RELAYS],
-  autoLockTimeoutMinutes: AUTO_LOCK.DEFAULT_TIMEOUT_MINUTES,
+  autoLockEnabled: true,
   soundEnabled: true,
   expertModeEnabled: false,
   manualMintSelectionEnabled: false,

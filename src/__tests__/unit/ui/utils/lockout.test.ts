@@ -1,10 +1,9 @@
 /**
- * Lockout marker reader — the single source of truth shared by LockScreen and the
- * boot resume path. Pins that both parse the persisted shape identically and that a
- * missing/corrupt/expired marker degrades safely.
+ * Lockout marker reader — pins the persisted shape LockScreen parses and that a
+ * missing/corrupt marker degrades safely.
  */
 import { describe, it, expect, beforeEach } from 'vitest'
-import { readLockoutMarker, isLockoutActive } from '@/ui/utils/lockout'
+import { readLockoutMarker } from '@/ui/utils/lockout'
 
 describe('lockout marker', () => {
   beforeEach(() => {
@@ -29,19 +28,5 @@ describe('lockout marker', () => {
   it('readLockoutMarker returns null when fields are the wrong shape', () => {
     localStorage.setItem('lockout', JSON.stringify({ until: 'soon' }))
     expect(readLockoutMarker()).toBeNull()
-  })
-
-  it('isLockoutActive is true only while the marker is unexpired', () => {
-    localStorage.setItem('lockout', JSON.stringify({ until: Date.now() + 60_000, attempts: 5 }))
-    expect(isLockoutActive()).toBe(true)
-  })
-
-  it('isLockoutActive is false for an expired marker', () => {
-    localStorage.setItem('lockout', JSON.stringify({ until: Date.now() - 1, attempts: 5 }))
-    expect(isLockoutActive()).toBe(false)
-  })
-
-  it('isLockoutActive is false when no marker is present', () => {
-    expect(isLockoutActive()).toBe(false)
   })
 })

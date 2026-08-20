@@ -17,7 +17,6 @@ export default {
     receive: '受取',
     balance: '残高',
     amount: '金額',
-    min: '分',
     offlineRequired: 'インターネット接続が必要です',
     paste: '貼り付け',
     change: '変更',
@@ -254,7 +253,7 @@ export default {
     security: 'セキュリティ',
     securityDesc: 'PIN変更、Face ID、自動ロック',
     autoLock: '自動ロック',
-    autoLockTimeout: 'ロック時間',
+    autoLockDescription: '5分間操作がないと自動的にロックします',
     faceIdTouchId: 'Face ID / Touch ID',
     changePin: 'PINを変更',
 
@@ -390,7 +389,6 @@ export default {
     senderPrivacyModeDescription: '手数料が高くてもミントが送受信者をリンクできない経路を選択します',
 
     // Descriptions
-    autoLockDescription: '設定した無操作時間で自動ロックします。その時間内に開き直すとPINを省略します。',
   },
 
   // Add Mint Screen

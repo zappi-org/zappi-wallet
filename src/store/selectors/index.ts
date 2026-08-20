@@ -46,7 +46,7 @@ export const selectSettings = (state: AppState) => state.settings
 export const selectConfiguredMints = (state: AppState) => state.settings.mints
 export const selectConfiguredRelays = (state: AppState) => state.settings.relays
 export const selectLightningAddress = (state: AppState) => state.settings.lightningAddress
-export const selectAutoLockTimeout = (state: AppState) => state.settings.autoLockTimeoutMinutes
+export const selectAutoLockEnabled = (state: AppState) => state.settings.autoLockEnabled
 export const selectSoundEnabled = (state: AppState) => state.settings.soundEnabled
 export const selectExpertModeEnabled = (state: AppState) => state.settings.expertModeEnabled
 export const selectManualMintSelection = (state: AppState) =>

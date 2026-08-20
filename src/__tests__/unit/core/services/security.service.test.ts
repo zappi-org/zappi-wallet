@@ -4,7 +4,6 @@ import type { KeyManager } from '@/core/ports/driven/key-manager.port'
 import type { Encryption, EncryptedData } from '@/core/ports/driven/encryption.port'
 import type { SecureStorage, StoredWallet } from '@/core/ports/driven/secure-storage.port'
 import type { SeedCache } from '@/core/ports/driven/seed-cache.port'
-import type { UnlockGrace } from '@/core/ports/driven/unlock-grace.port'
 
 // ─── Fixtures ───
 
@@ -64,7 +63,7 @@ function createMocks() {
   }
 
   // Stateful seed cache so hydrateSession → cacheMnemonic → getCachedMnemonic
-  // (used by saveGrace) reflects the live session.
+  // reflects the live session.
   let cachedMnemonic: string | null = null
   const seedCache: SeedCache = {
     cacheMnemonic: vi.fn().mockImplementation((m: string) => { cachedMnemonic = m }),
@@ -73,40 +72,17 @@ function createMocks() {
     clearCache: vi.fn().mockImplementation(() => { cachedMnemonic = null }),
   }
 
-  // Stateful grace mock mirroring the adapter contract: load checks expiry,
-  // extend is non-creating/non-reviving, clear removes the blob.
-  let graceBlob: { mnemonic: string; expiresAt: number } | null = null
-  const grace: UnlockGrace = {
-    save: vi.fn().mockImplementation((mnemonic: string, expiresAt: number) => {
-      graceBlob = { mnemonic, expiresAt }
-      return Promise.resolve()
-    }),
-    load: vi.fn().mockImplementation(() => {
-      if (!graceBlob) return Promise.resolve(null)
-      if (Date.now() >= graceBlob.expiresAt) { graceBlob = null; return Promise.resolve(null) }
-      return Promise.resolve({ ...graceBlob })
-    }),
-    extend: vi.fn().mockImplementation((expiresAt: number) => {
-      if (graceBlob && Date.now() < graceBlob.expiresAt) graceBlob.expiresAt = expiresAt
-      return Promise.resolve()
-    }),
-    clear: vi.fn().mockImplementation(() => { graceBlob = null; return Promise.resolve() }),
-  }
-
   return {
     keyManager,
     encryption,
     storage,
     seedCache,
-    grace,
     getStoredWallet: () => storedWallet,
     setStoredWallet: (w: StoredWallet | null) => {
       storedWallet = w
       currentTag = `tag-${++tagSeq}`
     },
     getTag: () => currentTag,
-    getGraceBlob: () => graceBlob,
-    setGraceBlob: (b: { mnemonic: string; expiresAt: number } | null) => { graceBlob = b },
   }
 }
 
@@ -138,7 +114,7 @@ describe('SecurityService', () => {
     keyManager = mocks.keyManager
     encryption = mocks.encryption
     storage = mocks.storage
-    service = new SecurityService(keyManager, encryption, storage, mocks.seedCache, mocks.grace)
+    service = new SecurityService(keyManager, encryption, storage, mocks.seedCache)
   })
 
   // ─── createWallet ───
@@ -320,95 +296,20 @@ describe('SecurityService', () => {
       expect(await service.hasWallet()).toBe(false)
     })
 
-    it('clears grace before deleting the wallet record', async () => {
-      await service.createWallet(TEST_MNEMONIC, 'pin')
-      await service.saveGrace(Date.now() + 60_000)
-      expect(mocks.getGraceBlob()).not.toBeNull()
-
-      await service.deleteWallet()
-
-      expect(mocks.grace.clear).toHaveBeenCalled()
-      expect(mocks.getGraceBlob()).toBeNull()
-      // Grace is the more sensitive PIN-free copy — cleared before the wallet record.
-      expect(vi.mocked(mocks.grace.clear).mock.invocationCallOrder[0])
-        .toBeLessThan(vi.mocked(storage.deleteWallet).mock.invocationCallOrder[0])
-    })
   })
 
-  // ─── unlock grace (PIN-free reload resume) ───
+  // ─── lock ───
 
-  describe('unlock grace', () => {
-    it('lock() awaits grace invalidation', async () => {
+  describe('lock', () => {
+    it('wipes in-memory secrets and resolves', async () => {
       await service.createWallet(TEST_MNEMONIC, 'pin1234')
-      await service.saveGrace(Date.now() + 60_000)
-      expect(mocks.getGraceBlob()).not.toBeNull()
+      expect(service.getCachedKeys()).not.toBeNull()
 
-      // Awaited (not fire-and-forget): the blob is gone once lock() resolves so the
-      // caller can order setLocked after grace invalidation.
-      await service.lock()
-
-      expect(mocks.grace.clear).toHaveBeenCalled()
-      expect(mocks.getGraceBlob()).toBeNull()
-    })
-
-    it('lock() still locks (fail toward locked) when grace.clear rejects', async () => {
-      await service.createWallet(TEST_MNEMONIC, 'pin1234')
-      vi.mocked(mocks.grace.clear).mockRejectedValueOnce(new Error('idb down'))
-
-      // Must resolve (not reject) — a clear failure is logged, secrets are still wiped.
       await expect(service.lock()).resolves.toBeUndefined()
+
       expect(service.getCachedKeys()).toBeNull()
       expect(service.getCachedSeed()).toBeNull()
-    })
-
-    it('saveGrace persists the cached mnemonic; no-op when locked', async () => {
-      await service.createWallet(TEST_MNEMONIC, 'pin1234')
-      const expiresAt = Date.now() + 60_000
-      await service.saveGrace(expiresAt)
-      expect(mocks.grace.save).toHaveBeenCalledWith(TEST_MNEMONIC, expiresAt)
-
-      service.lock()
-      vi.mocked(mocks.grace.save).mockClear()
-      await service.saveGrace(Date.now() + 60_000)
-      expect(mocks.grace.save).not.toHaveBeenCalled() // no session → nothing to persist
-    })
-
-    it('extendGrace delegates to grace.extend', async () => {
-      const expiresAt = Date.now() + 120_000
-      await service.extendGrace(expiresAt)
-      expect(mocks.grace.extend).toHaveBeenCalledWith(expiresAt)
-    })
-
-    it('tryResumeSession resumes a live blob with the same output as unlock', async () => {
-      mocks.setGraceBlob({ mnemonic: TEST_MNEMONIC, expiresAt: Date.now() + 60_000 })
-
-      const resumed = await service.tryResumeSession()
-
-      expect(resumed).not.toBeNull()
-      expect(resumed!.keys).toEqual(TEST_KEYS)
-      expect(resumed!.bip39Seed).toBe(TEST_SEED)
-      expect(resumed!.migrated).toBeUndefined() // grace never migrates KDF
-      // Session caches are populated so Coco's getSeed works, exactly like unlock.
-      expect(service.getCachedKeys()).toEqual(TEST_KEYS)
-      expect(mocks.seedCache.cacheMnemonic).toHaveBeenCalledWith(TEST_MNEMONIC)
-    })
-
-    it('tryResumeSession returns null with no grace', async () => {
-      expect(await service.tryResumeSession()).toBeNull()
-      expect(service.getCachedKeys()).toBeNull()
-    })
-
-    it('tryResumeSession returns null when grace is expired (load self-deletes)', async () => {
-      mocks.setGraceBlob({ mnemonic: TEST_MNEMONIC, expiresAt: Date.now() - 1 })
-      expect(await service.tryResumeSession()).toBeNull()
-      expect(mocks.getGraceBlob()).toBeNull()
-      expect(service.getCachedKeys()).toBeNull()
-    })
-
-    it('tryResumeSession returns null when load throws (integrity failure → PIN)', async () => {
-      vi.mocked(mocks.grace.load).mockRejectedValueOnce(new Error('decrypt failed'))
-      expect(await service.tryResumeSession()).toBeNull()
-      expect(service.getCachedKeys()).toBeNull()
+      expect(mocks.seedCache.clearCache).toHaveBeenCalled()
     })
   })
 
@@ -420,7 +321,7 @@ describe('SecurityService', () => {
 
     beforeEach(() => {
       mocks = createMocks()
-      svc = new SecurityService(mocks.keyManager, mocks.encryption, mocks.storage, mocks.seedCache, mocks.grace)
+      svc = new SecurityService(mocks.keyManager, mocks.encryption, mocks.storage, mocks.seedCache)
     })
 
     it('v1 record + correct PIN → migrates to v2 (both fields re-derived), re-unlock ok, same mnemonic', async () => {
@@ -546,7 +447,7 @@ describe('SecurityService', () => {
 
     beforeEach(() => {
       mocks = createMocks()
-      svc = new SecurityService(mocks.keyManager, mocks.encryption, mocks.storage, mocks.seedCache, mocks.grace)
+      svc = new SecurityService(mocks.keyManager, mocks.encryption, mocks.storage, mocks.seedCache)
     })
 
     const cases: ReadonlyArray<{ label: string; wallet: StoredWallet }> = [

@@ -1,10 +1,10 @@
 /**
  * ReceiveReceiptStep — the arrival moment as one continuous scene. Detection
  * means settlement is already final (quote watcher redeems before signalling;
- * token redeem returns after completion), so the receipt mounts at 'finishing'
- * — fast feed, tear, stamp — with no fake printing crawl and no dwell. The
- * action buttons fade in on the stamp, on the same surface, so there is no
- * second screen to swap to.
+ * token redeem returns after completion), so the receipt runs a short print
+ * crawl — enough to read as "printing" — then fast feed, tear, stamp, with no
+ * dwell after. The action buttons fade in on the stamp, on the same surface,
+ * so there is no second screen to swap to.
  */
 import { useMemo, useState } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
@@ -18,6 +18,7 @@ import tokenReceiveSuccessImg from '@/assets/token-receive-success.png'
 import { Button } from '@/ui/components/common/Button'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { PaymentReceipt, type PaymentReceiptRow } from '@/ui/components/payment/PaymentReceipt'
+import { useReceiptPrintCrawl } from '@/ui/components/payment/payment-receipt-motion'
 
 export type ReceiveReceiptMethod = 'bolt11' | 'ecash' | 'redeem'
 
@@ -61,9 +62,10 @@ export function ReceiveReceiptStep({ amount, fee = 0, mintUrl, memo, method, rec
   const mintUrls = useMemo(() => (mintUrl ? [mintUrl] : []), [mintUrl])
   const { getDisplayName } = useMintMetadata(mintUrls)
 
-  // Detection means settlement is already final — feed out fast and stamp; no
-  // fake printing crawl, no dwell, no second screen. Buttons fade in on stamp.
+  // Short crawl → feed → tear → stamp; no dwell, no second screen. Buttons
+  // fade in on stamp.
   const [stamped, setStamped] = useState(false)
+  const printStatus = useReceiptPrintCrawl(reduceMotion)
 
   const rows = useMemo(
     () => buildReceiveRows(t, method, mintUrl ? getDisplayName(mintUrl) : null, memo, fee > 0 ? formatSats(fee) : null),
@@ -83,7 +85,7 @@ export function ReceiveReceiptStep({ amount, fee = 0, mintUrl, memo, method, rec
       <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto px-6">
         <div className="my-auto flex w-full shrink-0 flex-col items-center py-4">
           <PaymentReceipt
-            status={stamped ? 'done' : 'finishing'}
+            status={stamped ? 'done' : printStatus}
             title={t('receive.receipt.title')}
             amount={`+${formatSats(amount)}`}
             fiat={formatFiat(amount) || null}

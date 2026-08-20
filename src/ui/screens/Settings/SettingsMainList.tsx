@@ -1,9 +1,9 @@
 import type { TranslationKey } from '@/i18n'
-import { useCallback, useState, type ElementType } from 'react'
+import { useCallback, type ElementType } from 'react'
 import { User, Lock, LifeBuoy, ChevronRight, Download, RefreshCw } from 'lucide-react'
 import { Cog6ToothIcon, WalletIcon } from '@heroicons/react/24/outline'
 import { useTranslation } from 'react-i18next'
-import { useAppStore } from '@/store'
+import { useAppStore, type UpdatePhase } from '@/store'
 import { Button } from '@/ui/components/common/Button'
 import { checkForAppUpdate, updateSW } from '@/registerSW'
 import { appBuildInfo } from '@/ui/utils/app-build-info'
@@ -28,7 +28,11 @@ const categories: { Icon: ElementType; titleKey: TranslationKey; descKey: Transl
   { Icon: LifeBuoy, titleKey: 'settings.customerSupport', descKey: 'settings.customerSupportDesc', page: 'support' },
 ]
 
-type UpdateCheckPhase = 'idle' | 'checking' | 'installing'
+const UPDATE_LABEL_KEY: Record<UpdatePhase, TranslationKey> = {
+  idle: 'settings.checkForUpdates',
+  checking: 'settings.updateChecking',
+  installing: 'settings.updateInstalling',
+}
 
 export function SettingsMainList({
   onNavigate,
@@ -38,17 +42,16 @@ export function SettingsMainList({
   const updateAvailable = useAppStore((s) => s.updateAvailable)
   const supportUnreadCount = useAppStore((s) => s.supportUnreadCount)
   const addToast = useAppStore((s) => s.addToast)
-  const [updateCheckPhase, setUpdateCheckPhase] = useState<UpdateCheckPhase>('idle')
-  const isCheckingUpdate = updateCheckPhase !== 'idle'
+  // Global phase (owned by registerSW.ts): survives leaving this screen and
+  // reflects browser-initiated background installs too.
+  const updateCheckPhase = useAppStore((s) => s.updatePhase)
+  const isUpdateBusy = updateCheckPhase !== 'idle'
 
   const handleCheckUpdate = useCallback(async () => {
-    if (isCheckingUpdate) return
+    if (isUpdateBusy) return
 
-    setUpdateCheckPhase('checking')
     try {
-      const result = await checkForAppUpdate({
-        onInstalling: () => setUpdateCheckPhase('installing'),
-      })
+      const result = await checkForAppUpdate()
       if (result === 'current') {
         addToast({ type: 'success', message: t('settings.updateCurrent') })
       } else if (result === 'unavailable') {
@@ -57,16 +60,10 @@ export function SettingsMainList({
     } catch (error) {
       console.error('Failed to check for app update:', error)
       addToast({ type: 'error', message: t('settings.updateCheckFailed') })
-    } finally {
-      setUpdateCheckPhase('idle')
     }
-  }, [addToast, isCheckingUpdate, t])
+  }, [addToast, isUpdateBusy, t])
 
-  const updateCheckLabel = updateCheckPhase === 'installing'
-    ? t('settings.updateInstalling')
-    : updateCheckPhase === 'checking'
-      ? t('settings.updateChecking')
-      : t('settings.checkForUpdates')
+  const updateCheckLabel = t(UPDATE_LABEL_KEY[updateCheckPhase])
 
   return (
     <div className="flex-1 overflow-y-auto pb-app-nav">
@@ -113,7 +110,7 @@ export function SettingsMainList({
             variant="surface"
             size="lg"
             onClick={handleCheckUpdate}
-            loading={isCheckingUpdate}
+            loading={isUpdateBusy}
             icon={<RefreshCw className="size-4" />}
             className="w-full"
           >

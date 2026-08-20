@@ -12,6 +12,11 @@ export interface Toast {
 }
 
 /**
+ * SW update check/install progress
+ */
+export type UpdatePhase = 'idle' | 'checking' | 'installing'
+
+/**
  * Modal state
  */
 export interface ModalState {
@@ -49,6 +54,8 @@ export interface UISliceState {
 
   // PWA update
   updateAvailable: boolean
+  /** SW update progress — owned by registerSW.ts; components only read it. */
+  updatePhase: UpdatePhase
 
   // Actions
   setLocked: (locked: boolean) => void
@@ -65,6 +72,7 @@ export interface UISliceState {
   setSupportUnreadSummary: (count: number, ticketIds: string[]) => void
   setActiveSupportTicketId: (ticketId: string | null) => void
   setUpdateAvailable: (available: boolean) => void
+  setUpdatePhase: (phase: UpdatePhase) => void
   /** Slice-local reset called by resetAll (fixes the same-name 'reset' collision where only the last spread survived) */
   resetUI: () => void
 }
@@ -85,6 +93,7 @@ const initialState = {
   supportUnreadTicketIds: [] as string[],
   activeSupportTicketId: null as string | null,
   updateAvailable: false,
+  updatePhase: 'idle' as UpdatePhase,
 }
 
 /**
@@ -141,6 +150,8 @@ export const createUISlice: StateCreator<UISliceState> = (set) => ({
   setActiveSupportTicketId: (activeSupportTicketId) => set({ activeSupportTicketId }),
 
   setUpdateAvailable: (updateAvailable) => set({ updateAvailable }),
+
+  setUpdatePhase: (updatePhase) => set({ updatePhase }),
 
   resetUI: () => set(initialState),
 })

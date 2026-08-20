@@ -17,7 +17,6 @@ export default {
     receive: 'Receive',
     balance: 'Balance',
     amount: 'Amount',
-    min: 'min',
     offlineRequired: 'Internet connection required',
     paste: 'Paste',
     change: 'Change',
@@ -258,7 +257,7 @@ export default {
     security: 'Security',
     securityDesc: 'PIN, Face ID, Auto Lock',
     autoLock: 'Auto Lock',
-    autoLockTimeout: 'Lock after',
+    autoLockDescription: 'Locks automatically after 5 minutes of inactivity',
     faceIdTouchId: 'Face ID / Touch ID',
     changePin: 'Change PIN',
 
@@ -394,7 +393,6 @@ export default {
     senderPrivacyModeDescription: 'Prefer routes where the mint cannot link sender and receiver, even if fees are higher',
 
     // Descriptions
-    autoLockDescription: 'Locks after the idle time you set. Reopening within that window skips the PIN.',
   },
 
   // Add Mint Screen

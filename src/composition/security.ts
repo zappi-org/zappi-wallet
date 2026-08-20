@@ -8,7 +8,6 @@
 import { KeyManagerAdapter } from '@/adapters/crypto/key-manager.adapter'
 import { EncryptionAdapter } from '@/adapters/crypto/encryption.adapter'
 import { SecureStorageAdapter } from '@/adapters/storage/secure-storage.adapter'
-import { UnlockGraceAdapter } from '@/adapters/storage/unlock-grace.adapter'
 import { SeedCacheAdapter } from '@/adapters/coco/seed-cache.adapter'
 import { SecurityService } from '@/core/services/security.service'
 import type { SecurityUseCase } from '@/core/ports/driving/security.usecase'
@@ -29,7 +28,6 @@ export function createSecurityService(): SecurityUseCase {
     new EncryptionAdapter(),
     new SecureStorageAdapter(),
     seedCache,
-    new UnlockGraceAdapter(),
   )
   return _instance
 }

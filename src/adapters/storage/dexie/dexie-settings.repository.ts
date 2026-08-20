@@ -5,7 +5,7 @@ import type {
   LockState,
 } from '@/core/ports/driven/settings.repository.port'
 import { getDatabase, type SettingsRecord, type EncryptedWalletRecord, type LockStateRecord } from './schema'
-import { DEFAULT_MINTS, DEFAULT_RELAYS, AUTO_LOCK } from '@/core/constants'
+import { DEFAULT_MINTS, DEFAULT_RELAYS } from '@/core/constants'
 
 const CURRENT_ID = 'current'
 
@@ -13,7 +13,7 @@ function getDefaultSettings(): WalletSettings {
   return {
     mints: [...DEFAULT_MINTS],
     relays: [...DEFAULT_RELAYS],
-    autoLockTimeoutMinutes: AUTO_LOCK.DEFAULT_TIMEOUT_MINUTES,
+    autoLockEnabled: true,
     soundEnabled: true,
     expertModeEnabled: false,
     manualMintSelectionEnabled: false,
@@ -27,12 +27,6 @@ function getDefaultLockState(): LockState {
   return { isLocked: true, failedAttempts: 0 }
 }
 
-/** Clamp a numeric setting into [min, max]; a non-finite value fails toward min. */
-function clamp(value: number, min: number, max: number): number {
-  if (!Number.isFinite(value)) return min
-  return Math.min(Math.max(value, min), max)
-}
-
 /**
  * Standalone Dexie settings repository — no legacy repo dependency.
  * Directly accesses Dexie tables via getDatabase().
@@ -44,15 +38,14 @@ export class DexieSettingsRepository implements SettingsRepository {
     const record = await this.db.settings.get(CURRENT_ID)
     if (!record) return getDefaultSettings()
     const { id: _, ...saved } = record
-    const merged = { ...getDefaultSettings(), ...saved } as WalletSettings
-    // Clamp a persisted timeout into the allowed range on load — an older build could
-    // have saved 60, which the current 30-minute grace ceiling must bring down here so
-    // the cap is enforced outside the settings UI (the only writer isn't the only path).
-    merged.autoLockTimeoutMinutes = clamp(
-      merged.autoLockTimeoutMinutes,
-      AUTO_LOCK.MIN_TIMEOUT_MINUTES,
-      AUTO_LOCK.MAX_TIMEOUT_MINUTES,
-    )
+    // Strip the legacy timeout field; the defaults merge gives migrated records
+    // autoLockEnabled: true. Written back once so the disk record stops
+    // carrying the legacy shape.
+    const { autoLockTimeoutMinutes: _legacy, ...rest } = saved as typeof saved & { autoLockTimeoutMinutes?: number }
+    const merged = { ...getDefaultSettings(), ...rest } as WalletSettings
+    if ('autoLockTimeoutMinutes' in saved) {
+      await this.saveSettings(merged)
+    }
     return merged
   }
 

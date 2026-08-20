@@ -64,12 +64,8 @@ export const TIMEOUTS = {
  * Auto-lock configurations
  */
 export const AUTO_LOCK = {
-  /** Default timeout in minutes */
-  DEFAULT_TIMEOUT_MINUTES: 5,
-  /** Minimum timeout in minutes */
-  MIN_TIMEOUT_MINUTES: 1,
-  /** Maximum timeout in minutes — the grace window ceiling (unlock-grace spec) */
-  MAX_TIMEOUT_MINUTES: 30,
+  /** Fixed idle timeout in minutes (no user-facing knob) */
+  TIMEOUT_MINUTES: 5,
   /** Maximum failed password attempts before lockout */
   MAX_FAILED_ATTEMPTS: 5,
   /** Lockout duration in minutes */
