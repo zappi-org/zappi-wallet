@@ -1,5 +1,13 @@
 # zappi-wallet
 
+## 0.4.4
+
+### Patch Changes
+
+- c1d336b: feat(recentCard): add blind toggle to hide recent transaction row
+- 93c17f2: fix: improve GrapheneOS QR scanning, support PRF passkey providers, fix Android sheet gestures; perf: smooth receipt rendering
+- 0da6ec7: feat(shell): full-bleed standalone UI — black-translucent status bar, safe-area-aware overlays/sheets/nav dock, unified sheet radius, home-gesture guard for the history drawer
+
 ## 0.4.3
 
 ### Patch Changes
