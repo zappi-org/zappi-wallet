@@ -287,10 +287,7 @@ export class ZappiDatabase extends Dexie {
   giftwrapCursors!: Table<GiftwrapCursorRecord, string>
   incomingReviews!: Table<IncomingReviewRecord, string>
   paymentAliasProcessedQuotes!: Table<PaymentAliasProcessedQuote, string>
-  netCounters!: Table<NetCounterRecord, string>
-  giftwrapCursors!: Table<GiftwrapCursorRecord, string>
   lightningReceiptCursors!: Table<LightningReceiptCursor, string>
-  incomingReviews!: Table<IncomingReviewRecord, string>
 
   constructor() {
     super(DATABASE.NAME)
