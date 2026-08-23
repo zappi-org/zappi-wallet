@@ -42,6 +42,9 @@ export const NOSTR_KINDS = {
 export const ZAPPI_LINK_URL = 'https://link.zappi.space'
 export const ZAPPI_LINK_DOMAIN = 'zappi.space'
 
+export const NPUBCASH_URL = 'http://127.0.0.1:8000'
+export const NPUBCASH_DOMAIN = '127.0.0.1'
+
 /**
  * Timeout configurations (in milliseconds)
  */
@@ -122,7 +125,9 @@ export const DATABASE = {
   // v23: dropped legacy proofs table (leftover after coco migration. Real-fund proofs
   //      live in the coco DB, and this table had no read/write code, so the data itself
   //      was removable. Surviving tables pass the schema diff losslessly)
-  VERSION: 23,
+  // v24: added paymentAliasProcessedQuotes table (npubcash payment alias dedup)
+  // v25: added lightningReceiptCursors table (npubcash paid-quote cursor)
+  VERSION: 25,
 } as const
 
 /**

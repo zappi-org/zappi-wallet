@@ -2,12 +2,14 @@ import Dexie, { type Table } from 'dexie'
 import type { Transaction, WalletSettings, MintMetadata, ExchangeRateCache, Contact } from '@/core/types'
 import type { ProcessedRecord, SyncAnchor } from '@/core/types'
 import type { GiftwrapCursorRecord } from '@/core/domain/giftwrap-cursor'
+import type { LightningReceiptCursor } from '@/core/domain/lightning-receipt-cursor'
 import type {
   SupportAttachment,
   SupportCategory,
   SupportPriority,
   SupportTicketStatus,
 } from '@/core/domain/support'
+import type { PaymentAliasProcessedQuote } from '@/core/domain/payment-alias-processed-quote'
 import { DATABASE } from '@/core/constants'
 
 /**
@@ -285,6 +287,8 @@ export class ZappiDatabase extends Dexie {
   netCounters!: Table<NetCounterRecord, string>
   giftwrapCursors!: Table<GiftwrapCursorRecord, string>
   incomingReviews!: Table<IncomingReviewRecord, string>
+  paymentAliasProcessedQuotes!: Table<PaymentAliasProcessedQuote, string>
+  lightningReceiptCursors!: Table<LightningReceiptCursor, string>
 
   constructor() {
     super(DATABASE.NAME)
@@ -357,6 +361,12 @@ export class ZappiDatabase extends Dexie {
 
       // v22: durable queue for review of tokens from untrusted mints (source for drainReviewQueue)
       incomingReviews: 'externalId, mintUrl, queuedAt',
+
+      // v24: npubcash payment alias processed quotes (dedup)
+      paymentAliasProcessedQuotes: 'quoteId, processedAt',
+
+      // v25: npubcash paid-quote cursor
+      lightningReceiptCursors: 'key',
     })
   }
 }
