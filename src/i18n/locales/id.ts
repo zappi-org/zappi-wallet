@@ -232,6 +232,8 @@ export default {
     registeringLightningAddress: 'Mendaftar...',
     lightningAddressRegistered: 'Alamat Lightning terdaftar',
     lightningAddressRegistrationFailed: 'Gagal mendaftarkan Alamat Lightning',
+    mintChanged: 'Mint diubah',
+    mintChangeFailed: 'Tidak dapat mengubah mint',
     changeUsername: 'Ubah Alamat Lightning',
     currentAddress: 'Alamat Saat Ini',
     newUsername: 'Username Baru',

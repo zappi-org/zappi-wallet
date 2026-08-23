@@ -236,6 +236,8 @@ export default {
     registeringLightningAddress: '등록 중...',
     lightningAddressRegistered: 'Lightning Address가 등록되었습니다',
     lightningAddressRegistrationFailed: 'Lightning Address 등록에 실패했습니다',
+    mintChanged: '민트가 변경되었습니다',
+    mintChangeFailed: '민트를 변경하지 못했습니다',
     changeUsername: '라이트닝 주소 변경',
     currentAddress: '현재 주소',
     newUsername: '새 username',

@@ -232,6 +232,8 @@ export default {
     registeringLightningAddress: '登録中...',
     lightningAddressRegistered: 'Lightningアドレスが登録されました',
     lightningAddressRegistrationFailed: 'Lightningアドレスの登録に失敗しました',
+    mintChanged: 'ミントを変更しました',
+    mintChangeFailed: 'ミントを変更できませんでした',
     changeUsername: 'ライトニングアドレスを変更',
     currentAddress: '現在のアドレス',
     newUsername: '新しいユーザー名',

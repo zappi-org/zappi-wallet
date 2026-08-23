@@ -232,6 +232,8 @@ export default {
     registeringLightningAddress: 'Registrando...',
     lightningAddressRegistered: 'Dirección Lightning registrada',
     lightningAddressRegistrationFailed: 'Error al registrar la dirección Lightning',
+    mintChanged: 'Mint actualizado',
+    mintChangeFailed: 'No se pudo cambiar el mint',
     changeUsername: 'Cambiar dirección Lightning',
     currentAddress: 'Dirección actual',
     newUsername: 'Nuevo usuario',

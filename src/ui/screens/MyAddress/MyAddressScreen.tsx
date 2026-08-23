@@ -6,10 +6,11 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Copy, Check, Share2, ChevronRight } from 'lucide-react'
+import { Copy, Check, Share2, ChevronRight, Pencil } from 'lucide-react'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
 import { Button } from '@/ui/components/common/Button'
+import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
 import { DirectionalTabPanel } from '@/ui/components/common/DirectionalTabPanel'
 import { SegmentControl } from '@/ui/components/common/SegmentControl'
 import { useAppStore } from '@/store'
@@ -23,6 +24,7 @@ import { ENABLE_LIGHTNING_ADDRESS_SETTINGS } from '@/ui/config/feature-flags'
 export interface MyAddressScreenProps {
   onBack: () => void
   onOpenSettings: () => void
+  onChangeUsername?: () => void
 }
 
 type AddressTab = 'lightning' | 'nostr'
@@ -38,16 +40,19 @@ type DepositMintState =
   | { status: 'ready'; mintUrl: string }
   | { status: 'error' }
 
-function useDepositMint(): DepositMintState {
+function useDepositMint(refreshKey: number): DepositMintState {
   const registry = useServiceRegistry()
+  const nostrPrivkey = useAppStore((s) => s.nostrPrivkey)
   const [state, setState] = useState<DepositMintState>({ status: 'loading' })
   useEffect(() => {
     // registry is stable for the app's lifetime (bootstrap sets it once), so
     // this effect runs exactly once — no need to reset to the already-initial
     // 'loading' state here.
     let cancelled = false
-    registry.username
-      .getDefaults()
+    const fetchDeposit = nostrPrivkey
+      ? registry.paymentAlias.getAlias(nostrPrivkey)
+      : Promise.reject(new Error('no privkey'))
+    fetchDeposit
       .then((result) => {
         if (cancelled) return
         setState(
@@ -62,11 +67,11 @@ function useDepositMint(): DepositMintState {
     return () => {
       cancelled = true
     }
-  }, [registry])
+  }, [registry, nostrPrivkey, refreshKey])
   return state
 }
 
-export function MyAddressScreen({ onBack, onOpenSettings }: MyAddressScreenProps) {
+export function MyAddressScreen({ onBack, onOpenSettings, onChangeUsername }: MyAddressScreenProps) {
   const { t } = useTranslation()
   const lightningAddress = useAppStore((s) => s.settings.lightningAddress) ?? null
   const nostrPubkey = useAppStore((s) => s.nostrPubkey)
@@ -91,7 +96,13 @@ export function MyAddressScreen({ onBack, onOpenSettings }: MyAddressScreenProps
   const lightningComingSoon = tab === 'lightning' && !ENABLE_LIGHTNING_ADDRESS_SETTINGS
   const value = lightningComingSoon ? null : tab === 'lightning' ? lightningAddress : npub
 
-  const deposit = useDepositMint()
+  const nostrPrivkey = useAppStore((s) => s.nostrPrivkey)
+  const registry = useServiceRegistry()
+  const addToast = useAppStore((s) => s.addToast)
+  const [mintPickerOpen, setMintPickerOpen] = useState(false)
+  const [mintRefreshKey, setMintRefreshKey] = useState(0)
+
+  const deposit = useDepositMint(mintRefreshKey)
   const depositMintUrls = useMemo(
     () => (deposit.status === 'ready' ? [deposit.mintUrl] : []),
     [deposit],
@@ -104,6 +115,17 @@ export function MyAddressScreen({ onBack, onOpenSettings }: MyAddressScreenProps
 
   const handleCopy = useCallback(() => copy(value ?? ''), [value, copy])
   const handleShare = useCallback(() => share(value ?? ''), [value, share])
+
+  const handleChangeMint = useCallback(async (mintUrl: string) => {
+    if (!nostrPrivkey) return
+    const result = await registry.paymentAlias.setMint(nostrPrivkey, mintUrl)
+    if (result.ok) {
+      addToast({ type: 'success', message: t('settings.mintChanged') })
+      setMintRefreshKey((k) => k + 1)
+    } else {
+      addToast({ type: 'error', message: t('settings.mintChangeFailed') })
+    }
+  }, [nostrPrivkey, registry, addToast, t])
 
   return (
     <div className="h-full bg-background text-foreground flex flex-col pt-safe">
@@ -154,6 +176,22 @@ export function MyAddressScreen({ onBack, onOpenSettings }: MyAddressScreenProps
                   {t('receive.qr.share')}
                 </button>
               </div>
+
+              {/* Change address — routes to the username-change flow (lightning tab only) */}
+              {tab === 'lightning' && (
+                <Button
+                  variant="secondary"
+                  size="md"
+                  onClick={() => {
+                    hapticTap()
+                    onChangeUsername?.()
+                  }}
+                  className="w-full max-w-[360px] mt-4"
+                >
+                  <Pencil className="w-4 h-4 mr-2" />
+                  {t('common.change')}
+                </Button>
+              )}
             </>
           ) : (
             // Lightning tab without a registered address (npub is always derivable).
@@ -172,15 +210,27 @@ export function MyAddressScreen({ onBack, onOpenSettings }: MyAddressScreenProps
         {tab === 'lightning' && value && (
           <button
             type="button"
-            onClick={() => { hapticTap(); onOpenSettings() }}
+            onClick={() => {
+              hapticTap()
+              setMintPickerOpen(true)
+            }}
             className="mt-6 w-full max-w-[360px] flex items-center gap-2 rounded-2xl bg-foreground/[0.04] px-4 py-3 text-left active:bg-foreground/[0.07] transition-colors"
           >
             <span className="flex-1 text-caption text-foreground-muted">{depositCaption}</span>
-            <span className="shrink-0 text-caption font-medium text-foreground-muted">{t('myAddress.changeMint')}</span>
+            <span className="shrink-0 text-caption font-medium text-foreground-muted">{t('common.change')}</span>
             <ChevronRight className="w-4 h-4 shrink-0 text-foreground-muted" />
           </button>
         )}
       </div>
+
+      {/* Deposit-mint picker (npubcash preferred mint) */}
+      <MintSelectBottomSheet
+        isOpen={mintPickerOpen}
+        onClose={() => setMintPickerOpen(false)}
+        onSelect={handleChangeMint}
+        selectedMintUrl={deposit.status === 'ready' ? deposit.mintUrl : null}
+        allowEmpty
+      />
     </div>
   )
 }
