@@ -32,6 +32,7 @@ const storeState = {
   addToast: vi.fn(),
   settings: { lightningAddress: 'john@zappi.link' as string | null, mintAliases: {} },
   nostrPubkey: 'deadbeef',
+  nostrPrivkey: 'privkey-hex',
 }
 vi.mock('@/store', () => ({
   useAppStore: (selector: (s: typeof storeState) => unknown) => selector(storeState),
@@ -39,10 +40,10 @@ vi.mock('@/store', () => ({
 vi.mock('@/ui/hooks/use-crypto', () => ({
   useCrypto: () => ({ encodeNpub: () => 'npub1testxyz' }),
 }))
-const getDefaults = vi.fn()
+const getAlias = vi.fn()
 // registry must be a stable reference like the real context — a fresh object
 // every render becomes an effect re-run loop (see RelayManagementScreen.test.tsx).
-const stableRegistry = { username: { getDefaults } }
+const stableRegistry = { paymentAlias: { getAlias } }
 vi.mock('@/ui/hooks/use-service-registry', () => ({
   useServiceRegistry: () => stableRegistry,
 }))
@@ -62,8 +63,8 @@ describe('MyAddressScreen', () => {
   beforeEach(() => {
     flags.lightning = false
     storeState.settings.lightningAddress = 'john@zappi.link'
-    getDefaults.mockReset()
-    getDefaults.mockResolvedValue({ ok: true, value: { mintUrl: 'https://mint.a' } })
+    getAlias.mockReset()
+    getAlias.mockResolvedValue({ ok: true, value: { alias: 'john', domain: 'zappi.link', mintUrl: 'https://mint.a', lockQuote: false } })
   })
 
   it('opens on the npub — the handle that always exists', () => {
@@ -88,10 +89,10 @@ describe('MyAddressScreen', () => {
     await waitFor(() => expect(screen.getByText('myAddress.depositsTo:Lemonfizz')).toBeInTheDocument())
   })
 
-  it('falls back to the generic caption when getDefaults rejects', async () => {
+  it('falls back to the generic caption when getAlias rejects', async () => {
     flags.lightning = true
-    getDefaults.mockReset()
-    getDefaults.mockRejectedValue(new Error('offline'))
+    getAlias.mockReset()
+    getAlias.mockRejectedValue(new Error('offline'))
     render(<MyAddressScreen onBack={vi.fn()} onOpenSettings={vi.fn()} />)
     await selectLightningTab()
     await waitFor(() => expect(screen.getByText('myAddress.depositsToFallback')).toBeInTheDocument())
