@@ -966,13 +966,15 @@ export default {
   myAddress: {
     title: 'My address',
     comingSoon: 'Coming soon',
-    lightningTab: 'Lightning',
-    nostrTab: 'Nostr npub',
+    lightningTab: 'Lightning / NIP-05',
+    nostrTab: 'Nostr pubkey',
     noAddress: 'No receive address yet',
     createAddress: 'Create address',
-    depositsTo: 'Payments to this address arrive at {{mint}}',
     depositsToFallback: 'Payments arrive at your registered mint',
-    changeMint: 'Change in settings',
+    addressLabel: 'Address',
+    receiveMint: 'Receiving mint',
+    npubLabel: 'NOSTR NPUB',
+    nostrNotice: 'Nostr transfers currently work only between Zappi users. When you receive bitcoin via Nostr, the sender chooses the mint.',
   },
 
   // Mint Detail Screen

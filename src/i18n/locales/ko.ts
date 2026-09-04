@@ -972,13 +972,15 @@ export default {
   myAddress: {
     title: '내 주소',
     comingSoon: '준비중이에요',
-    lightningTab: '라이트닝',
-    nostrTab: '노스터 npub',
+    lightningTab: '라이트닝/NIP-05',
+    nostrTab: '노스터 공개키',
     noAddress: '아직 받기 주소가 없어요',
     createAddress: '주소 만들기',
-    depositsTo: '이 주소로 받으면 {{mint}}(으)로 들어와요',
     depositsToFallback: '주소에 등록된 민트로 들어와요',
-    changeMint: '설정에서 변경',
+    addressLabel: '사용자 주소',
+    receiveMint: '받을 민트',
+    npubLabel: 'NOSTR NPUB',
+    nostrNotice: '현재 노스터로 주고 받기는 째피 사용자 간에만 사용할 수 있어요. 노스터를 통해 받는 비트코인은 보내는 사람이 민트를 지정해요.',
   },
 
   // Mint Detail Screen

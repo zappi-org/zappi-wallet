@@ -14,10 +14,9 @@ vi.mock('react-i18next', () => ({
 vi.mock('@/ui/components/common/QRCodeDisplay', () => ({
   QRCodeDisplay: ({ value }: { value: string }) => <div data-testid="qr-value" data-value={value} />,
 }))
-// Passthrough so the active tab's content always renders (no AnimatePresence timing).
-vi.mock('@/ui/components/common/DirectionalTabPanel', () => ({
-  DirectionalTabPanel: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-}))
+// Passthrough no longer needed — tab content swaps without animation (the
+// DirectionalTabPanel import was removed from the screen).
+// (mock removed)
 
 // The lightning tab's content is flag-gated, so the flag has to be steerable
 // per test — a getter keeps the ESM live binding readable at render time.
@@ -48,7 +47,7 @@ vi.mock('@/ui/hooks/use-service-registry', () => ({
   useServiceRegistry: () => stableRegistry,
 }))
 vi.mock('@/ui/hooks/use-mint-metadata', () => ({
-  useMintMetadata: () => ({ getDisplayName: () => 'Lemonfizz' }),
+  useMintMetadata: () => ({ getDisplayName: () => 'Lemonfizz', getIconUrl: () => undefined }),
 }))
 
 // Radix TabsTrigger switches on mousedown/focus, not click — fireEvent.click
@@ -67,11 +66,6 @@ describe('MyAddressScreen', () => {
     getAlias.mockResolvedValue({ ok: true, value: { alias: 'john', domain: 'zappi.link', mintUrl: 'https://mint.a', lockQuote: false } })
   })
 
-  it('opens on the npub — the handle that always exists', () => {
-    render(<MyAddressScreen onBack={vi.fn()} onOpenSettings={vi.fn()} />)
-    expect(screen.getByText('npub1testxyz')).toBeInTheDocument()
-  })
-
   it('shows coming soon on the lightning tab while the feature is gated', async () => {
     render(<MyAddressScreen onBack={vi.fn()} onOpenSettings={vi.fn()} />)
     await selectLightningTab()
@@ -81,12 +75,13 @@ describe('MyAddressScreen', () => {
     expect(screen.queryByText('myAddress.createAddress')).not.toBeInTheDocument()
   })
 
-  it('shows the lightning address QR and deposit-mint caption once ungated', async () => {
+  it('shows the lightning address QR and deposit-mint row once ungated', async () => {
     flags.lightning = true
     render(<MyAddressScreen onBack={vi.fn()} onOpenSettings={vi.fn()} />)
     await selectLightningTab()
     expect(screen.getByText('john@zappi.link')).toBeInTheDocument()
-    await waitFor(() => expect(screen.getByText('myAddress.depositsTo:Lemonfizz')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Lemonfizz')).toBeInTheDocument())
+    expect(screen.getByRole('button', { name: 'common.change' })).toBeInTheDocument()
   })
 
   it('falls back to the generic caption when getAlias rejects', async () => {

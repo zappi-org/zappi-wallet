@@ -968,13 +968,15 @@ export default {
   myAddress: {
     title: '自分のアドレス',
     comingSoon: '準備中です',
-    lightningTab: 'ライトニング',
-    nostrTab: 'Nostr npub',
+    lightningTab: 'ライトニング/NIP-05',
+    nostrTab: 'Nostr公開鍵',
     noAddress: '受取アドレスがまだありません',
     createAddress: 'アドレスを作成',
-    depositsTo: 'このアドレスへの受取は{{mint}}に入ります',
     depositsToFallback: '登録済みのミントに入ります',
-    changeMint: '設定で変更',
+    addressLabel: 'ユーザーアドレス',
+    receiveMint: '受取ミント',
+    npubLabel: 'NOSTR NPUB',
+    nostrNotice: 'Nostrでのやり取りは現在、Zappiユーザー間のみ利用できます。Nostrでビットコインを受け取る場合、ミントは送信者が指定します。',
   },
 
   // Mint Detail Screen

@@ -970,13 +970,15 @@ export default {
   myAddress: {
     title: 'Mi dirección',
     comingSoon: 'Muy pronto',
-    lightningTab: 'Lightning',
-    nostrTab: 'Npub de Nostr',
+    lightningTab: 'Lightning / NIP-05',
+    nostrTab: 'Clave pública Nostr',
     noAddress: 'Aún no tienes dirección',
     createAddress: 'Crear dirección',
-    depositsTo: 'Los pagos a esta dirección llegan a {{mint}}',
     depositsToFallback: 'Los pagos llegan a tu mint registrado',
-    changeMint: 'Cambiar en ajustes',
+    addressLabel: 'Tu dirección',
+    receiveMint: 'Mint de recepción',
+    npubLabel: 'NOSTR NPUB',
+    nostrNotice: 'Los intercambios por Nostr solo funcionan entre usuarios de Zappi. Al recibir bitcoin por Nostr, el remitente elige el mint.',
   },
 
   // Mint Detail Screen

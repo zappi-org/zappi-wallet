@@ -970,13 +970,15 @@ export default {
   myAddress: {
     title: 'Alamat saya',
     comingSoon: 'Segera hadir',
-    lightningTab: 'Lightning',
-    nostrTab: 'Npub Nostr',
+    lightningTab: 'Lightning / NIP-05',
+    nostrTab: 'Kunci publik Nostr',
     noAddress: 'Belum ada alamat terima',
     createAddress: 'Buat alamat',
-    depositsTo: 'Pembayaran ke alamat ini masuk ke {{mint}}',
     depositsToFallback: 'Pembayaran masuk ke mint terdaftar Anda',
-    changeMint: 'Ubah di pengaturan',
+    addressLabel: 'Alamat pengguna',
+    receiveMint: 'Mint penerimaan',
+    npubLabel: 'NOSTR NPUB',
+    nostrNotice: 'Transfer Nostr saat ini hanya bisa digunakan antar pengguna Zappi. Saat menerima bitcoin via Nostr, pengirim yang menentukan mint.',
   },
 
   // Mint Detail Screen
