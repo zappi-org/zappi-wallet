@@ -129,10 +129,11 @@ export function MyAddressScreen({ onBack, onSaveSettings }: MyAddressScreenProps
   const addToast = useAppStore((s) => s.addToast)
   const [mintPickerOpen, setMintPickerOpen] = useState(false)
   const [mintRefreshKey, setMintRefreshKey] = useState(0)
-  // ponytail: username sheet renders in-place over this page (MainApp's
-  // onChangeUsername navigation swapped the whole screen — sheet appeared on a
-  // blank page instead of over the address card). Same pattern as the mint picker.
+  // ponytail: sheet opens in-place over this page (MainApp's old onChangeUsername
+  // navigation swapped the whole screen, so the sheet appeared on a blank page).
   const [usernameSheetOpen, setUsernameSheetOpen] = useState(false)
+  // Remount per open: input inits from the (possibly changed) current address.
+  const [usernameSheetOpenCount, setUsernameSheetOpenCount] = useState(0)
 
   const deposit = useDepositMint(mintRefreshKey, onSaveSettings)
   const depositMintUrls = useMemo(
@@ -276,7 +277,7 @@ export function MyAddressScreen({ onBack, onSaveSettings }: MyAddressScreenProps
                         <p className="min-w-0 break-all text-subtitle font-extrabold">{lightningAddress}</p>
                         <button
                           type="button"
-                          onClick={() => { hapticTap(); setUsernameSheetOpen(true) }}
+                          onClick={() => { hapticTap(); setUsernameSheetOpen(true); setUsernameSheetOpenCount((c) => c + 1) }}
                           className="flex h-[26px] w-[50px] shrink-0 items-center justify-center gap-1 rounded-[7px] border border-neutral-300 bg-background-card text-[9px] text-foreground active:scale-95 motion-reduce:active:scale-100 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
                         >
                           <Pencil className="h-3 w-3" />
@@ -372,6 +373,7 @@ export function MyAddressScreen({ onBack, onSaveSettings }: MyAddressScreenProps
           always provided by MainApp; guarded for the prop's optionality). */}
       {onSaveSettings && (
         <ChangeUsernameSheet
+          key={usernameSheetOpenCount}
           isOpen={usernameSheetOpen}
           onClose={() => setUsernameSheetOpen(false)}
           onSaveSettings={onSaveSettings}
