@@ -977,7 +977,7 @@ export default {
     lightningTab: '라이트닝/NIP-05',
     nostrTab: '노스터 공개키',
     noAddress: '아직 받기 주소가 없어요',
-    createAddress: '주소 만들기',
+    createAddress: '등록하기',
     depositsToFallback: '주소에 등록된 민트로 들어와요',
     addressLabel: '사용자 주소',
     receiveMint: '받을 민트',

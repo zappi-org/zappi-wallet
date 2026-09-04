@@ -22,11 +22,13 @@ import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { hapticTap } from '@/ui/utils/haptic'
 import { ENABLE_LIGHTNING_ADDRESS_SETTINGS } from '@/ui/config/feature-flags'
+import { NPUBCASH_URL, NPUBCASH_DOMAIN } from '@/core/constants'
 
 export interface MyAddressScreenProps {
   onBack: () => void
-  onOpenSettings: () => void
   onChangeUsername?: () => void
+  /** Persists settings (store + repo) — MainApp's handleSaveSettings. */
+  onSaveSettings?: (settings: Record<string, unknown>) => Promise<void>
 }
 
 type AddressTab = 'lightning' | 'nostr'
@@ -42,7 +44,10 @@ type DepositMintState =
   | { status: 'ready'; mintUrl: string }
   | { status: 'error' }
 
-function useDepositMint(refreshKey: number): DepositMintState {
+function useDepositMint(
+  refreshKey: number,
+  onSaveSettings?: (settings: Record<string, unknown>) => Promise<void>,
+): DepositMintState {
   const registry = useServiceRegistry()
   const nostrPrivkey = useAppStore((s) => s.nostrPrivkey)
   const [state, setState] = useState<DepositMintState>({ status: 'loading' })
@@ -62,6 +67,16 @@ function useDepositMint(refreshKey: number): DepositMintState {
             ? { status: 'ready', mintUrl: result.value.mintUrl }
             : { status: 'error' },
         )
+        // Auto-restore: npubcash knows our alias but local settings lost it
+        // (the deleted settings auto-check did the same). Read live store to
+        // avoid a dep-loop; the restore sets the address, so the next fetch
+        // finds it and stays quiet.
+        if (result.ok && result.value.alias && !useAppStore.getState().settings.lightningAddress) {
+          onSaveSettings?.({
+            lightningAddress: `${result.value.alias}@${result.value.domain}`,
+            npubcashUrl: NPUBCASH_URL,
+          })
+        }
       })
       .catch(() => {
         if (!cancelled) setState({ status: 'error' })
@@ -69,13 +84,13 @@ function useDepositMint(refreshKey: number): DepositMintState {
     return () => {
       cancelled = true
     }
-  }, [registry, nostrPrivkey, refreshKey])
+  }, [registry, nostrPrivkey, refreshKey, onSaveSettings])
   return state
 }
 
 const TABS: AddressTab[] = ['lightning', 'nostr']
 
-export function MyAddressScreen({ onBack, onOpenSettings, onChangeUsername }: MyAddressScreenProps) {
+export function MyAddressScreen({ onBack, onChangeUsername, onSaveSettings }: MyAddressScreenProps) {
   const { t } = useTranslation()
   const lightningAddress = useAppStore((s) => s.settings.lightningAddress) ?? null
   const nostrPubkey = useAppStore((s) => s.nostrPubkey)
@@ -115,12 +130,39 @@ export function MyAddressScreen({ onBack, onOpenSettings, onChangeUsername }: My
   const [mintPickerOpen, setMintPickerOpen] = useState(false)
   const [mintRefreshKey, setMintRefreshKey] = useState(0)
 
-  const deposit = useDepositMint(mintRefreshKey)
+  const deposit = useDepositMint(mintRefreshKey, onSaveSettings)
   const depositMintUrls = useMemo(
     () => (deposit.status === 'ready' ? [deposit.mintUrl] : []),
     [deposit],
   )
   const { getDisplayName, getIconUrl } = useMintMetadata(depositMintUrls)
+
+  // npub → lightning address registration: the npubcash server already has an
+  // alias for this pubkey, so this is just a lookup + persist. The NUT-12
+  // (kind 10019) publish is NOT needed here — it is republished on onboarding
+  // and whenever mints/relays change (use-mint-handlers).
+  const [isRegistering, setIsRegistering] = useState(false)
+  const handleRegister = useCallback(async () => {
+    if (!ENABLE_LIGHTNING_ADDRESS_SETTINGS || !nostrPrivkey) return
+    setIsRegistering(true)
+    try {
+      const result = await registry.paymentAlias.getCurrentAlias(nostrPrivkey)
+      if (result.ok) {
+        await onSaveSettings?.({
+          lightningAddress: `${result.value.alias}@${NPUBCASH_DOMAIN}`,
+          npubcashUrl: NPUBCASH_URL,
+        })
+        addToast({ type: 'success', message: t('settings.lightningAddressRegistered') })
+        setMintRefreshKey((k) => k + 1)
+      } else {
+        addToast({ type: 'error', message: t('settings.lightningAddressRegistrationFailed') })
+      }
+    } catch {
+      addToast({ type: 'error', message: t('settings.lightningAddressRegistrationFailed') })
+    } finally {
+      setIsRegistering(false)
+    }
+  }, [nostrPrivkey, registry, onSaveSettings, addToast, t])
 
   const handleCopy = useCallback(() => copy(value ?? ''), [value, copy])
   const handleShare = useCallback(() => share(value ?? ''), [value, share])
@@ -186,7 +228,12 @@ export function MyAddressScreen({ onBack, onOpenSettings, onChangeUsername }: My
                       {lightningComingSoon ? t('myAddress.comingSoon') : t('myAddress.noAddress')}
                     </p>
                     {!lightningComingSoon && (
-                      <Button variant="secondary" size="md" onClick={() => { hapticTap(); onOpenSettings() }}>
+                      <Button
+                        variant="secondary"
+                        size="md"
+                        loading={isRegistering}
+                        onClick={() => { hapticTap(); handleRegister() }}
+                      >
                         {t('myAddress.createAddress')}
                       </Button>
                     )}

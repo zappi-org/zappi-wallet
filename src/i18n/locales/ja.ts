@@ -973,7 +973,7 @@ export default {
     lightningTab: 'ライトニング/NIP-05',
     nostrTab: 'Nostr公開鍵',
     noAddress: '受取アドレスがまだありません',
-    createAddress: 'アドレスを作成',
+    createAddress: '登録する',
     depositsToFallback: '登録済みのミントに入ります',
     addressLabel: 'ユーザーアドレス',
     receiveMint: '受取ミント',

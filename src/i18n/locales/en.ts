@@ -971,7 +971,7 @@ export default {
     lightningTab: 'Lightning / NIP-05',
     nostrTab: 'Nostr pubkey',
     noAddress: 'No receive address yet',
-    createAddress: 'Create address',
+    createAddress: 'Register',
     depositsToFallback: 'Payments arrive at your registered mint',
     addressLabel: 'Address',
     receiveMint: 'Receiving mint',

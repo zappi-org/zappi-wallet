@@ -975,7 +975,7 @@ export default {
     lightningTab: 'Lightning / NIP-05',
     nostrTab: 'Kunci publik Nostr',
     noAddress: 'Belum ada alamat terima',
-    createAddress: 'Buat alamat',
+    createAddress: 'Daftar',
     depositsToFallback: 'Pembayaran masuk ke mint terdaftar Anda',
     addressLabel: 'Alamat pengguna',
     receiveMint: 'Mint penerimaan',
