@@ -15,6 +15,7 @@ import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
 import { Button } from '@/ui/components/common/Button'
 import { MintIcon } from '@/ui/components/common/MintIcon'
 import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
+import { ChangeUsernameSheet } from '@/ui/screens/Settings/ChangeUsernameSheet'
 import { useAppStore } from '@/store'
 import { useCopyFeedback } from '@/ui/hooks/use-copy-feedback'
 import { useCrypto } from '@/ui/hooks/use-crypto'
@@ -26,7 +27,6 @@ import { NPUBCASH_URL, NPUBCASH_DOMAIN } from '@/core/constants'
 
 export interface MyAddressScreenProps {
   onBack: () => void
-  onChangeUsername?: () => void
   /** Persists settings (store + repo) — MainApp's handleSaveSettings. */
   onSaveSettings?: (settings: Record<string, unknown>) => Promise<void>
 }
@@ -90,7 +90,7 @@ function useDepositMint(
 
 const TABS: AddressTab[] = ['lightning', 'nostr']
 
-export function MyAddressScreen({ onBack, onChangeUsername, onSaveSettings }: MyAddressScreenProps) {
+export function MyAddressScreen({ onBack, onSaveSettings }: MyAddressScreenProps) {
   const { t } = useTranslation()
   const lightningAddress = useAppStore((s) => s.settings.lightningAddress) ?? null
   const nostrPubkey = useAppStore((s) => s.nostrPubkey)
@@ -129,6 +129,10 @@ export function MyAddressScreen({ onBack, onChangeUsername, onSaveSettings }: My
   const addToast = useAppStore((s) => s.addToast)
   const [mintPickerOpen, setMintPickerOpen] = useState(false)
   const [mintRefreshKey, setMintRefreshKey] = useState(0)
+  // ponytail: username sheet renders in-place over this page (MainApp's
+  // onChangeUsername navigation swapped the whole screen — sheet appeared on a
+  // blank page instead of over the address card). Same pattern as the mint picker.
+  const [usernameSheetOpen, setUsernameSheetOpen] = useState(false)
 
   const deposit = useDepositMint(mintRefreshKey, onSaveSettings)
   const depositMintUrls = useMemo(
@@ -272,7 +276,7 @@ export function MyAddressScreen({ onBack, onChangeUsername, onSaveSettings }: My
                         <p className="min-w-0 break-all text-subtitle font-extrabold">{lightningAddress}</p>
                         <button
                           type="button"
-                          onClick={() => { hapticTap(); onChangeUsername?.() }}
+                          onClick={() => { hapticTap(); setUsernameSheetOpen(true) }}
                           className="flex h-[26px] w-[50px] shrink-0 items-center justify-center gap-1 rounded-[7px] border border-neutral-300 bg-background-card text-[9px] text-foreground active:scale-95 motion-reduce:active:scale-100 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
                         >
                           <Pencil className="h-3 w-3" />
@@ -363,6 +367,16 @@ export function MyAddressScreen({ onBack, onChangeUsername, onSaveSettings }: My
         selectedMintUrl={deposit.status === 'ready' ? deposit.mintUrl : null}
         allowEmpty
       />
+
+      {/* Username-change sheet in-place over this page (onSaveSettings is
+          always provided by MainApp; guarded for the prop's optionality). */}
+      {onSaveSettings && (
+        <ChangeUsernameSheet
+          isOpen={usernameSheetOpen}
+          onClose={() => setUsernameSheetOpen(false)}
+          onSaveSettings={onSaveSettings}
+        />
+      )}
     </div>
   )
 }

@@ -1242,10 +1242,6 @@ export default function MainApp() {
     'my-address': () => (
       <MyAddressScreen
         onBack={handleBack}
-        onChangeUsername={() => {
-          setPreviousScreen('my-address')
-          setCurrentScreen('username-change')
-        }}
         onSaveSettings={handleSaveSettings}
       />
     ),

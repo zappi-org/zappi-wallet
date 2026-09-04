@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import { ArrowRight, Zap, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { motion, AnimatePresence, type PanInfo } from 'motion/react'
+import { BottomSheet } from '@/ui/components/common/BottomSheet'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
 import { useAppStore } from '@/store'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
@@ -106,59 +106,21 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings }: ChangeU
     setStep('input')
   }, [])
 
-  const handleDragEnd = useCallback(
-    (_: unknown, info: PanInfo) => {
-      if (step === 'paying') return
-      if (info.offset.y > 100 || info.velocity.y > 500) {
-        onClose()
-      }
-    },
-    [step, onClose],
-  )
-
   const currentAddress = settings.lightningAddress || '-'
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 0.5 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black z-[70]"
-            onClick={step === 'paying' ? undefined : onClose}
-          />
-
-          <motion.div
-            role="dialog"
-            aria-modal="true"
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            drag="y"
-            dragConstraints={{ top: 0, bottom: 0 }}
-            dragElastic={{ top: 0, bottom: 0.6 }}
-            onDragEnd={handleDragEnd}
-            transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="fixed bottom-0 left-0 right-0 rounded-t-3xl z-[80] max-h-[85vh] bg-background-elevated"
-          >
-            <div className="flex justify-center py-2.5 cursor-grab active:cursor-grabbing touch-none">
-              <div className="w-10 h-1 rounded-full bg-foreground/20" />
-            </div>
-
-            <div className="px-5 pb-1">
-              <h3 className="text-caption font-semibold text-foreground text-center">
-                {t('settings.changeUsername')}
-              </h3>
-            </div>
-
-            <div
-              className="px-5"
-              style={{ paddingBottom: 'var(--app-bottom-padding)' }}
-            >
-              {step === 'input' || step === 'checking' ? (
-                <div className="pt-3">
+    <BottomSheet
+      isOpen={isOpen}
+      onClose={onClose}
+      title={t('settings.changeUsername')}
+      // Shared sheet: backdrop and panel animate on one curve, so opening it
+      // reads as a sheet opening — not a stray fade over the live page.
+      // (The old hand-rolled motion sheet's mismatched transitions looked like
+      // the MyAddress screen fading in underneath.)
+      dismissible={step !== 'paying'}
+    >
+      {step === 'input' || step === 'checking' ? (
+        <div className="px-5 pt-3">
                   <div className="flex items-center justify-center gap-3 text-caption mb-5">
                     <div className="flex flex-col items-center">
                       <span className="text-foreground-muted">{t('settings.currentAddress')}</span>
@@ -229,7 +191,7 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings }: ChangeU
                   </div>
                 </div>
               ) : step === 'price' || step === 'paying' ? (
-                <div className="pt-3">
+                <div className="px-5 pt-3">
                   <div className="flex items-center justify-center gap-3 text-caption">
                     <div className="flex flex-col items-center">
                       <span className="text-foreground-muted">{t('settings.currentAddress')}</span>
@@ -287,11 +249,7 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings }: ChangeU
                   </div>
                 </div>
               ) : null}
-            </div>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
+    </BottomSheet>
   )
 }
 
