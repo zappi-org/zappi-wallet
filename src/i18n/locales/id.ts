@@ -223,6 +223,8 @@ export default {
 
     // Profile
     profile: 'Profil',
+    myAddress: 'Alamat saya',
+    myAddressDesc: 'Lihat alamat Lightning dan Nostr Anda',
     profileDesc: 'Nostr, Alamat Lightning, Analitik',
     profileDescHiddenLightning: 'Nostr, Analitik',
     customerSupport: 'Dukungan pelanggan',

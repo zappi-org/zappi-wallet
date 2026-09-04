@@ -227,6 +227,8 @@ export default {
 
     // Profile
     profile: '프로필',
+    myAddress: '내 주소',
+    myAddressDesc: '라이트닝 및 노스터 주소 보기',
     profileDesc: 'Nostr, 라이트닝 주소, 분석',
     profileDescHiddenLightning: 'Nostr, 분석',
     customerSupport: '고객지원',

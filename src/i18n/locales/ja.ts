@@ -223,6 +223,8 @@ export default {
 
     // Profile
     profile: 'プロフィール',
+    myAddress: '自分のアドレス',
+    myAddressDesc: 'ライトニング・Nostrアドレスを表示',
     profileDesc: 'Nostr、ライトニングアドレス、分析',
     profileDescHiddenLightning: 'Nostr、分析',
     customerSupport: 'カスタマーサポート',

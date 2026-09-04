@@ -223,6 +223,8 @@ export default {
 
     // Profile
     profile: 'Perfil',
+    myAddress: 'Mi dirección',
+    myAddressDesc: 'Ver tus direcciones Lightning y Nostr',
     profileDesc: 'Nostr, Dirección Lightning, Análisis',
     profileDescHiddenLightning: 'Nostr, Análisis',
     customerSupport: 'Atención al cliente',
