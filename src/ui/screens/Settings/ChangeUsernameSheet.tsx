@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import { ArrowRight, Zap, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { BottomSheet } from '@/ui/components/common/BottomSheet'
+import { useKeyboardInset } from '@/ui/hooks/use-keyboard-inset'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
 import { useAppStore } from '@/store'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
@@ -23,6 +24,10 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings }: ChangeU
   const { t } = useTranslation()
   const formatSats = useFormatSats()
   const formatFiat = useFormatFiat()
+  // Lift the sheet above the keyboard when the user focuses the username input:
+  // a bottom-anchored sheet leaves it behind the keyboard on iOS (viewport-only
+  // resize), which makes Safari pan the page. Same pattern as MintSelectBottomSheet.
+  const keyboardInset = useKeyboardInset()
 
   const settings = useAppStore((s) => s.settings)
   const nostrPrivkey = useAppStore((s) => s.nostrPrivkey)
@@ -113,6 +118,7 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings }: ChangeU
       isOpen={isOpen}
       onClose={onClose}
       title={t('settings.changeUsername')}
+      bottomOffset={keyboardInset}
       // Shared sheet: backdrop and panel animate on one curve, so opening it
       // reads as a sheet opening — not a stray fade over the live page.
       // (The old hand-rolled motion sheet's mismatched transitions looked like
@@ -140,7 +146,6 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings }: ChangeU
                       placeholder="username"
                       className="flex-1 min-w-0 bg-transparent py-2.5 text-subtitle font-medium text-foreground placeholder:text-foreground-muted focus:outline-none"
                       maxLength={20}
-                      autoFocus
                       disabled={step === 'checking'}
                     />
                     <span className="text-body text-foreground-muted shrink-0">@{NPUBCASH_DOMAIN}</span>
