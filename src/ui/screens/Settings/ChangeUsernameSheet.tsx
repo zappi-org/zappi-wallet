@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ArrowRight, Zap, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
+import { useReducedMotion } from 'motion/react'
+import { Zap, CheckCircle2, XCircle, Loader2, Info } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { BottomSheet } from '@/ui/components/common/BottomSheet'
 import { useKeyboardInset } from '@/ui/hooks/use-keyboard-inset'
-import { useFormatSats, useFormatFiat } from '@/utils/format'
+import { useFormatSats } from '@/utils/format'
 import { useAppStore } from '@/store'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import { NPUBCASH_DOMAIN } from '@/core/constants'
@@ -13,9 +14,13 @@ import type { AliasPriceInfo } from '@/core/ports/driving/payment-alias.usecase'
 const USERNAME_REGEX = /^[a-z0-9]{3,20}$/
 /** Availability re-check after the user stops typing. */
 const DEBOUNCE_MS = 400
+/** Paid → success card (spec: success arrives 1-2s after payment completes). */
+const SUCCESS_DELAY_MS = 1500
+/** Ghost-load the address/fee fields this long on confirm-card entry (spec). */
+const GHOST_MS = 1000
 const TITLE_ID = 'change-username-title'
 
-type SheetStep = 'input' | 'checking' | 'price' | 'paying'
+type SheetStep = 'input' | 'checking' | 'confirm' | 'paying' | 'success'
 
 /**
  * Inline availability of the typed username. 'idle' is the standing rule hint
@@ -40,7 +45,7 @@ export interface ChangeUsernameSheetProps {
 export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings }: ChangeUsernameSheetProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
-  const formatFiat = useFormatFiat()
+  const reduceMotion = useReducedMotion()
   // Lift the sheet above the keyboard (iOS viewport-only resize hides a
   // bottom-anchored sheet, so Safari pans the page). Same as MintSelectBottomSheet.
   const keyboardInset = useKeyboardInset()
@@ -56,13 +61,23 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings }: ChangeU
   // Mount-time init, not an effect: the parent remounts the sheet per open
   // (keyed by open count), so state starts fresh without the lint-rejected reset effect.
   const currentUsername = (settings.lightningAddress ?? '').split('@')[0]
-  const currentAddress = settings.lightningAddress || '-'
 
   const [step, setStep] = useState<SheetStep>('input')
   // Prefill from the CURRENT address; no select-all/focus on open.
   const [newUsername, setNewUsername] = useState(currentUsername)
   const [status, setStatus] = useState<UsernameStatus>({ kind: 'idle' })
   const [price, setPrice] = useState<AliasPriceInfo | null>(null)
+  // True once changeAlias returned OK — the paying view then shows a done mark
+  const [settled, setSettled] = useState(false)
+
+  // on entering the confirm card, the new-address / fee fields ghost-load
+  // reveal the real values. revealed is reset at each entry point below; this effect only runs the reveal timer.
+  const [revealed, setRevealed] = useState(false)
+  useEffect(() => {
+    if (step !== 'confirm') return
+    const timer = window.setTimeout(() => setRevealed(true), GHOST_MS)
+    return () => window.clearTimeout(timer)
+  }, [step])
 
   const debounceTimer = useRef<number | null>(null)
   // Monotonic id: a keystroke while a check is in flight drops the stale response.
@@ -96,7 +111,8 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings }: ChangeU
         setStatus({ kind: 'available', price: result.value })
         if (fromPress) {
           setPrice(result.value)
-          setStep('price')
+          setRevealed(false)
+          setStep('confirm')
         }
       } catch (error) {
         if (seq !== checkSeq.current) return
@@ -150,7 +166,8 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings }: ChangeU
     // skip the round-trip and go straight to the price step.
     if (status.kind === 'available') {
       setPrice(status.price)
-      setStep('price')
+      setRevealed(false)
+      setStep('confirm')
       return
     }
     void runCheck(newUsername, true)
@@ -159,12 +176,14 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings }: ChangeU
   const handleConfirm = useCallback(async () => {
     if (!nostrPrivkey) return
     setStep('paying')
+    setSettled(false)
     try {
       const result = await registry.paymentAlias.changeAlias(nostrPrivkey, newUsername, '')
       if (isErr(result)) {
         const msg = (result.error as { message?: string }).message ?? t('settings.usernameChangeFailed')
         addToast({ type: 'error', message: msg })
-        setStep('price')
+        setRevealed(false)
+        setStep('confirm')
         return
       }
 
@@ -173,14 +192,17 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings }: ChangeU
       await onSaveSettings({ ...settings, lightningAddress: fullAddress })
       triggerTxRefresh()
 
-      addToast({ type: 'success', message: t('settings.usernameChanged') })
-      onClose()
+      // Paid: the confirm view holds with a done mark for a beat (spec), then
+      // the success card replaces it. No success toast — the card says it.
+      setSettled(true)
+      window.setTimeout(() => setStep('success'), SUCCESS_DELAY_MS)
     } catch (error) {
       const message = error instanceof Error ? error.message : t('settings.usernameChangeFailed')
       addToast({ type: 'error', message })
-      setStep('price')
+      setRevealed(false)
+      setStep('confirm')
     }
-  }, [nostrPrivkey, newUsername, registry, addToast, updateSettings, onSaveSettings, settings, triggerTxRefresh, onClose, t])
+  }, [nostrPrivkey, newUsername, registry, addToast, updateSettings, onSaveSettings, settings, triggerTxRefresh, t])
 
   const handleBackToInput = useCallback(() => {
     setStep('input')
@@ -227,11 +249,13 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings }: ChangeU
         <div className="w-10 h-1 bg-foreground-subtle rounded-full" />
       </div>
 
-      <div className="flex items-center justify-center px-4 pb-3">
-        <h3 id={TITLE_ID} className="text-[13px] font-semibold text-foreground">
-          {t('settings.changeUsername')}
-        </h3>
-      </div>
+      {step !== 'success' && (
+        <div className="flex items-center justify-center px-4 pb-3">
+          <h3 id={TITLE_ID} className="text-[13px] font-semibold text-foreground">
+            {t(step === 'confirm' || step === 'paying' ? 'settings.changeConfirmTitle' : 'settings.changeUsername')}
+          </h3>
+        </div>
+      )}
       {step === 'input' || step === 'checking' ? (
         <div className="px-7.5 pt-3">
           <p className="text-body font-medium text-foreground-muted">{t('settings.usernameLabel')}</p>
@@ -278,42 +302,51 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings }: ChangeU
             </button>
           </div>
         </div>
-      ) : step === 'price' || step === 'paying' ? (
+      ) : step === 'confirm' || step === 'paying' ? (
         <div className="px-7.5 pt-3">
-          <div className="flex items-center justify-center gap-3 text-caption">
-            <div className="flex flex-col items-center">
-              <span className="text-foreground-muted">{t('settings.currentAddress')}</span>
-              <span className="font-medium text-foreground">{currentAddress}</span>
-            </div>
-            <ArrowRight className="w-4 h-4 text-foreground-muted" />
-            <div className="flex flex-col items-center">
-              <span className="text-foreground-muted">{t('settings.newUsername')}</span>
-              <span className="flex items-center gap-1 font-bold text-foreground">
-                <Zap className="w-4 h-4 text-brand" />
-                {newUsername}@{NPUBCASH_DOMAIN}
-              </span>
-            </div>
-          </div>
+          <p className="text-label font-medium text-foreground-muted">{t('settings.newAddressLabel')}</p>
+          <p className="mt-1 text-body font-medium text-foreground">
+            {revealed ? (
+              <>
+                {newUsername}
+                <span className="text-foreground-muted">@{NPUBCASH_DOMAIN}</span>
+              </>
+            ) : (
+              <span
+                role="status"
+                aria-label={t('common.loading')}
+                className={`inline-block h-4 w-36 rounded-md bg-foreground-muted/15 ${reduceMotion ? '' : 'animate-pulse'}`}
+              />
+            )}
+          </p>
 
-          <div className="rounded-xl bg-background px-4 py-5 mt-4">
-            <div className="text-center">
-              <span className="text-title-lg font-bold text-foreground">
-                {price ? formatSats(price.amount) : formatSats(0)}
-              </span>
-              {price && price.amount > 0 && (
-                <span className="block text-caption text-foreground-muted mt-1">
-                  {formatFiat(price.amount)}
-                </span>
+          <div className="mt-5">
+            <p className="text-label font-medium text-foreground-muted">{t('settings.changeFee')}</p>
+            <p className="mt-1 text-[13px] leading-4 font-bold text-foreground">
+              {revealed ? (
+                price ? formatSats(price.amount) : formatSats(0)
+              ) : (
+                <span
+                  role="status"
+                  aria-label={t('common.loading')}
+                  className={`inline-block h-4 w-16 rounded-md bg-foreground-muted/15 ${reduceMotion ? '' : 'animate-pulse'}`}
+                />
               )}
-            </div>
+            </p>
           </div>
 
-          <div className="mt-6 flex items-center justify-center gap-47.5">
+          <div className="mt-5 flex items-center gap-2">
+            <Info className="mt-0.5 h-3 w-3 shrink-0 text-foreground-muted" strokeWidth={1.5} aria-hidden />
+            <p className="text-label leading-4 text-foreground-muted">{t('settings.changeIrreversible')}</p>
+          </div>
+
+          {/* Same shape as the input step's pair: 취소 back to input, 결제 runs the paid change. */}
+          <div className="mt-6 flex gap-3 pb-1">
             <button
               type="button"
               onClick={handleBackToInput}
               disabled={step === 'paying'}
-              className="px-3 py-2.5 text-caption font-medium text-accent-danger disabled:opacity-50"
+              className="h-10 flex-1 rounded-[11px] border border-neutral-300/30 bg-background-card text-[11px] font-medium text-foreground-muted active:scale-[0.98] disabled:opacity-50 transition-transform"
             >
               {t('common.cancel')}
             </button>
@@ -321,19 +354,40 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings }: ChangeU
               type="button"
               onClick={handleConfirm}
               disabled={step === 'paying'}
-              className="flex items-center gap-2 px-6 py-2.5 rounded-[25px] bg-brand text-caption font-bold text-white active:scale-[0.98] disabled:opacity-60 transition-transform"
+              className="flex h-10 flex-1 items-center justify-center gap-2 rounded-[11px] bg-brand text-[11px] font-bold text-white active:scale-[0.98] disabled:opacity-60 transition-transform"
               style={{
                 boxShadow: '0 2px 1px 0 rgba(255,255,255,1), 0 2px 1px 0 rgba(0,0,0,0.1)',
               }}
             >
               {step === 'paying' ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+                settled ? (
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                ) : (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                )
               ) : (
-                <Zap className="w-4 h-4" strokeWidth={2} />
+                <Zap className="w-3.5 h-3.5" strokeWidth={2} />
               )}
-              <span>{step === 'paying' ? t('common.loading') : t('common.confirm')}</span>
+              <span>{step === 'paying' ? t('common.loading') : t('settings.pay')}</span>
             </button>
           </div>
+        </div>
+      ) : step === 'success' ? (
+        <div className="flex flex-col items-center px-7.5 pt-3 pb-1 text-center">
+          <CheckCircle2 className="h-7.5 w-7.5 text-accent-success" strokeWidth={1.6} />
+          <p className="mt-3 text-body font-medium text-foreground">{t('settings.changeDone')}</p>
+          <p className="mt-2 text-label text-foreground-muted">{t('settings.successAddressLabel')}</p>
+          <p className="mt-0.5 text-body text-foreground">
+            {newUsername}
+            <span className="text-foreground-muted">@{NPUBCASH_DOMAIN}</span>
+          </p>
+          <button
+            type="button"
+            onClick={onClose}
+            className="mt-6 h-10 w-full rounded-[11px] border border-neutral-300/30 bg-background-card text-[11px] font-medium text-foreground-muted active:scale-[0.98] transition-transform"
+          >
+            {t('common.close')}
+          </button>
         </div>
       ) : null}
     </BottomSheet>
