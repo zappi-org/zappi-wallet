@@ -65,6 +65,7 @@ const selectLightningTab = async () => {
 
 describe('MyAddressScreen', () => {
   beforeEach(() => {
+    localStorage.clear()
     flags.lightning = false
     storeState.settings.lightningAddress = 'john@zappi.link'
     getAlias.mockReset()
@@ -104,6 +105,9 @@ describe('MyAddressScreen', () => {
   it('missing address registers the npub via the npubcash alias', async () => {
     flags.lightning = true
     storeState.settings.lightningAddress = null
+    // Server genuinely has no alias — the create CTA path stays visible
+    // (the alias-restore path is covered by the address-display cases above).
+    getAlias.mockResolvedValue({ ok: true, value: { alias: null, domain: 'zappi.link', mintUrl: null, lockQuote: false } })
     const onSaveSettings = vi.fn(async () => {})
     render(<MyAddressScreen onBack={vi.fn()} onSaveSettings={onSaveSettings} />)
     await selectLightningTab()

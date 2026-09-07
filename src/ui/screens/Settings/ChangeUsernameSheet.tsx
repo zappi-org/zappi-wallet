@@ -67,11 +67,10 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings }: ChangeU
   const [newUsername, setNewUsername] = useState(currentUsername)
   const [status, setStatus] = useState<UsernameStatus>({ kind: 'idle' })
   const [price, setPrice] = useState<AliasPriceInfo | null>(null)
-  // True once changeAlias returned OK — the paying view then shows a done mark
+  // Payment OK — show a done mark in the pay button for the beat before success.
   const [settled, setSettled] = useState(false)
 
-  // on entering the confirm card, the new-address / fee fields ghost-load
-  // reveal the real values. revealed is reset at each entry point below; this effect only runs the reveal timer.
+  // Ghost-load the address/fee fields on confirm-card entry, then reveal.
   const [revealed, setRevealed] = useState(false)
   useEffect(() => {
     if (step !== 'confirm') return

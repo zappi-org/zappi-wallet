@@ -8,6 +8,7 @@
  * brand-600 underlay, perforated tear line between QR and address info).
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useReducedMotion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
 import { Pencil, Copy, Check, Share2, Info } from 'lucide-react'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
@@ -34,27 +35,53 @@ export interface MyAddressScreenProps {
 type AddressTab = 'lightning' | 'nostr'
 
 /**
- * The primary/deposit mint is bound to the username/zappi-link registration,
- * not stored locally, so it is fetched from the username usecase (same UI-layer
- * registry idiom as UsernameChangeScreen). Loading and failure both fall back
- * to the generic caption — no caching (YAGNI).
+ * Deposit mint + alias live on npubcash (username usecase). Hybrid: cache in
+ * localStorage for instant warm renders, fetch revalidates every entry.
  */
 type DepositMintState =
   | { status: 'loading' }
   | { status: 'ready'; mintUrl: string }
   | { status: 'error' }
 
+interface MyAddressCache {
+  alias?: string
+  mintUrl?: string
+  updatedAt: number
+}
+
+const MYADDRESS_CACHE_KEY = 'zappi-myaddress-cache'
+
+function readMyAddressCache(): MyAddressCache | null {
+  try {
+    const raw = localStorage.getItem(MYADDRESS_CACHE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as MyAddressCache
+    return parsed && (parsed.alias || parsed.mintUrl) ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+function writeMyAddressCache(cache: MyAddressCache): void {
+  try {
+    localStorage.setItem(MYADDRESS_CACHE_KEY, JSON.stringify(cache))
+  } catch {
+    // storage full/denied — the cache is a nicety, never fail the screen
+  }
+}
+
 function useDepositMint(
   refreshKey: number,
   onSaveSettings?: (settings: Record<string, unknown>) => Promise<void>,
-): DepositMintState {
+): { deposit: DepositMintState; cache: MyAddressCache | null } {
   const registry = useServiceRegistry()
   const nostrPrivkey = useAppStore((s) => s.nostrPrivkey)
-  const [state, setState] = useState<DepositMintState>({ status: 'loading' })
+  const [deposit, setDeposit] = useState<DepositMintState>({ status: 'loading' })
+  const [cache, setCache] = useState<MyAddressCache | null>(readMyAddressCache)
   useEffect(() => {
-    // registry is stable for the app's lifetime (bootstrap sets it once), so
-    // this effect runs exactly once — no need to reset to the already-initial
-    // 'loading' state here.
+    // registry is stable for the app's lifetime (bootstrap sets it once). On
+    // revalidation (refreshKey) the last state/cache stay on screen — no flash
+    // back to a loading placeholder.
     let cancelled = false
     const fetchDeposit = nostrPrivkey
       ? registry.paymentAlias.getAlias(nostrPrivkey)
@@ -62,30 +89,38 @@ function useDepositMint(
     fetchDeposit
       .then((result) => {
         if (cancelled) return
-        setState(
-          result.ok && result.value.mintUrl
-            ? { status: 'ready', mintUrl: result.value.mintUrl }
-            : { status: 'error' },
-        )
-        // Auto-restore: npubcash knows our alias but local settings lost it
-        // (the deleted settings auto-check did the same). Read live store to
-        // avoid a dep-loop; the restore sets the address, so the next fetch
-        // finds it and stays quiet.
-        if (result.ok && result.value.alias && !useAppStore.getState().settings.lightningAddress) {
-          onSaveSettings?.({
-            lightningAddress: `${result.value.alias}@${result.value.domain}`,
-            npubcashUrl: NPUBCASH_URL,
-          })
+        if (result.ok) {
+          const next: MyAddressCache = {
+            alias: result.value.alias || undefined,
+            mintUrl: result.value.mintUrl || undefined,
+            updatedAt: Date.now(),
+          }
+          writeMyAddressCache(next)
+          setCache(next)
+          setDeposit(
+            result.value.mintUrl
+              ? { status: 'ready', mintUrl: result.value.mintUrl }
+              : { status: 'error' },
+          )
+          // Store lost the address? npubcash still knows the alias — restore it.
+          if (result.value.alias && !useAppStore.getState().settings.lightningAddress) {
+            onSaveSettings?.({
+              lightningAddress: `${result.value.alias}@${result.value.domain}`,
+              npubcashUrl: NPUBCASH_URL,
+            })
+          }
+        } else {
+          setDeposit({ status: 'error' })
         }
       })
       .catch(() => {
-        if (!cancelled) setState({ status: 'error' })
+        if (!cancelled) setDeposit({ status: 'error' })
       })
     return () => {
       cancelled = true
     }
   }, [registry, nostrPrivkey, refreshKey, onSaveSettings])
-  return state
+  return { deposit, cache }
 }
 
 const TABS: AddressTab[] = ['lightning', 'nostr']
@@ -118,12 +153,6 @@ export function MyAddressScreen({ onBack, onSaveSettings }: MyAddressScreenProps
     return [npub.slice(0, 5), ...groups]
   }, [npub])
 
-  // Lightning addresses can't be created while the settings flow is gated, so
-  // the tab announces itself as coming soon rather than offering a dead CTA.
-  // It stays selectable — half a two-segment control is not a control.
-  const lightningComingSoon = tab === 'lightning' && !ENABLE_LIGHTNING_ADDRESS_SETTINGS
-  const value = lightningComingSoon ? null : tab === 'lightning' ? lightningAddress : npub
-
   const nostrPrivkey = useAppStore((s) => s.nostrPrivkey)
   const registry = useServiceRegistry()
   const addToast = useAppStore((s) => s.addToast)
@@ -135,12 +164,21 @@ export function MyAddressScreen({ onBack, onSaveSettings }: MyAddressScreenProps
   // Remount per open: input inits from the (possibly changed) current address.
   const [usernameSheetOpenCount, setUsernameSheetOpenCount] = useState(0)
 
-  const deposit = useDepositMint(mintRefreshKey, onSaveSettings)
-  const depositMintUrls = useMemo(
-    () => (deposit.status === 'ready' ? [deposit.mintUrl] : []),
-    [deposit],
-  )
+  const reduceMotion = useReducedMotion()
+
+  // Cache-first, revalidate on every entry; cached alias fills in while the
+  // store's address is missing.
+  const { deposit, cache } = useDepositMint(mintRefreshKey, onSaveSettings)
+  const displayAddress = lightningAddress ?? (cache?.alias ?? null)
+  const mintUrl = cache?.mintUrl ?? (deposit.status === 'ready' ? deposit.mintUrl : null)
+  const depositMintUrls = useMemo(() => (mintUrl ? [mintUrl] : []), [mintUrl])
   const { getDisplayName, getIconUrl } = useMintMetadata(depositMintUrls)
+
+  // Lightning addresses can't be created while the settings flow is gated, so
+  // the tab announces itself as coming soon rather than offering a dead CTA.
+  // It stays selectable — half a two-segment control is not a control.
+  const lightningComingSoon = tab === 'lightning' && !ENABLE_LIGHTNING_ADDRESS_SETTINGS
+  const value = lightningComingSoon ? null : tab === 'lightning' ? displayAddress : npub
 
   // npub → lightning address registration: the npubcash server already has an
   // alias for this pubkey, so this is just a lookup + persist. The NUT-12
@@ -227,6 +265,11 @@ export function MyAddressScreen({ onBack, onSaveSettings }: MyAddressScreenProps
                   >
                     <QRCodeDisplay value={value} fill />
                   </button>
+                ) : tab === 'lightning' && !lightningComingSoon && deposit.status === 'loading' ? (
+                  <div className="flex min-h-60 flex-col items-center justify-center gap-4" aria-hidden>
+                    <span className={`h-44 w-44 rounded-2xl bg-foreground-muted/15 ${reduceMotion ? '' : 'animate-pulse'}`} />
+                    <span className={`h-3 w-36 rounded-md bg-foreground-muted/15 ${reduceMotion ? '' : 'animate-pulse'}`} />
+                  </div>
                 ) : (
                   <div className="flex min-h-60 flex-col items-center justify-center gap-4">
                     <p className="text-body text-foreground-muted">
@@ -267,14 +310,14 @@ export function MyAddressScreen({ onBack, onSaveSettings }: MyAddressScreenProps
 
               {/* Address info below the tear line */}
               {tab === 'lightning' ? (
-                lightningComingSoon ? null : !lightningAddress ? null : (
+                lightningComingSoon ? null : !displayAddress ? null : (
                   <>
                     {/* Address row — label above, address + edit button on one
                         line, 4px below the punch notches (3px dashes + 23px). */}
                     <div className="mt-[23px]">
                       <p className="text-label text-foreground-muted">{t('myAddress.addressLabel')}</p>
                       <div className="mt-1 flex items-center justify-between gap-3">
-                        <p className="min-w-0 break-all text-subtitle font-extrabold">{lightningAddress}</p>
+                        <p className="min-w-0 break-all text-subtitle font-extrabold">{displayAddress}</p>
                         <button
                           type="button"
                           onClick={() => { hapticTap(); setUsernameSheetOpen(true); setUsernameSheetOpenCount((c) => c + 1) }}
@@ -291,15 +334,15 @@ export function MyAddressScreen({ onBack, onSaveSettings }: MyAddressScreenProps
                         affordance lives next to the mint name. */}
                     <div className="mt-5">
                       <p className="text-label text-foreground-muted">{t('myAddress.receiveMint')}</p>
-                      {deposit.status === 'ready' ? (
+                      {mintUrl ? (
                         <div className="mt-2 flex items-center gap-2">
                           <MintIcon
                             circle
-                            iconUrl={getIconUrl(deposit.mintUrl)}
+                            iconUrl={getIconUrl(mintUrl)}
                             imgSize="w-4 h-4"
                             className="h-5 w-5 bg-neutral-200"
                           />
-                          <span className="text-caption font-medium">{getDisplayName(deposit.mintUrl)}</span>
+                          <span className="text-caption font-medium">{getDisplayName(mintUrl)}</span>
                           <button
                             type="button"
                             onClick={() => { hapticTap(); setMintPickerOpen(true) }}
@@ -307,6 +350,11 @@ export function MyAddressScreen({ onBack, onSaveSettings }: MyAddressScreenProps
                           >
                             {t('common.change')}
                           </button>
+                        </div>
+                      ) : deposit.status === 'loading' ? (
+                        <div className="mt-2 flex items-center gap-2" role="status" aria-label={t('common.loading')}>
+                          <span className={`h-5 w-5 shrink-0 rounded-full bg-foreground-muted/15 ${reduceMotion ? '' : 'animate-pulse'}`} />
+                          <span className={`h-4 w-28 rounded-md bg-foreground-muted/15 ${reduceMotion ? '' : 'animate-pulse'}`} />
                         </div>
                       ) : (
                         <p className="mt-2 text-caption text-foreground-muted">{t('myAddress.depositsToFallback')}</p>
@@ -365,7 +413,7 @@ export function MyAddressScreen({ onBack, onSaveSettings }: MyAddressScreenProps
         isOpen={mintPickerOpen}
         onClose={() => setMintPickerOpen(false)}
         onSelect={handleChangeMint}
-        selectedMintUrl={deposit.status === 'ready' ? deposit.mintUrl : null}
+        selectedMintUrl={mintUrl}
         allowEmpty
       />
 
