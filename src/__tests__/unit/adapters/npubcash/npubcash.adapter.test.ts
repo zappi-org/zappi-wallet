@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NpubcashAdapter } from '@/adapters/npubcash/npubcash.adapter'
-import { NpubcashApiError } from '@/core/errors/npubcash'
+import { NpubcashApiError, NpubcashUsernameTakenError } from '@/core/errors/npubcash'
 import type { NostrSigner } from '@/core/ports/driven/nostr-signer.port'
 
 const BASE_URL = 'http://localhost:8000'
@@ -186,6 +186,39 @@ describe('NpubcashAdapter', () => {
     const headers = (mockFetch.mock.calls[1][1] as RequestInit).headers as Record<string, string>
     expect(headers['X-Cashu']).toBeUndefined()
   })
+
+  it('purchaseAlias maps HTTP 409 to NpubcashUsernameTakenError (fallback path)', async () => {
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ error: false, data: { token: MOCK_JWT } }) })
+      .mockResolvedValueOnce({ ok: false, status: 409, json: async () => ({ error: true, message: 'username already taken (HTTP 409)' }) })
+
+    const session = await adapter.authenticate(signer)
+    if (!session.ok) throw new Error('expected auth success')
+    const result = await adapter.purchaseAlias(session.value, 'bob', '')
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.error).toBeInstanceOf(NpubcashUsernameTakenError)
+      expect((result.error as { code?: string }).code).toBe('NPUBCASH_USERNAME_TAKEN')
+    }
+  })
+
+  it('purchaseAlias maps HTTP 409 to NpubcashUsernameTakenError (token path)', async () => {
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ error: false, data: { token: MOCK_JWT } }) })
+      .mockResolvedValueOnce({ ok: false, status: 409, json: async () => ({ error: true, message: 'username already taken (HTTP 409)' }) })
+
+    const session = await adapter.authenticate(signer)
+    if (!session.ok) throw new Error('expected auth success')
+    const result = await adapter.purchaseAlias(session.value, 'bob', 'cashuToken123')
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.error).toBeInstanceOf(NpubcashUsernameTakenError)
+      expect((result.error as { code?: string }).code).toBe('NPUBCASH_USERNAME_TAKEN')
+    }
+  })
+
 
   // ── setPreferredMint ──
 

@@ -1,6 +1,6 @@
 import { Ok, Err, type Result } from '@/core/domain/result'
 import type { BaseError } from '@/core/errors/base'
-import { NpubcashAuthError, NpubcashApiError, NpubcashPaymentRequiredError } from '@/core/errors/npubcash'
+import { NpubcashAuthError, NpubcashApiError, NpubcashPaymentRequiredError, NpubcashUsernameTakenError } from '@/core/errors/npubcash'
 import type {
   AuthSession,
   AccountInfo,
@@ -82,70 +82,42 @@ export class NpubcashAdapter implements PaymentAliasProvider {
   }
 
   async purchaseAlias(session: AuthSession, alias: string, cashuToken: string): Promise<Result<AliasResult, BaseError>> {
-    if (cashuToken) {
-      return this.purchaseAliasWithToken(session, alias, cashuToken)
-    }
-    return this.purchaseAliasFallback(session, alias)
-  }
-
-  private async purchaseAliasWithToken(session: AuthSession, alias: string, cashuToken: string): Promise<Result<AliasResult, BaseError>> {
-    console.log('[npubcash] purchaseAliasWithToken:', { alias, tokenPrefix: cashuToken.slice(0, 10), tokenLen: cashuToken.length, baseUrl: this.baseUrl })
-    const result = await this.authFetch<NpubcashResponse<{ user: { name: string; pubkey: string } }>>(
-      session,
-      `${this.baseUrl}/api/v2/user/username`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Cashu': cashuToken,
-        },
-        body: JSON.stringify({ username: alias }),
-      },
-    )
-
-    if (!result.ok) {
-      console.log('[npubcash] purchaseAliasWithToken error:', { message: result.error.message, code: result.error.code })
-      return result
-    }
-
-    const body = result.value
-    if (body.error || !body.data?.user) {
-      return Err(new NpubcashApiError(400, body.message || 'Failed to purchase username'))
-    }
-
-    return Ok({
-      alias: body.data.user.name,
-      npub: body.data.user.pubkey,
-    })
-  }
-
-  private async purchaseAliasFallback(session: AuthSession, alias: string): Promise<Result<AliasResult, BaseError>> {
+    console.log('[npubcash] purchaseAlias:', { alias, tokenPrefix: cashuToken ? cashuToken.slice(0, 10) : null, tokenLen: cashuToken.length, baseUrl: this.baseUrl })
     try {
       const res = await fetch(`${this.baseUrl}/api/v2/user/username`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${session.token}`,
+          ...(cashuToken ? { 'X-Cashu': cashuToken } : {}),
         },
         body: JSON.stringify({ username: alias }),
       })
 
-      if (res.status === 402) {
-        const xCashu = res.headers.get('X-Cashu')
-        console.log('[npubcash] 402 received:', { hasXcashu: !!xCashu, xCashuPrefix: xCashu?.slice(0, 10), xCashuLen: xCashu?.length })
-        if (!xCashu) {
-          return Err(new NpubcashApiError(402, 'Payment required but no X-Cashu header'))
-        }
-        return Err(new NpubcashPaymentRequiredError(xCashu))
-      }
-
       if (!res.ok) {
-        let message = `Purchase failed (HTTP ${res.status})`
-        try {
-          const body = await res.json() as NpubcashResponse<unknown>
-          if (body.message) message = body.message
-        } catch { /* noop */ }
-        return Err(new NpubcashApiError(res.status, message))
+        switch (res.status) {
+          case 402: {
+            console.log('[npubcash] 402 received:', { hasXcashu: !!res.headers.get('X-Cashu'), xCashuPrefix: res.headers.get('X-Cashu')?.slice(0, 10), xCashuLen: res.headers.get('X-Cashu')?.length })
+            if (cashuToken) {
+              return Err(new NpubcashApiError(402, 'Payment required'))
+            }
+            const xCashu = res.headers.get('X-Cashu')
+            if (!xCashu) {
+              return Err(new NpubcashApiError(402, 'Payment required but no X-Cashu header'))
+            }
+            return Err(new NpubcashPaymentRequiredError(xCashu))
+          }
+          case 409:
+            return Err(new NpubcashUsernameTakenError())
+          default: {
+            let message = `Purchase failed (HTTP ${res.status})`
+            try {
+              const body = await res.json() as NpubcashResponse<unknown>
+              if (body.message) message = body.message
+            } catch { /* noop */ }
+            return Err(new NpubcashApiError(res.status, message))
+          }
+        }
       }
 
       const body = await res.json() as NpubcashResponse<{ user: { name: string; pubkey: string } }>
