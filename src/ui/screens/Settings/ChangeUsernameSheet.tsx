@@ -177,7 +177,7 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings }: ChangeU
     setStep('paying')
     setSettled(false)
     try {
-      const result = await registry.paymentAlias.changeAlias(nostrPrivkey, newUsername, '')
+      const result = await registry.paymentAlias.changeAlias(nostrPrivkey, newUsername, '', t('settings.changeUsername'))
       if (isErr(result)) {
         const msg = (result.error as { message?: string }).message ?? t('settings.usernameChangeFailed')
         addToast({ type: 'error', message: msg })

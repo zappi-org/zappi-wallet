@@ -75,7 +75,7 @@ export class PaymentAliasService implements PaymentAliasUseCase {
     return Ok({ amount: 0, unit: 'sat', mintUrl: '' })
   }
 
-  async changeAlias(privkey: string, alias: string, cashuToken: string): Promise<Result<AliasResult, BaseError>> {
+  async changeAlias(privkey: string, alias: string, cashuToken: string, memo?: string): Promise<Result<AliasResult, BaseError>> {
     const session = await this.authenticate(privkey)
     if (!session.ok) return session
 
@@ -101,7 +101,7 @@ export class PaymentAliasService implements PaymentAliasUseCase {
         amount: sat(parsed.amount),
         accountId: mintUrl,
         intent: 'request-pay',
-        memo: `username:${destination}`,
+        memo: memo ?? `username:${destination}`,
         metadata: {
           destination,
           domain: this.domain,
