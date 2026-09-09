@@ -35,12 +35,15 @@ import type { EventBus } from "@/core/events/event-bus";
 import type { KillSwitches } from "@/core/utils/kill-switch";
 import type { NostrGatewayAdapter } from "@/adapters/nostr/nostr-gateway";
 import type { NostrIncomingWatcher } from "@/adapters/nostr/nostr-incoming-watcher";
+import type { createNpubcashQuoteWatcher } from "./npubcash-quote-watcher";
 import type { DexieOperationMap } from "@/adapters/storage/dexie/dexie-operation-map";
 import type { DexieTransactionRepository } from "@/adapters/storage/dexie/dexie-transaction.repository";
 import type { DexieIncomingReviewQueue } from "@/adapters/storage/dexie/dexie-incoming-review-queue.store";
 import type { TransferLifecycleService } from "@/core/services/transfer-lifecycle.service";
 import type { MintHealthFacadeService } from "@/core/services/mint-health-facade.service";
 import type { ReclaimService } from "@/core/services/reclaim.service";
+
+type NpubcashQuoteWatcher = ReturnType<typeof createNpubcashQuoteWatcher>;
 
 export function createLifecycle(deps: {
   nostrPrivateKeyHex: string;
@@ -55,6 +58,7 @@ export function createLifecycle(deps: {
   getMintHealth: () => MintHealthFacadeService;
   getReclaim: () => ReclaimService;
   getNostrIncomingWatcher: () => NostrIncomingWatcher;
+  getNpubcashWatcher: () => NpubcashQuoteWatcher;
 }) {
   const {
     nostrPrivateKeyHex,
@@ -68,6 +72,7 @@ export function createLifecycle(deps: {
     getMintHealth,
     getReclaim,
     getNostrIncomingWatcher,
+    getNpubcashWatcher,
   } = deps;
 
   let netCounterFlusherStop: (() => void) | null = null;
@@ -250,6 +255,11 @@ export function createLifecycle(deps: {
     // Start the Nostr incoming watcher (once, after app unlock)
     getNostrIncomingWatcher().start(derivePublicKey(nostrPrivateKeyHex));
 
+    // Start the npubcash quote watcher (WS subscribe + missed-quote sync)
+    getNpubcashWatcher().start().catch((e) =>
+      console.error("[Bootstrap] npubcash watcher start failed:", e)
+    );
+
     // TLS: on app start, recover active transfers and start monitoring
     transferLifecycle.recoverTransfers().catch(console.error);
     wireTransferSweepSignals();
@@ -305,6 +315,12 @@ export function createLifecycle(deps: {
     // Restart the Nostr incoming watcher (the key may have changed)
     getNostrIncomingWatcher().stop();
     getNostrIncomingWatcher().start(derivePublicKey(nostrPrivateKeyHex));
+
+    // Restart the npubcash quote watcher
+    getNpubcashWatcher().stop();
+    getNpubcashWatcher().start().catch((e) =>
+      console.error("[Bootstrap] npubcash watcher start failed:", e)
+    );
   };
 
   const onPause = async () => {
@@ -322,6 +338,8 @@ export function createLifecycle(deps: {
     stopTransferMonitor();
     // Flush counters — persist at pause too, not just on pagehide
     void flushNetCounters();
+    // Stop the npubcash quote watcher
+    getNpubcashWatcher().stop();
   };
 
   // Clean up resources on registration swap (re-unlock) or lock — prevents the
@@ -342,6 +360,7 @@ export function createLifecycle(deps: {
       transferSweepWiringStop();
     }
     getNostrIncomingWatcher().stop();
+    getNpubcashWatcher().stop();
     void nostrGateway.disconnect();
   };
 

@@ -7,11 +7,9 @@ import { Modal, PinInput } from '../../components/common'
 import { useAppStore } from '@/store'
 import { satUnit } from '@/utils/format'
 import { formatMintHost } from '@/utils/url'
-import { ZAPPI_LINK_URL } from '@/core/constants'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import { cn } from '@/ui/lib/utils'
 import { Button } from '@/ui/components/common/Button'
-import { ENABLE_LIGHTNING_ADDRESS_SETTINGS } from '@/ui/config/feature-flags'
 import { useActivityStepNavigation } from '@/ui/navigation/activity-step-navigation'
 
 import { PinChangePage } from './pages/PinChangePage'
@@ -26,8 +24,6 @@ import {
 } from '@/ui/services/passkey'
 import { POSSettingPage } from './pages/POSSettingPage'
 import { PrivacySettingPage } from './pages/PrivacySettingPage'
-import { NpubDetailPage } from './pages/NpubDetailPage'
-import { LightningDetailPage } from './pages/LightningDetailPage'
 import { ProfileCategoryPage } from './pages/ProfileCategoryPage'
 import { PreferencesCategoryPage } from './pages/PreferencesCategoryPage'
 import { SecurityCategoryPage } from './pages/SecurityCategoryPage'
@@ -43,7 +39,7 @@ function normalizeRecoveryPhraseWords(value: string): string[] {
 
 export type SettingsPage =
   | 'category-profile' | 'category-preferences' | 'category-security' | 'category-wallet'
-  | 'language' | 'unitDisplay' | 'fiat' | 'pos' | 'privacy' | 'npubDetail' | 'lightningDetail' | 'support'
+  | 'language' | 'unitDisplay' | 'fiat' | 'pos' | 'privacy' | 'support'
   | 'diagnostics'
 
 export interface SettingsScreenProps {
@@ -55,7 +51,7 @@ export interface SettingsScreenProps {
   onSaveSettings: (settings: Record<string, unknown>) => Promise<void>
   onMintManagement?: () => void
   onRelayManagement?: () => void
-  onChangeUsername?: () => void
+  onOpenMyAddress?: () => void
   onTransfer?: () => void
   onAnalytics?: () => void
   onSubPageChange?: (hasSubPage: boolean) => void
@@ -70,7 +66,7 @@ export function SettingsScreen({
   onSaveSettings,
   onMintManagement,
   onRelayManagement,
-  onChangeUsername,
+  onOpenMyAddress,
   onAnalytics,
   onSubPageChange,
 }: SettingsScreenProps) {
@@ -80,7 +76,6 @@ export function SettingsScreen({
   const addToast = useAppStore((state) => state.addToast)
   const nostrPubkey = useAppStore((state) => state.nostrPubkey)
   const nostrPrivkey = useAppStore((state) => state.nostrPrivkey)
-  const p2pkPubkey = useAppStore((state) => state.p2pkPubkey)
   const registry = useServiceRegistry()
   const setBalance = useAppStore((state) => state.setBalance)
   const { stepDepth, pushStep, popStep } = useActivityStepNavigation()
@@ -109,9 +104,6 @@ export function SettingsScreen({
   const categoryPage = (pages.find(isCategoryPage) ?? null) as CategoryPage | null
   const detailPage = (pages.find((page) => !isCategoryPage(page)) ?? null) as Exclude<SettingsPage, CategoryPage> | null
   const hasSubPage = pages.length > 0
-
-  // Lightning address registration
-  const [isRegistering, setIsRegistering] = useState(false)
 
   // Backup modal
   const [showBackupModal, setShowBackupModal] = useState(false)
@@ -219,49 +211,6 @@ export function SettingsScreen({
     updateSettings(updates)
     await onSaveSettings({ ...settings, ...updates })
   }, [settings, updateSettings, onSaveSettings])
-
-  // Auto-check existing address on mount
-  useEffect(() => {
-    if (!ENABLE_LIGHTNING_ADDRESS_SETTINGS) return
-    if (!nostrPubkey || settings.lightningAddress) return
-    registry.username.getAddress(nostrPubkey).then((result) => {
-      if (result.ok && result.value) {
-        saveSettings({
-          lightningAddress: result.value.address,
-          zappiLinkApiUrl: ZAPPI_LINK_URL,
-        })
-      }
-    })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nostrPubkey])
-
-  const handleRegisterLightningAddress = useCallback(async () => {
-    if (!ENABLE_LIGHTNING_ADDRESS_SETTINGS) return
-    if (!nostrPrivkey || !p2pkPubkey) return
-    setIsRegistering(true)
-    try {
-      await registry.profile.publishNutZapInfo(
-        nostrPubkey!,
-        settings.mints,
-        p2pkPubkey,
-        settings.relays,
-      )
-      const result = await registry.username.registerAddress(nostrPrivkey)
-      if (!result.ok) {
-        addToast({ type: 'error', message: t('settings.lightningAddressRegistrationFailed') })
-        return
-      }
-      await saveSettings({
-        lightningAddress: result.value.address,
-        zappiLinkApiUrl: ZAPPI_LINK_URL,
-      })
-      addToast({ type: 'success', message: t('settings.lightningAddressRegistered') })
-    } catch {
-      addToast({ type: 'error', message: t('settings.lightningAddressRegistrationFailed') })
-    } finally {
-      setIsRegistering(false)
-    }
-  }, [nostrPrivkey, nostrPubkey, p2pkPubkey, settings.mints, settings.relays, registry, saveSettings, addToast, t])
 
   // Backup handlers
   const handleBackupMnemonic = useCallback(async () => {
@@ -491,9 +440,7 @@ export function SettingsScreen({
         return (
           <ProfileCategoryPage
             onBack={closeTopPage}
-            onNavigate={navigateTo}
-            onRegisterLightningAddress={handleRegisterLightningAddress}
-            isRegistering={isRegistering}
+            onOpenMyAddress={onOpenMyAddress}
             onAnalytics={onAnalytics}
           />
         )
@@ -591,16 +538,6 @@ export function SettingsScreen({
         )
       case 'privacy':
         return <PrivacySettingPage onBack={closeDetail} saveSettings={saveSettings} />
-      case 'npubDetail':
-        return <NpubDetailPage onBack={closeDetail} />
-      case 'lightningDetail':
-        if (!ENABLE_LIGHTNING_ADDRESS_SETTINGS) return null
-        return (
-          <LightningDetailPage
-            onBack={closeDetail}
-            onChangeUsername={onChangeUsername}
-          />
-        )
       case 'support':
         return <SupportPage onBack={closeDetail} />
       case 'diagnostics':
