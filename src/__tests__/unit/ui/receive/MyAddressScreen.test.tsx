@@ -30,7 +30,8 @@ vi.mock('@/ui/config/feature-flags', () => ({
 
 const storeState = {
   addToast: vi.fn(),
-  settings: { lightningAddress: 'john@zappi.link' as string | null, mintAliases: {} },
+  settings: { lightningAddress: 'john@zappi.link' as string | null, mintAliases: {}, mints: [] as string[] },
+  balance: { byMint: {} },
   nostrPubkey: 'deadbeef',
   nostrPrivkey: 'privkey-hex',
 }

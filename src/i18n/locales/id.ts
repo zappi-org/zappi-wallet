@@ -260,6 +260,7 @@ export default {
     swapFee: 'biaya',
     paymentFailed: 'Pembayaran gagal. Silakan pilih mint lain',
     noPayableMint: 'Tidak ada mint yang memiliki saldo cukup untuk biaya perubahan',
+    swapRequiredBody: 'Dibutuhkan {{amount}} sats di mint ini. Swap dari mint lain untuk melanjutkan.',
 
     // Security
     security: 'Keamanan',

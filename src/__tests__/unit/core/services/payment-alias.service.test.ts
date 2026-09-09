@@ -7,6 +7,7 @@ import {
   NpubcashUsernameTakenError,
   NpubcashPaymentRequiredError,
 } from '@/core/errors/npubcash'
+import { FundingRequiredError, InsufficientBalanceError } from '@/core/errors/payment.errors'
 import type {
   PaymentAliasProvider,
   AuthSession,
@@ -79,7 +80,7 @@ function createMockTxRepo(): TransactionRepository {
     save: vi.fn(),
     getById: vi.fn().mockResolvedValue(null),
     list: vi.fn().mockResolvedValue([]),
-    update: vi.fn(),
+    update: vi.fn().mockResolvedValue(undefined),
     findAll: vi.fn().mockResolvedValue([]),
     delete: vi.fn(),
     deleteAll: vi.fn(),
@@ -274,6 +275,32 @@ describe('PaymentAliasService.changeAlias', () => {
       savedTxId,
       expect.objectContaining({ status: 'failed' }),
     )
+  })
+
+  it('returns a typed FundingRequiredError when the target mint has no balance (instead of throwing)', async () => {
+    givenAuthenticated()
+    const paymentReq = new NpubcashPaymentRequiredError('creq-encoded')
+    vi.mocked(provider.purchaseAlias).mockResolvedValueOnce(Err(paymentReq))
+    givenCreqParsed(100)
+    vi.mocked(routePaymentOperator.prepareTokenSend).mockRejectedValue(new InsufficientBalanceError(100, 0))
+
+    const result = await service.changeAlias(PRIVKEY, 'alice', '')
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.error).toBeInstanceOf(FundingRequiredError)
+      const fundingError = result.error as FundingRequiredError
+      expect(fundingError.targetMintUrl).toBe(MINT_URL)
+      expect(fundingError.requiredAmount).toBe(100)
+    }
+
+    // Aborted this attempt: failed tx, no rollback (prepare never succeeded).
+    const savedTxId = vi.mocked(txRepo.save).mock.calls[0][0].id
+    expect(txRepo.update).toHaveBeenCalledWith(
+      savedTxId,
+      expect.objectContaining({ status: 'failed' }),
+    )
+    expect(routePaymentOperator.rollbackTokenSend).not.toHaveBeenCalled()
   })
 })
 

@@ -260,6 +260,7 @@ export default {
     swapFee: 'tarifa',
     paymentFailed: 'Pago fallido. Seleccione otro mint',
     noPayableMint: 'Ningún mint tiene saldo suficiente para cubrir la tarifa de cambio',
+    swapRequiredBody: 'Se necesitan {{amount}} sats en este mint. Realiza un swap desde otro mint para continuar.',
 
     // Security
     security: 'Seguridad',

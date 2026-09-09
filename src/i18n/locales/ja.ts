@@ -260,6 +260,7 @@ export default {
     swapFee: '手数料',
     paymentFailed: '支払いに失敗しました。別のミントを選択してください',
     noPayableMint: '変更手数料を支払えるだけの残高があるミントがありません',
+    swapRequiredBody: 'このミントに{{amount}} satが必要です。他のミントからスワップして充当します。',
 
     // Security
     security: 'セキュリティ',

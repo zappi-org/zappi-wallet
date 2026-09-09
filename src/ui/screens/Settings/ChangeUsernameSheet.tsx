@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useReducedMotion } from 'motion/react'
 import { Zap, CheckCircle2, XCircle, Loader2, Info } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -7,8 +7,12 @@ import { useKeyboardInset } from '@/ui/hooks/use-keyboard-inset'
 import { useFormatSats } from '@/utils/format'
 import { useAppStore } from '@/store'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
+import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
 import { NPUBCASH_DOMAIN } from '@/core/constants'
 import { isErr } from '@/core/domain/result'
+import { sat } from '@/core/domain/amount'
+import { FundingRequiredError } from '@/core/errors'
+import { getMintBalance } from '@/utils/url'
 import type { AliasPriceInfo } from '@/core/ports/driving/payment-alias.usecase'
 
 const USERNAME_REGEX = /^[a-z0-9]{3,20}$/
@@ -19,6 +23,30 @@ const SUCCESS_DELAY_MS = 1500
 /** Ghost-load the address/fee fields this long on confirm-card entry (spec). */
 const GHOST_MS = 1000
 const TITLE_ID = 'change-username-title'
+
+/** Balance snapshot present (pre-check needs it). */
+function hasBalanceData(balance: { byMint: Record<string, number> }): boolean {
+  return Object.keys(balance.byMint).length > 0
+}
+
+/** Max-balance mint, excluding the payment mint. */
+function bestFundedMint(
+  mintUrls: string[],
+  byMint: Record<string, number>,
+  exclude?: string,
+): string | null {
+  let best: string | null = null
+  let bestBalance = -1
+  for (const url of mintUrls) {
+    if (url === exclude) continue
+    const value = getMintBalance(url, byMint)
+    if (value > bestBalance) {
+      bestBalance = value
+      best = url
+    }
+  }
+  return best
+}
 
 type SheetStep = 'input' | 'checking' | 'confirm' | 'paying' | 'success'
 
@@ -52,6 +80,7 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings }: ChangeU
 
   const settings = useAppStore((s) => s.settings)
   const nostrPrivkey = useAppStore((s) => s.nostrPrivkey)
+  const balance = useAppStore((s) => s.balance)
   const addToast = useAppStore((s) => s.addToast)
   const updateSettings = useAppStore((s) => s.updateSettings)
   const triggerTxRefresh = useAppStore((s) => s.triggerTxRefresh)
@@ -69,6 +98,10 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings }: ChangeU
   const [price, setPrice] = useState<AliasPriceInfo | null>(null)
   // Payment OK — show a done mark in the pay button for the beat before success.
   const [settled, setSettled] = useState(false)
+
+  // Payment mint short on balance: mint sheet swap-in, best source pre-selected.
+  const [funding, setFunding] = useState<{ targetMintUrl: string; requiredAmount: number } | null>(null)
+  const [fundingSheetOpen, setFundingSheetOpen] = useState(false)
 
   // Ghost-load the address/fee fields on confirm-card entry, then reveal.
   const [revealed, setRevealed] = useState(false)
@@ -172,13 +205,41 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings }: ChangeU
     void runCheck(newUsername, true)
   }, [isUsernameValid, nostrPrivkey, step, status, newUsername, currentUsername, runCheck, t])
 
+  const openFundingSheet = useCallback((targetMintUrl: string, requiredAmount: number) => {
+    setFunding({ targetMintUrl, requiredAmount })
+    setFundingSheetOpen(true)
+  }, [])
+
   const handleConfirm = useCallback(async () => {
     if (!nostrPrivkey) return
+
+    // Pre-check skips the failing round-trip when the payment mint is short.
+    const preCheck = hasBalanceData(balance) && price?.mintUrl
+    if (preCheck && getMintBalance(preCheck, balance.byMint) < (price?.amount ?? 0)) {
+      if (!bestFundedMint(settings.mints, balance.byMint, preCheck)) {
+        addToast({ type: 'error', message: t('settings.noPayableMint') })
+        return
+      }
+      openFundingSheet(preCheck, price?.amount ?? 0)
+      return
+    }
+
     setStep('paying')
     setSettled(false)
     try {
       const result = await registry.paymentAlias.changeAlias(nostrPrivkey, newUsername, '', t('settings.changeUsername'))
       if (isErr(result)) {
+        if (result.error instanceof FundingRequiredError) {
+          // creq mint can differ from the quoted mint.
+          if (!bestFundedMint(settings.mints, balance.byMint, result.error.targetMintUrl)) {
+            addToast({ type: 'error', message: t('settings.noPayableMint') })
+          } else {
+            openFundingSheet(result.error.targetMintUrl, result.error.requiredAmount)
+          }
+          setRevealed(false)
+          setStep('confirm')
+          return
+        }
         const msg = (result.error as { message?: string }).message ?? t('settings.usernameChangeFailed')
         addToast({ type: 'error', message: msg })
         setRevealed(false)
@@ -201,7 +262,50 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings }: ChangeU
       setRevealed(false)
       setStep('confirm')
     }
-  }, [nostrPrivkey, newUsername, registry, addToast, updateSettings, onSaveSettings, settings, triggerTxRefresh, t])
+  }, [nostrPrivkey, balance, price, newUsername, registry, addToast, updateSettings, onSaveSettings, settings, triggerTxRefresh, t, openFundingSheet])
+
+  // Swap-in confirmed: fund payment mint, then retry changeAlias.
+  const handleFundingSwap = useCallback(async (sourceMint: string) => {
+    if (!nostrPrivkey || !funding) return
+    setFundingSheetOpen(false)
+    setStep('paying')
+    setSettled(false)
+    try {
+      const swapResult = await registry.swap.executeSwap({
+        sourceAccountId: sourceMint,
+        targetAccountId: funding.targetMintUrl,
+        amount: sat(funding.requiredAmount),
+      })
+      if (isErr(swapResult)) {
+        addToast({ type: 'error', message: (swapResult.error as { message?: string }).message ?? t('settings.usernameChangeFailed') })
+        setStep('confirm')
+        return
+      }
+      //try change alias
+      const result = await registry.paymentAlias.changeAlias(nostrPrivkey, newUsername, '', t('settings.changeUsername'))
+      if (isErr(result)) {
+        addToast({ type: 'error', message: (result.error as { message?: string }).message ?? t('settings.usernameChangeFailed') })
+        setStep('confirm')
+        return
+      }
+
+      updateSettings({ lightningAddress: `${result.value.alias}@${NPUBCASH_DOMAIN}` })
+      await onSaveSettings({ ...settings, lightningAddress: `${result.value.alias}@${NPUBCASH_DOMAIN}` })
+      triggerTxRefresh()
+      setSettled(true)
+      window.setTimeout(() => setStep('success'), SUCCESS_DELAY_MS)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('settings.usernameChangeFailed')
+      addToast({ type: 'error', message })
+      setStep('confirm')
+    }
+  }, [nostrPrivkey, funding, newUsername, registry, addToast, updateSettings, onSaveSettings, settings, triggerTxRefresh, t])
+
+  // Best source pre-select; user still confirms.
+  const bestSourceMint = useMemo(
+    () => (funding ? bestFundedMint(settings.mints, balance.byMint, funding.targetMintUrl) : null),
+    [funding, settings.mints, balance.byMint],
+  )
 
   const handleBackToInput = useCallback(() => {
     setStep('input')
@@ -389,6 +493,17 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings }: ChangeU
           </button>
         </div>
       ) : null}
+
+      {/* Funding sheet: best source pre-selected, only funded mints shown. */}
+      <MintSelectBottomSheet
+        isOpen={fundingSheetOpen}
+        onClose={() => setFundingSheetOpen(false)}
+        onSelect={handleFundingSwap}
+        selectedMintUrl={bestSourceMint}
+        filterFn={(m) => (m.balance ?? 0) > 0}
+        infoText={funding ? t('settings.swapRequiredBody', { amount: formatSats(funding.requiredAmount) }) : undefined}
+        buttonLabel={t('settings.pay')}
+      />
     </BottomSheet>
   )
 }

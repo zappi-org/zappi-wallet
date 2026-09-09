@@ -264,6 +264,7 @@ export default {
     swapFee: 'fee',
     paymentFailed: 'Payment failed. Please select a different mint',
     noPayableMint: 'No mint has sufficient balance to cover the change fee',
+    swapRequiredBody: '{{amount}} sats required on this mint. Swap from another mint to continue.',
 
     // Security
     security: 'Security',

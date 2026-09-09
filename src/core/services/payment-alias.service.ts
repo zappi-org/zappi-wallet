@@ -11,9 +11,10 @@ import type { AuthSession } from '@/core/ports/driven/payment-alias-provider.por
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
 import type { EventBus } from '@/core/events/event-bus'
 import type { PaymentAliasUseCase, AliasPriceInfo } from '@/core/ports/driving/payment-alias.usecase'
-import { Ok, type Result } from '@/core/domain/result'
+import { Ok, Err, type Result } from '@/core/domain/result'
 import type { BaseError } from '@/core/errors/base'
 import { NpubcashPaymentRequiredError } from '@/core/errors/npubcash'
+import { InsufficientBalanceError, FundingRequiredError } from '@/core/errors/payment.errors'
 import { createTransaction, settleAsDelivered, failTransaction } from '@/core/domain/transaction'
 import { sat } from '@/core/domain/amount'
 
@@ -155,6 +156,12 @@ export class PaymentAliasService implements PaymentAliasUseCase {
         if (operationId) {
           await this.routePaymentOperator.rollbackTokenSend(operationId).catch(() => {})
         }
+
+        if (error instanceof InsufficientBalanceError) {
+          await this.txRepo.update(txId, failTransaction(tx, error.message)).catch(() => {})
+          return Err(new FundingRequiredError(mintUrl, error.required, error))
+        }
+
         const message = error instanceof Error ? error.message : 'Payment failed'
         await this.txRepo.update(txId, failTransaction(tx, message))
         throw error
