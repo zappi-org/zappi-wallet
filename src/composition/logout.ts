@@ -63,7 +63,11 @@ export interface WipeAccountDeps {
   /** Delete the encrypted wallet record in zappi-secure */
   security: { deleteWallet(): Promise<void> }
   /** null = pre-bootstrap/locked — just means there are no writers to stop; erasure is unchanged */
-  registry: { support: { destroy(): Promise<void> }; dispose(): void } | null
+  registry: {
+    support: { destroy(): Promise<void> }
+    mostro: { destroy(): Promise<void> }
+    dispose(): void
+  } | null
   /** Remove passkey credentials + encrypted PIN (incl. legacy keys) — injected by the
    *  caller so composition doesn't import ui/services/passkey directly */
   removePasskey: () => void
@@ -87,6 +91,11 @@ export async function wipeAccountData(deps: WipeAccountDeps): Promise<void> {
     if (deps.registry) {
       await deps.registry.support.destroy().catch((e) => {
         console.warn('[Logout] support.destroy failed — continuing wipe:', e)
+      })
+      // Mostro lives in its own IndexedDB (`zappi-mostro`) — step ③ only clears the
+      // zappi Dexie DB, so this is the sole erasure path for its trade secrets.
+      await deps.registry.mostro.destroy().catch((e) => {
+        console.warn('[Logout] mostro.destroy failed — continuing wipe:', e)
       })
       try {
         deps.registry.dispose()

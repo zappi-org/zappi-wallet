@@ -12,6 +12,7 @@
 
 import { exchangeRateService } from "./exchange-rate";
 import { connectCocoEventBridge } from "./coco-event-bridge";
+import { connectMostroStoreBridge } from "./mostro-store-bridge";
 
 import { derivePublicKey } from "@/adapters/nostr/internal/nostr-crypto";
 import {
@@ -41,6 +42,7 @@ import type { DexieIncomingReviewQueue } from "@/adapters/storage/dexie/dexie-in
 import type { TransferLifecycleService } from "@/core/services/transfer-lifecycle.service";
 import type { MintHealthFacadeService } from "@/core/services/mint-health-facade.service";
 import type { ReclaimService } from "@/core/services/reclaim.service";
+import type { MostroUseCase } from "@/core/ports/driving/mostro.usecase";
 
 export function createLifecycle(deps: {
   nostrPrivateKeyHex: string;
@@ -55,6 +57,8 @@ export function createLifecycle(deps: {
   getMintHealth: () => MintHealthFacadeService;
   getReclaim: () => ReclaimService;
   getNostrIncomingWatcher: () => NostrIncomingWatcher;
+  /** Forward reference — Mostro marketplace facade. */
+  getMostro: () => MostroUseCase;
 }) {
   const {
     nostrPrivateKeyHex,
@@ -68,10 +72,12 @@ export function createLifecycle(deps: {
     getMintHealth,
     getReclaim,
     getNostrIncomingWatcher,
+    getMostro,
   } = deps;
 
   let netCounterFlusherStop: (() => void) | null = null;
   let mintReconnectStop: (() => void) | null = null;
+  let mostroBridgeStop: (() => void) | null = null;
 
   // Liveness heartbeat: mobile freeze/kill never emits visibilitychange:hidden,
   // so we record lastAliveAt every 60s while foregrounded to judge how long we
@@ -250,6 +256,16 @@ export function createLifecycle(deps: {
     // Start the Nostr incoming watcher (once, after app unlock)
     getNostrIncomingWatcher().start(derivePublicKey(nostrPrivateKeyHex));
 
+    // Mostro marketplace — attach the store mirror first (so the first connect
+    // snapshot is captured), then auto-connect. Disabled config is a no-op and
+    // failures never block activation.
+    if (!mostroBridgeStop) {
+      mostroBridgeStop = connectMostroStoreBridge(getMostro());
+    }
+    getMostro()
+      .connect()
+      .catch((e) => console.warn("[Bootstrap] mostro connect failed:", e));
+
     // TLS: on app start, recover active transfers and start monitoring
     transferLifecycle.recoverTransfers().catch(console.error);
     wireTransferSweepSignals();
@@ -343,6 +359,12 @@ export function createLifecycle(deps: {
     }
     getNostrIncomingWatcher().stop();
     void nostrGateway.disconnect();
+    // Registry swap / lock only disconnects — erasure is logout's destroy().
+    void getMostro().disconnect().catch(() => {});
+    if (mostroBridgeStop) {
+      mostroBridgeStop();
+      mostroBridgeStop = null;
+    }
   };
 
   return { activate, onResume, onPause, dispose };

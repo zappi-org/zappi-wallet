@@ -55,6 +55,7 @@ function createMockRegistry(reclaimService: ReturnType<typeof vi.fn>, txMgmt?: {
     username: {} as unknown as ServiceRegistry['username'],
     trustRegistry: { isTrusted: vi.fn(), addTrust: vi.fn(), revokeTrust: vi.fn(), getTrustedAccounts: vi.fn() } as unknown as ServiceRegistry['trustRegistry'],
     support: {} as unknown as ServiceRegistry['support'],
+    mostro: {} as unknown as ServiceRegistry['mostro'],
     nostrDirectPayment: { resolve: vi.fn() } as unknown as ServiceRegistry['nostrDirectPayment'],
     externalWalletRecovery: { recoverFromMnemonic: vi.fn() } as unknown as ServiceRegistry['externalWalletRecovery'],
     diagnostics: { readNetCounters: vi.fn().mockResolvedValue({}) },
