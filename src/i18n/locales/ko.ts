@@ -392,7 +392,24 @@ export default {
     senderPrivacyMode: '보내기 프라이버시 모드',
     senderPrivacyModeDescription: '수수료가 높더라도 민트가 송수신자를 연결할 수 없는 경로를 선택합니다',
 
+    // Push notifications
+    pushNotifications: '알림',
+    pushNotificationsDescription: '앱이 닫혀 있을 때 결제가 도착하면 알림을 표시합니다',
+    pushNotificationsDenied: '알림 권한이 차단되어 있습니다. 브라우저 설정에서 알림을 허용하세요.',
+    pushNotificationsUnsupported: '이 기기 또는 브라우저에서는 푸시 알림을 지원하지 않습니다.',
+    pushNotificationsOn: '백그라운드 알림이 활성화되었습니다',
+    pushNotificationsTest: '테스트 알림 보내기',
+    pushNotificationsTestBody: '테스트 알림',
+    hideNotificationInForeground: '앱 사용 중 알림 숨기기',
+    hideNotificationInForegroundDescription: '앱을 보고 있을 때는 푸시 알림을 표시하지 않습니다',
+    pushNotificationsRelayNote: '구독 릴레이는 사용자의 릴레이 설정을 따릅니다',
+
     // Descriptions
+  },
+
+  // Push notification observer summaries (replace the generic wake hint)
+  push: {
+    hint: '새 알림',
   },
 
   // Add Mint Screen

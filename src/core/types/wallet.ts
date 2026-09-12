@@ -222,6 +222,10 @@ export interface WalletSettings {
   showFiatConversion?: boolean
   /** Sender Privacy mode: prefer routes where the mint cannot link sender to receiver, even at higher fees */
   senderPrivacyMode?: boolean
+  /** Background push notifications for incoming payments (requires a push server; default: false) */
+  pushNotificationsEnabled?: boolean
+  /** Suppress push notifications while the app is in the foreground (default: true) */
+  hideNotificationInForeground?: boolean
 }
 
 /**
