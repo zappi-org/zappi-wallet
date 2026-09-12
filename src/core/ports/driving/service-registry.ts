@@ -38,6 +38,8 @@ import type { NostrDirectPaymentUseCase } from '@/core/ports/driving/nostr-direc
 import type { ExternalWalletRecoveryUseCase } from '@/core/ports/driving/external-wallet-recovery.usecase'
 import type { DiagnosticsUseCase } from '@/core/ports/driving/diagnostics.usecase'
 import type { TransferLifecycleService } from '@/core/services/transfer-lifecycle.service'
+import type { PushNotificationGateway } from '@/core/ports/driven/push-notification.port'
+import type { PushDevTools } from '@/core/ports/driven/push-dev-tools.port'
 
 export interface ServiceRegistry {
   readonly eventBus: EventBus
@@ -76,4 +78,8 @@ export interface ServiceRegistry {
   /** Diagnostics counter reads — DiagnosticsPage only */
   readonly diagnostics: DiagnosticsUseCase
   readonly transferLifecycle: TransferLifecycleService
+  /** Background wake-up hints for incoming payments (settings toggle + observer) */
+  readonly pushNotifications: PushNotificationGateway
+  /** Dev-only push diagnostics; populated only when import.meta.env.DEV. */
+  readonly pushDevTools?: PushDevTools
 }

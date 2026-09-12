@@ -41,6 +41,7 @@ import type { DexieIncomingReviewQueue } from "@/adapters/storage/dexie/dexie-in
 import type { TransferLifecycleService } from "@/core/services/transfer-lifecycle.service";
 import type { MintHealthFacadeService } from "@/core/services/mint-health-facade.service";
 import type { ReclaimService } from "@/core/services/reclaim.service";
+import type { PushNotificationGateway } from "@/core/ports/driven/push-notification.port";
 
 export function createLifecycle(deps: {
   nostrPrivateKeyHex: string;
@@ -55,6 +56,7 @@ export function createLifecycle(deps: {
   getMintHealth: () => MintHealthFacadeService;
   getReclaim: () => ReclaimService;
   getNostrIncomingWatcher: () => NostrIncomingWatcher;
+  getPushNotifications: () => PushNotificationGateway;
 }) {
   const {
     nostrPrivateKeyHex,
@@ -68,6 +70,7 @@ export function createLifecycle(deps: {
     getMintHealth,
     getReclaim,
     getNostrIncomingWatcher,
+    getPushNotifications,
   } = deps;
 
   let netCounterFlusherStop: (() => void) | null = null;
@@ -249,6 +252,16 @@ export function createLifecycle(deps: {
 
     // Start the Nostr incoming watcher (once, after app unlock)
     getNostrIncomingWatcher().start(derivePublicKey(nostrPrivateKeyHex));
+
+    // Push wake-up hint registration (silent). Only when the user enabled it and
+    // the permission persists; a rotated/missing subscription self-heals here on
+    // every unlock. Subscription relays follow the wallet's relay settings.
+    // Non-authoritative: failure never blocks activate().
+    if (useAppStore.getState().settings.pushNotificationsEnabled) {
+      getPushNotifications()
+        .sync(useAppStore.getState().settings.relays)
+        .catch((e) => console.warn("[Bootstrap] push sync failed:", e));
+    }
 
     // TLS: on app start, recover active transfers and start monitoring
     transferLifecycle.recoverTransfers().catch(console.error);

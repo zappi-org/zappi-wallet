@@ -16,6 +16,8 @@ import { CashuSendTokenOperatorAdapter } from "@/modules/cashu/adapters/cashu-se
 import { MintHealthCheckerAdapter } from "@/adapters/health/mint-health-checker.adapter";
 import { MintMetadataStoreAdapter } from "@/adapters/metadata/mint-metadata-store.adapter";
 import { CrossTabSyncNotifierAdapter } from "@/adapters/runtime/cross-tab-sync-notifier.adapter";
+import { WebPushAdapter, readKkachiConfig } from "@/adapters/runtime/web-push.adapter";
+import { PushDevToolsAdapter } from "@/adapters/runtime/push-dev-tools.adapter";
 import { isSameMintUrl } from "@/utils/url";
 import { DexieRouteExecutionStore } from "@/adapters/storage/dexie/dexie-route-execution-store";
 import { SettingsTrustedAccountStoreAdapter } from "@/adapters/runtime/settings-trusted-account-store.adapter";
@@ -95,6 +97,12 @@ export function assembleFacadeServices(deps: {
   externalMnemonicRecovery: ExternalMnemonicRecoveryPort;
   /** BIP-39 seed — used only to derive support-specific keys; never stored */
   bip39Seed: Uint8Array;
+  /**
+   * Wallet nostr private key (hex). Used for push registration in identity mode
+   * (real npub), since senders still target the real npub until the
+   * ReceiveRequest inbox path ships.
+   */
+  nostrPrivateKeyHex: string;
 }) {
   const {
     killSwitches,
@@ -113,6 +121,7 @@ export function assembleFacadeServices(deps: {
     externalMnemonicMintDiscovery,
     externalMnemonicRecovery,
     bip39Seed,
+    nostrPrivateKeyHex,
   } = deps;
 
   const cryptoGateway = new CryptoGatewayAdapter();
@@ -243,6 +252,22 @@ export function assembleFacadeServices(deps: {
   );
   const support = createSupportService({ bip39Seed });
 
+  // Background wake-up hints. Feature-gated off (supported=false) when the
+  // VITE_KKACHI_* env is absent, so dev/self-hosted builds stay functional.
+  // Identity mode: sign with the real npub (senders still target it), price is
+  // the server storing the identity pubkey — swap to the epoch inbox once the
+  // ReceiveRequest inbox path ships.
+  const identitySecretKey = hexToBytes(nostrPrivateKeyHex);
+  const kkachiConfig = readKkachiConfig();
+  const pushNotifications = new WebPushAdapter({ config: kkachiConfig, identitySecretKey });
+
+  // Push diagnostics section (relay, register, self 1059). Opt-in via
+  // VITE_KKACHI_DEV_TOOLS=1 — preview builds must show it too, so it can't be
+  // gated on import.meta.env.DEV (preview runs a production bundle).
+  const pushDevTools = kkachiConfig?.devTools
+    ? new PushDevToolsAdapter({ identitySecretKey, gateway: pushNotifications })
+    : undefined;
+
   return {
     crypto,
     inputParser,
@@ -259,5 +284,7 @@ export function assembleFacadeServices(deps: {
     nostrDirectPayment,
     externalWalletRecovery,
     support,
+    pushNotifications,
+    pushDevTools,
   };
 }

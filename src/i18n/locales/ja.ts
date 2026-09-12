@@ -388,7 +388,24 @@ export default {
     senderPrivacyMode: '送金プライバシーモード',
     senderPrivacyModeDescription: '手数料が高くてもミントが送受信者をリンクできない経路を選択します',
 
+    // Push notifications
+    pushNotifications: '通知',
+    pushNotificationsDescription: 'アプリが閉じている間に支払いが届くと通知します',
+    pushNotificationsDenied: '通知の許可がブロックされています。ブラウザ設定で通知を許可してください。',
+    pushNotificationsUnsupported: 'このデバイスまたはブラウザはプッシュ通知に対応していません。',
+    pushNotificationsOn: 'バックグラウンド通知が有効になりました',
+    pushNotificationsTest: 'テスト通知を送信',
+    pushNotificationsTestBody: 'テスト通知',
+    hideNotificationInForeground: 'アプリ使用中は通知を非表示',
+    hideNotificationInForegroundDescription: 'アプリを開いている間はプッシュ通知を表示しません',
+    pushNotificationsRelayNote: '購読リレーはユーザーのリレー設定に従います',
+
     // Descriptions
+  },
+
+  // Push notification observer summaries (replace the generic wake hint)
+  push: {
+    hint: '新しい通知',
   },
 
   // Add Mint Screen

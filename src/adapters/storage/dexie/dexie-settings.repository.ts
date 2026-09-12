@@ -20,6 +20,8 @@ function getDefaultSettings(): WalletSettings {
     balanceHidden: false,
     fiatCurrency: 'USD',
     showFiatConversion: true,
+    pushNotificationsEnabled: false,
+    hideNotificationInForeground: true,
   } as WalletSettings
 }
 
