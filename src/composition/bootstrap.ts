@@ -241,6 +241,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     getMintHealth: () => mintHealth,
     getReclaim: () => reclaim,
     getNostrIncomingWatcher: () => nostrIncomingWatcher,
+    getNpubcashWatcher: () => npubcashQuoteWatcher,
   });
 
   // 9~11. Shared dedup store + Nostr incoming watcher + receive services
@@ -274,7 +275,8 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     transactionMgmt,
     routeExecution,
     paymentRequest,
-    username,
+    paymentAlias,
+    npubcashQuoteWatcher,
     trustRegistry,
     nostrDirectPayment,
     externalWalletRecovery,
@@ -325,7 +327,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     inputParser,
     paymentRequest,
     routing,
-    username,
+    paymentAlias,
     trustRegistry,
     support,
     nostrDirectPayment,
