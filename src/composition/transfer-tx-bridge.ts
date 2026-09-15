@@ -367,7 +367,9 @@ export function connectTransferTxBridge(
               | undefined;
             metadata = {
               operationId: ref?.operationId,
-              bolt11: ref?.request,
+              // lightning-address(npubcash) 입금은 인보이스/preimage가 없음 —
+              // 없으면 키 자체를 남기지 않는다.
+              ...(ref?.request ? { bolt11: ref.request } : {}),
               direction: transfer.direction,
               ...(ref?.preimage && { preimage: ref.preimage }),
             };

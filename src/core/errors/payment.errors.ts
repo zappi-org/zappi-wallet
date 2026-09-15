@@ -114,6 +114,23 @@ export class InsufficientBalanceError extends BaseError {
 }
 
 /**
+ * Target mint has no spendable balance for a required payment.
+ * Caller funds the target mint (e.g. swap from another mint) and retries.
+ */
+export class FundingRequiredError extends BaseError {
+  readonly code = 'FUNDING_REQUIRED' as const
+  readonly isRetryable = true
+
+  constructor(
+    public readonly targetMintUrl: string,
+    public readonly requiredAmount: number,
+    cause?: unknown,
+  ) {
+    super(`Insufficient balance on target mint ${targetMintUrl}: required ${requiredAmount}`, cause)
+  }
+}
+
+/**
  * Token receive amount is fully consumed by mint receive fees.
  */
 export class RedeemFeeTooHighError extends BaseError {
