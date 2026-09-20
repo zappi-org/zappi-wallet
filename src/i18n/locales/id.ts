@@ -1,5 +1,7 @@
 export default {
   chat: {
+    selfAddress: 'Anda tidak dapat memulai chat dengan alamat sendiri.',
+    openFailed: 'Percakapan tidak dapat dibuka. Coba lagi.',
     myAddress: 'Alamat saya',
     storageUnavailable: "Chat tidak dapat dibuka. Kunci lalu buka dompet.",
     paymentCard: {

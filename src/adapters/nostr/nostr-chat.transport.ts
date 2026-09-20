@@ -1,4 +1,4 @@
-import { ChatCapacityError } from '@/core/errors/chat'
+import { ChatAddressError, ChatCapacityError } from '@/core/errors/chat'
 import { conversationId, MAX_CHAT_MESSAGE_BYTES } from '@/core/domain/chat'
 import { withChatTimeout } from './internal/chat-delivery'
 import { parseGiftWrapTokenContent } from '@/core/domain/gift-wrap-token'
@@ -42,7 +42,7 @@ export class NostrChatTransport implements ChatTransport {
     this.assertUsable()
     const input = address.trim().replace(/^nostr:/i, '')
     const peer = normalizePubkey(input)
-    if (!peer) throw new Error('Invalid recipient')
+    if (!peer) throw new ChatAddressError('invalid')
     const hints = extractRelaysFromNprofile(input)
       .filter((url) => /^wss:\/\//.test(url))
       .slice(0, 8)

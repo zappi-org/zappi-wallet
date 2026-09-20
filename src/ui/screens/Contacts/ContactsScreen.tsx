@@ -1,4 +1,5 @@
 import { detectAddressType } from '@/core/types/contact'
+import { chatOpenErrorKey } from '@/ui/screens/Chat/chat-address'
 import { useIsActivityTop } from '@/ui/navigation/use-is-activity-top'
 import { ContactActionsSheet } from './ContactActionsSheet'
 import { ContactFavorites } from './ContactFavorites'
@@ -332,10 +333,10 @@ export function ContactsScreen({
             ? () => {
                 const address = selectedContact.address
                 setSelectedContactId(null)
-                void onChatWithContact(address).catch(() =>
+                void onChatWithContact(address).catch((error) =>
                   addToast({
                     type: 'error',
-                    message: t('chat.invalidAddress'),
+                    message: t(chatOpenErrorKey(error)),
                   })
                 )
               }

@@ -71,7 +71,7 @@ export function normalizePubkey(input: string): string | null {
     return trimmed.toLowerCase()
   }
 
-  if (trimmed.startsWith('npub1') || trimmed.startsWith('nprofile1')) {
+  if (/^(npub1|nprofile1)/i.test(trimmed)) {
     try {
       const decoded = nip19.decode(trimmed)
       if (decoded.type === 'npub') return decoded.data
@@ -86,7 +86,7 @@ export function normalizePubkey(input: string): string | null {
 
 export function extractRelaysFromNprofile(input: string): string[] {
   const trimmed = input.trim()
-  if (!trimmed.startsWith('nprofile1')) return []
+  if (!/^nprofile1/i.test(trimmed)) return []
 
   try {
     const decoded = nip19.decode(trimmed)

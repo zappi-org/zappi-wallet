@@ -1,4 +1,5 @@
 import type { ChatUseCase } from '@/core/ports/driving/chat.usecase'
+import { ChatStorageInitializationError } from '@/core/errors/chat'
 
 interface StorageCipherSession {
   unlock(seed: Uint8Array): Promise<void>
@@ -28,17 +29,20 @@ export function createChatStorageSession(
         if (disposed || current !== generation)
           throw new Error('Chat storage session locked')
       }
+      let stage: 'key' | 'migration' = 'key'
       try {
         await cipher.unlock(seed)
         check()
+        stage = 'migration'
         await repository.initialize()
         check()
       } catch (error) {
         if (current === generation) {
           cipher.lock()
           repository.clearCache()
+          chat.disconnect()
         }
-        throw error
+        throw new ChatStorageInitializationError(stage, error)
       }
     },
     lock,

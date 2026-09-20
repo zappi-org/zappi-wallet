@@ -1,4 +1,5 @@
 import { MessageCircle } from 'lucide-react'
+import { ChatAddressError, ChatStorageInitializationError } from '@/core/errors/chat'
 import { useChatView } from '@/store/chat-view'
 import { useChatNotifications } from '@/ui/hooks/use-chat'
 import { contactPubkey } from '@/ui/screens/Chat/chat-address'
@@ -612,8 +613,9 @@ export default function MainApp() {
       // keys are the same wallet. A full reconnect on every unlock would revive, per
       // lock cycle, the burst the network rework removed.
       if (serviceRegistry) {
-        await serviceRegistry.unlockChatStorage(result.bip39Seed).catch(() => {
-          console.warn('[Chat] Encrypted storage unavailable')
+        await serviceRegistry.unlockChatStorage(result.bip39Seed).catch((error: unknown) => {
+          console.warn('[Chat] Encrypted storage unavailable',
+            error instanceof ChatStorageInitializationError ? error.code : 'chat-storage:unknown')
           addToast({ type: 'error', message: t('chat.storageUnavailable') })
         })
         setLocked(false)
@@ -624,8 +626,9 @@ export default function MainApp() {
         nostrPrivateKeyHex: result.keys.privateKey,
         bip39Seed: result.bip39Seed,
       })
-      await registry.unlockChatStorage(result.bip39Seed).catch(() => {
-        console.warn('[Chat] Encrypted storage unavailable')
+      await registry.unlockChatStorage(result.bip39Seed).catch((error: unknown) => {
+        console.warn('[Chat] Encrypted storage unavailable',
+          error instanceof ChatStorageInitializationError ? error.code : 'chat-storage:unknown')
         addToast({ type: 'error', message: t('chat.storageUnavailable') })
       })
       // On re-unlock, dispose the previous registry generation's timers/subscriptions
@@ -1145,7 +1148,9 @@ export default function MainApp() {
       <ContactsScreen
         onChatWithContact={async address => {
           const peer = contactPubkey(address)
-          if (!peer || !serviceRegistry) throw new Error('Invalid recipient')
+          if (!peer) throw new ChatAddressError('invalid')
+          if (!serviceRegistry) throw new Error('Chat unavailable')
+          await serviceRegistry.chat.connect()
           useChatView.getState().select(await serviceRegistry.chat.open(address))
           setCurrentScreen('chat')
         }}

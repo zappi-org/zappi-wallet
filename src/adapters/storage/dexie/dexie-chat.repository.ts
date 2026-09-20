@@ -194,9 +194,13 @@ export class DexieChatRepository implements ChatRepository {
       db.chatMessages
         .where('conversationId')
         .startsWith(`${encodeURIComponent(this.account)}:`)
-        .uniqueKeys(),
+        .primaryKeys(),
     ])
-    const ids = new Set([...conversationIds, ...messageIds.map(String)])
+    // WebKit can reject unique index cursors, even on an empty table.
+    const ids = new Set([
+      ...conversationIds,
+      ...messageIds.map(([conversationId]) => conversationId),
+    ])
     for (const id of ids) {
       let remaining = true
       while (remaining) {

@@ -1,4 +1,4 @@
-import { ChatCapacityError } from '@/core/errors/chat'
+import { ChatAddressError, ChatCapacityError } from '@/core/errors/chat'
 import {
   parseChatPaymentLink,
   type ChatPaymentLink,
@@ -160,7 +160,7 @@ export class ChatService implements ChatUseCase {
       if (generation === this.generation) {
         this.unwatch?.()
         this.unwatch = undefined
-        this.fail()
+        this.fail(error)
       }
       throw error
     }
@@ -228,8 +228,8 @@ export class ChatService implements ChatUseCase {
       : this.transport
     if (!transport) throw new Error('Conversation unavailable')
     const peer = transport.resolvePeer(address)
-    if (!peer || peer === (transport.identity ?? transport.account))
-      throw new Error('Invalid recipient')
+    if (!peer) throw new ChatAddressError('invalid')
+    if (peer === (transport.identity ?? transport.account)) throw new ChatAddressError('self')
     const generation = this.generation
     return this.queue(async () => {
       const conversation = await this.conversation(peer, transport)

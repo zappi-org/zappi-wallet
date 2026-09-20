@@ -1,5 +1,7 @@
 export default {
   chat: {
+    selfAddress: '自分のアドレスとはチャットを開始できません。',
+    openFailed: '会話を開けませんでした。再試行してください。',
     myAddress: '自分のアドレス',
     storageUnavailable: "チャットを開けません。ウォレットをロックして再度解除してください。",
     paymentCard: {

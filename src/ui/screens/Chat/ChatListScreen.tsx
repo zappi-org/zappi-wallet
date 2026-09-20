@@ -21,7 +21,7 @@ import {
 } from 'lucide-react'
 import type { Conversation } from '@/core/domain/chat'
 import { unreadBadge } from '@/core/domain/chat'
-import { contactPubkey } from './chat-address'
+import { chatOpenErrorKey, contactPubkey } from './chat-address'
 import { useChat } from '@/ui/hooks/use-chat'
 import { useContacts } from '@/ui/hooks/use-contacts'
 import { useChatView } from '@/store/chat-view'
@@ -84,13 +84,14 @@ export default function ChatListScreen({
     }
     setBusy(true)
     try {
+      await chat.connect()
       select(await chat.open(value))
       setCompose(false)
       onOpen()
-    } catch {
+    } catch (error) {
       useAppStore
         .getState()
-        .addToast({ type: 'error', message: t('chat.invalidAddress') })
+        .addToast({ type: 'error', message: t(chatOpenErrorKey(error)) })
     } finally {
       setBusy(false)
     }

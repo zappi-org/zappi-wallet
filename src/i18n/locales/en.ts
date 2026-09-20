@@ -1,5 +1,7 @@
 export default {
   chat: {
+    selfAddress: 'You cannot start a chat with your own address.',
+    openFailed: 'Could not open the conversation. Try again.',
     myAddress: 'My address',
     storageUnavailable: "Could not open chats. Lock and unlock your wallet.",
     paymentCard: {
