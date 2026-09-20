@@ -30,8 +30,8 @@ export function WalletTabPicker({ navItems, activeTab, onTabSelect }: WalletTabP
       {activeIndex >= 0 && (
         <motion.span
           aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 left-0 z-0 w-1/3 rounded-full bg-brand transform-gpu will-change-transform"
-          style={{ backfaceVisibility: 'hidden' }}
+          className="pointer-events-none absolute inset-y-0 left-0 z-0 rounded-full bg-brand transform-gpu will-change-transform"
+          style={{ backfaceVisibility: 'hidden', width: `${100 / pickerTabIds.length}%` }}
           initial={false}
           animate={{ x: `${activeIndex * 100}%` }}
           // The nav-chrome counterpart of the screen jump-cut: a tab change that is neither
@@ -65,6 +65,7 @@ export function WalletTabPicker({ navItems, activeTab, onTabSelect }: WalletTabP
             <div className="w-[22px] h-[22px] flex items-center justify-center [&_svg]:w-[22px] [&_svg]:h-[22px]">
               {isActive && item.activeIcon ? item.activeIcon : item.icon}
             </div>
+            {!!item.badge && <span className="absolute right-1 top-0 min-w-4 rounded-full bg-accent-danger px-1 text-[10px] leading-4 text-white" aria-label={`${item.badge}`}>{item.badge > 99 ? '99+' : item.badge}</span>}
             <span className="text-[11px] font-semibold leading-none mt-[2px]">{item.label}</span>
           </motion.button>
         )

@@ -70,6 +70,8 @@ vi.mock('@/modules/cashu/cashu.module', () => ({
 
 import { createBootstrap } from '@/composition/bootstrap'
 import { useAppStore } from '@/store'
+import { derivePublicKey } from '@/adapters/nostr/internal/nostr-crypto'
+import { nprofileDecode } from '@/core/domain/nostr-address'
 
 describe('bootstrap activate — pins the persistent-relay establishment wiring', () => {
   beforeEach(() => {
@@ -90,6 +92,8 @@ describe('bootstrap activate — pins the persistent-relay establishment wiring'
     await result.activate()
 
     const gateway = gatewayInstances[0]
+    expect(gatewayInstances).toHaveLength(1)
+    expect(nprofileDecode(result.chatAddress).pubkey).toBe(derivePublicKey('a'.repeat(64)))
     expect(gateway).toBeDefined()
     expect(gateway.connect).toHaveBeenCalledTimes(1)
 

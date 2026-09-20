@@ -7,6 +7,7 @@ import type { ReactNode } from 'react'
 
 function createMockRegistry(): ServiceRegistry {
   return {
+    chat: {} as ServiceRegistry['chat'],
     eventBus: {
       emit: vi.fn(),
       on: vi.fn().mockReturnValue(() => {}),

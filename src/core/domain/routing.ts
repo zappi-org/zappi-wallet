@@ -95,6 +95,7 @@ export interface RouteExecutionResult {
   transactionId: string
   token?: string
   transportUsed?: 'nostr' | 'post' | 'none'
+  deliveryId?: string
 }
 
 // ─── Pure Functions ───

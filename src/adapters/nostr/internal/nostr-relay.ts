@@ -51,7 +51,7 @@ export interface Relay {
 
 export interface RelayPool {
   ensureRelay(url: string): Promise<Relay>
-  publish(relays: string[], event: unknown): Promise<unknown>[]
+  publish(relays: string[], event: unknown, options?: { maxWait: number }): Promise<unknown>[]
   querySync(
     relays: string[],
     filter: Record<string, unknown>,
@@ -67,8 +67,8 @@ export function createRelayPool(): RelayPool {
 
   return {
     ensureRelay: (url) => pool.ensureRelay(url) as Promise<Relay>,
-    publish: (relays, event) =>
-      pool.publish(relays, event as Parameters<typeof pool.publish>[1]),
+    publish: (relays, event, options) =>
+      pool.publish(relays, event as Parameters<typeof pool.publish>[1], options),
     querySync: (relays, filter, opts) =>
       pool.querySync(
         relays,

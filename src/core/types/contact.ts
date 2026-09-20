@@ -4,6 +4,7 @@
 export type ContactAddressType = 'lightning' | 'npub' | 'custom'
 
 export interface Contact {
+  favorite?: boolean
   id: string
   name: string
   address: string
@@ -19,6 +20,7 @@ export interface Contact {
 export function detectAddressType(address: string): ContactAddressType {
   const trimmed = address.trim()
   if (trimmed.includes('@')) return 'lightning'
-  if (trimmed.startsWith('npub1')) return 'npub'
+  if (trimmed.startsWith('npub1') || trimmed.startsWith('nprofile1'))
+    return 'npub'
   return 'custom'
 }

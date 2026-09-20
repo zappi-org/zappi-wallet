@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 
@@ -9,6 +9,8 @@ export interface ModalProps {
   children: ReactNode
   showCloseButton?: boolean
   closeOnOverlayClick?: boolean
+  viewportRef?: RefObject<HTMLDivElement | null>
+  contentClassName?: string
   size?: 'sm' | 'md' | 'lg' | 'full'
 }
 
@@ -27,6 +29,8 @@ export function Modal({
   showCloseButton = true,
   closeOnOverlayClick = true,
   size = 'md',
+  viewportRef,
+  contentClassName,
 }: ModalProps) {
   const { t } = useTranslation()
   const overlayRef = useRef<HTMLDivElement>(null)
@@ -100,7 +104,8 @@ export function Modal({
 
   return createPortal(
     <div
-      ref={overlayRef}
+      ref={node => { overlayRef.current = node; if (viewportRef) viewportRef.current = node }}
+      style={viewportRef ? { bottom: 'auto', paddingBottom: 'max(12px, var(--chat-bottom-inset, env(safe-area-inset-bottom)))' } : undefined}
       onClick={handleOverlayClick}
       className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200 px-4 pt-[max(1rem,var(--safe-area-inset-top))] pb-[max(1rem,var(--safe-area-inset-bottom))]"
       role="dialog"
@@ -152,7 +157,7 @@ export function Modal({
         )}
 
         {/* Content */}
-        <div className="min-h-0 overflow-y-auto overscroll-contain px-5 py-4">{children}</div>
+        <div className={contentClassName ?? "min-h-0 overflow-y-auto overscroll-contain px-5 py-4"}>{children}</div>
       </div>
     </div>,
     document.body

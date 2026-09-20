@@ -7,6 +7,8 @@ export type Screen =
   | 'token'
   | 'settings'
   | 'contacts'
+  | 'messages'
+  | 'chat'
   | 'history'
   | 'notifications'
   | 'transfer'
@@ -24,11 +26,12 @@ export type Screen =
   | 'token-detail'
   | 'token-easter-egg'
 
-export type TabId = 'wallet' | 'contacts' | 'settings'
+export type TabId = 'wallet' | 'contacts' | 'messages' | 'settings'
 
 export const TAB_SCREENS: Record<TabId, Screen> = {
   wallet: 'home',
   contacts: 'contacts',
+  messages: 'messages',
   settings: 'settings',
 }
 
@@ -37,6 +40,7 @@ export const TAB_SCREENS: Record<TabId, Screen> = {
 export const SCREEN_TO_TAB: Partial<Record<Screen, TabId>> = {
   home: 'wallet',
   contacts: 'contacts',
+  messages: 'messages',
   settings: 'settings',
 }
 
@@ -51,6 +55,7 @@ export const PAYLOAD_DEPENDENT_PARENT: Partial<Record<Screen, Screen>> = {
   'token-detail': 'history',
   'transaction-detail': 'history',
   'mint-detail': 'home',
+  chat: 'messages',
 }
 
 export type StackActivityName =
@@ -58,6 +63,8 @@ export type StackActivityName =
   | 'Token'
   | 'Settings'
   | 'Contacts'
+  | 'Messages'
+  | 'Chat'
   | 'History'
   | 'Notifications'
   | 'Transfer'
@@ -80,6 +87,8 @@ export const SCREEN_TO_ACTIVITY: Record<Screen, StackActivityName> = {
   token: 'Token',
   settings: 'Settings',
   contacts: 'Contacts',
+  messages: 'Messages',
+  chat: 'Chat',
   history: 'History',
   notifications: 'Notifications',
   transfer: 'Transfer',

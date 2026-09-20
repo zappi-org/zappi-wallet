@@ -260,11 +260,25 @@ export interface IncomingReviewRecord {
   queuedAt: number
   requestId?: string
   senderPubkey?: string
+  recipientPubkey?: string
   txId?: string
   source: 'gift-wrap' | 'recovery'
 }
 
+import type { ChatMessage, Conversation } from '@/core/domain/chat'
+import type { ChatStorageKeyRecord } from '@/core/ports/driven/chat-storage-key-store.port'
+
+export type ChatMessageRecord = Omit<ChatMessage, 'payment'> & { payment?: string; storageVersion?: 1; contentBytes?: number }
+export type ChatConversationRecord = Conversation & { storageVersion?: 1 }
+
 export class ZappiDatabase extends Dexie {
+  get chatMessages(): Table<ChatMessageRecord, [string, string]> {
+    return this.table('chatMessagesScoped')
+  }
+  chatConversations!: Table<ChatConversationRecord, string>
+  chatStorageKeys!: Table<ChatStorageKeyRecord, string>
+  chatSeen!: Table<{ id: string; conversationId?: string; createdAt?: number }, string>
+  chatUsage!: Table<{ account: string; messages: number; bytes: number; conversations: number; seen: number }, string>
   transactions!: Table<TransactionRecord, string>
   failedIncomings!: Table<FailedIncomingRecord, string>
   processedRecords!: Table<ProcessedRecordEntry, string>
@@ -340,6 +354,12 @@ export class ZappiDatabase extends Dexie {
 
       // Contacts: address book entries
       contacts: 'id, name, address, addressType, createdAt',
+      chatMessages: null,
+      chatMessagesScoped: '[conversationId+id], conversationId, createdAt',
+      chatConversations: 'id, account, updatedAt',
+      chatSeen: 'id, conversationId, createdAt',
+      chatUsage: 'account',
+      chatStorageKeys: 'account',
 
       // Customer support cache: scoped by derived customer support identity + support agent
       supportTickets: 'id, customerId, agentPubkey, updatedAt',
@@ -357,6 +377,12 @@ export class ZappiDatabase extends Dexie {
 
       // v22: durable queue for review of tokens from untrusted mints (source for drainReviewQueue)
       incomingReviews: 'externalId, mintUrl, queuedAt',
+    }).upgrade(async (tx) => {
+      // Copy either legacy primary-key format before Dexie drops the old table.
+      if (tx.idbtrans.objectStoreNames.contains('chatMessages')) {
+        const messages = await tx.table('chatMessages').toArray()
+        if (messages.length) await tx.table('chatMessagesScoped').bulkAdd(messages)
+      }
     })
   }
 }

@@ -51,10 +51,13 @@ describe('NostrPaymentTransport', () => {
     })
 
     expect(result.success).toBe(true)
+    expect(result.deliveryId).toBe('gift-wrap')
     expect(gateway.queryEvents).toHaveBeenCalledWith([
       { kinds: [10050], authors: [RECIPIENT_HEX], limit: 1 },
     ])
     expect(gateway.sendGiftWrap).toHaveBeenCalledWith(expect.objectContaining({
+      firstAck: true,
+      timeoutMs: 8000,
       recipientPubkey: RECIPIENT_HEX,
       relays: ['wss://dm1.test', 'wss://dm2.test'],
     }))

@@ -25,6 +25,7 @@ function makeReview(overrides: Partial<PendingIncomingReview> = {}): PendingInco
     queuedAt: 1_000,
     requestId: 'req-1',
     senderPubkey: 'pk-sender',
+    recipientPubkey: 'pk-recipient',
     txId: 'tx-1',
     source: 'gift-wrap',
     ...overrides,

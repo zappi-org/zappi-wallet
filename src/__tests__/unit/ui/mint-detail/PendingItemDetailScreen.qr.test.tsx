@@ -37,6 +37,7 @@ vi.mock('@/ui/components/common/QRCodeDisplay', () => ({
 
 function createMockRegistry(): ServiceRegistry {
   return {
+    chat: {} as ServiceRegistry['chat'],
     eventBus: {
       emit: vi.fn(),
       on: vi.fn().mockReturnValue(() => {}),

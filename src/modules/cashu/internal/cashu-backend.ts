@@ -5,6 +5,9 @@
  * P2PK is specified as a `target` at prepare time (Coco native).
  */
 
+import { NetworkError } from '@/core/errors/base';
+import { InvalidTokenError } from '@/core/errors/cashu';
+import type { ReceiveResumeOptions } from '../adapters/cashu-ecash.adapter';
 import type { PendingQuote } from '@/core/domain/quote';
 import type { CashuProof } from '@/core/domain/cashu-payment-payload';
 import { InsufficientBalanceError, RedeemFeeTooHighError } from '@/core/errors/payment.errors';
@@ -313,16 +316,43 @@ function resolveUnit(_mintUrl: string): string {
 export async function receiveToken(
   token: string,
   options?: MintTrustOptions,
+  resume?: ReceiveResumeOptions,
 ): Promise<{ amount: number; fee: number; unit: string; mintUrl: string; memo?: string }> {
   const manager = await getCocoManager();
-  const metadata = getTokenMetadata(token);
+  let metadata: ReturnType<typeof getTokenMetadata>;
+  try {
+    metadata = getTokenMetadata(token);
+  } catch (error) {
+    throw new InvalidTokenError('Invalid incoming token', error);
+  }
   const mintUrl = normalizeMintUrl(metadata.mint);
 
+  let receiveOperationId = resume?.operationId;
   try {
     return await withMintTrustedForOperation(manager, mintUrl, options, async () => {
       await manager.mint.addMint(mintUrl);
 
-      const prepared = await manager.ops.receive.prepare({ token });
+      let prepared = resume?.operationId
+        ? await manager.ops.receive.get(resume.operationId)
+        : await manager.ops.receive.prepare({ token });
+      if (!prepared) throw new InvalidTokenError('Receive operation not found');
+      receiveOperationId = prepared.id;
+      if (resume?.operationId) {
+        const decoded = await manager.wallet.decodeToken(token, mintUrl);
+        const proofKeys = (proofs: Array<{ id?: string; secret: string; C: string; amount: number }>) =>
+          proofs.map((proof) => JSON.stringify([proof.id, proof.secret, proof.C, proof.amount])).sort().join('|');
+        if (normalizeMintUrl(prepared.mintUrl) !== mintUrl
+          || prepared.unit !== (decoded.unit ?? 'sat')
+          || proofKeys(prepared.inputProofs) !== proofKeys(decoded.proofs)) {
+          throw new InvalidTokenError('Receive operation does not match token');
+        }
+        if (prepared.state === 'executing') prepared = await manager.ops.receive.refresh(prepared.id);
+      }
+      if (prepared.state === 'init' || prepared.state === 'rolled_back') {
+        throw new InvalidTokenError('Receive operation cannot be resumed');
+      }
+      if (prepared.state === 'executing') throw new NetworkError('Receive recovery is pending');
+      if (resume) await resume.onPrepared(prepared.id);
 
       const fee = prepared.fee;
       const netAmount = prepared.amount - fee;
@@ -330,7 +360,17 @@ export async function receiveToken(
         throw new RedeemFeeTooHighError();
       }
 
-      await manager.ops.receive.execute(prepared);
+      if (prepared.state !== 'finalized') {
+        try {
+          await manager.ops.receive.execute(prepared);
+        } catch (error) {
+          // Coco may recover the same operation before rethrowing the transport error.
+          const recovered = await manager.ops.receive.get(prepared.id);
+          if (recovered?.state === 'rolled_back') throw new InvalidTokenError('Receive operation rolled back', error);
+          if (recovered?.state !== 'finalized') throw error;
+          prepared = recovered;
+        }
+      }
       const unit = resolveUnit(mintUrl);
       const result = { amount: netAmount, fee, unit, mintUrl };
 
@@ -339,6 +379,9 @@ export async function receiveToken(
   } catch (error) {
     console.error('[receiveToken] Raw error:', error);
     console.error('[receiveToken] Message:', error instanceof Error ? error.message : String(error));
+    if (resume && receiveOperationId && !(error instanceof InvalidTokenError) && !(error instanceof RedeemFeeTooHighError)) {
+      throw new NetworkError('Receive operation needs reconciliation', error);
+    }
     throw classifyCashuError(error);
   }
 }

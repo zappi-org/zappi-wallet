@@ -1,8 +1,12 @@
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ReceiveFlow } from '@/ui/screens/Receive/ReceiveFlow'
 import { sat } from '@/core/domain/amount'
 import type { PendingIncomingReview } from '@/core/types'
+
+const activity = vi.hoisted(() => ({ top: true }))
+vi.mock('@/ui/navigation/use-is-activity-top', () => ({ useIsActivityTop: () => activity.top }))
+beforeEach(() => { activity.top = true })
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (k: string) => k }),
@@ -354,5 +358,112 @@ describe('ReceiveFlow conductor — overlay + review races', () => {
 
     await waitFor(() => expect(screen.getByTestId('step-received')).toBeInTheDocument())
     expect(onResolveIncomingReview).toHaveBeenCalledTimes(1)
+  })
+})
+
+
+describe('ReceiveFlow conversation requests', () => {
+  it('persists and shares from amount confirmation without opening a QR', async () => {
+    const props = baseProps()
+    const onShareRequest = vi.fn(async () => {})
+    render(<ReceiveFlow {...props} onShareRequest={onShareRequest} />)
+    fireEvent.click(screen.getByTestId('amount-step'))
+    await waitFor(() => expect(onShareRequest).toHaveBeenCalledWith('lnbc1', {
+      requestId: 'q1', amount: 100, expiresAt: expect.any(Number),
+    }))
+    expect(receiveReq.create).toHaveBeenCalled()
+    expect(screen.queryByTestId('step-request')).not.toBeInTheDocument()
+    expect(props.onPaymentReceived).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByTestId('amount-step'))
+    await act(async () => {})
+    expect(onShareRequest).toHaveBeenCalledTimes(1)
+    expect(props.onCreateInvoice).toHaveBeenCalledTimes(1)
+  })
+
+  it('retries a failed share using the same persisted invoice and request', async () => {
+    const props = baseProps()
+    const onShareRequest = vi.fn().mockRejectedValueOnce(new Error('queue failed')).mockResolvedValue(undefined)
+    receiveReq.create.mockClear()
+    render(<ReceiveFlow {...props} onShareRequest={onShareRequest} />)
+    fireEvent.click(screen.getByTestId('amount-step'))
+    await waitFor(() => expect(onShareRequest).toHaveBeenCalledTimes(1))
+    await act(async () => {})
+    fireEvent.click(screen.getByTestId('amount-step'))
+    await waitFor(() => expect(onShareRequest).toHaveBeenCalledTimes(2))
+    expect(onShareRequest.mock.calls[1]).toEqual(onShareRequest.mock.calls[0])
+    expect(props.onCreateInvoice).toHaveBeenCalledTimes(1)
+    expect(receiveReq.create).toHaveBeenCalledTimes(1)
+    expect(screen.queryByTestId('step-request')).not.toBeInTheDocument()
+  })
+
+  it('retries persistence without generating another invoice', async () => {
+    const props = baseProps()
+    const onShareRequest = vi.fn(async () => {})
+    receiveReq.create.mockClear().mockRejectedValueOnce(new Error('storage failed'))
+    render(<ReceiveFlow {...props} onShareRequest={onShareRequest} />)
+    fireEvent.click(screen.getByTestId('amount-step'))
+    await waitFor(() => expect(receiveReq.create).toHaveBeenCalledTimes(1))
+    await act(async () => {})
+    expect(onShareRequest).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByTestId('amount-step'))
+    await waitFor(() => expect(onShareRequest).toHaveBeenCalledTimes(1))
+    expect(receiveReq.create.mock.calls[1]).toEqual(receiveReq.create.mock.calls[0])
+    expect(props.onCreateInvoice).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not send after Back even when navigation retains the mounted activity', async () => {
+    const props = baseProps()
+    let resolve!: (value: { invoice: string; quoteId: string; expiry: number }) => void
+    props.onCreateInvoice.mockImplementation(() => new Promise((done) => { resolve = done }))
+    const onShareRequest = vi.fn(async () => {})
+    render(<ReceiveFlow {...props} onShareRequest={onShareRequest} />)
+    fireEvent.click(screen.getByTestId('amount-step'))
+    fireEvent.click(screen.getByTestId('amount-back'))
+    expect(props.onBack).toHaveBeenCalledTimes(1)
+    await act(async () => resolve({ invoice: 'lnbc1', quoteId: 'q1', expiry: Date.now() / 1000 + 600 }))
+    expect(onShareRequest).not.toHaveBeenCalled()
+  })
+
+  it('does not share when another activity covers the flow during invoice creation', async () => {
+    const props = baseProps()
+    let resolve!: (value: { invoice: string; quoteId: string; expiry: number }) => void
+    props.onCreateInvoice.mockImplementation(() => new Promise((done) => { resolve = done }))
+    const onShareRequest = vi.fn(async () => {})
+    const { rerender } = render(<ReceiveFlow {...props} onShareRequest={onShareRequest} />)
+    fireEvent.click(screen.getByTestId('amount-step'))
+    activity.top = false
+    rerender(<ReceiveFlow {...props} onShareRequest={onShareRequest} />)
+    await act(async () => resolve({ invoice: 'lnbc1', quoteId: 'q1', expiry: Date.now() / 1000 + 600 }))
+    expect(onShareRequest).not.toHaveBeenCalled()
+    activity.top = true
+    rerender(<ReceiveFlow {...props} onShareRequest={onShareRequest} />)
+    fireEvent.click(screen.getByTestId('amount-step'))
+    await waitFor(() => expect(onShareRequest).toHaveBeenCalledTimes(1))
+    expect(props.onCreateInvoice).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not share when another activity covers the flow during persistence', async () => {
+    const props = baseProps()
+    let resolve!: () => void
+    receiveReq.create.mockImplementationOnce(() => new Promise<void>((done) => { resolve = done }))
+    const onShareRequest = vi.fn(async () => {})
+    const { rerender } = render(<ReceiveFlow {...props} onShareRequest={onShareRequest} />)
+    fireEvent.click(screen.getByTestId('amount-step'))
+    await waitFor(() => expect(resolve).toBeDefined())
+    activity.top = false
+    rerender(<ReceiveFlow {...props} onShareRequest={onShareRequest} />)
+    await act(async () => resolve())
+    expect(onShareRequest).not.toHaveBeenCalled()
+  })
+
+  it('does not share an already expired invoice', async () => {
+    const props = baseProps()
+    props.onCreateInvoice.mockResolvedValue({ invoice: 'lnbc1', quoteId: 'q1', expiry: 1 })
+    const onShareRequest = vi.fn(async () => {})
+    render(<ReceiveFlow {...props} onShareRequest={onShareRequest} />)
+    fireEvent.click(screen.getByTestId('amount-step'))
+    await act(async () => {})
+    expect(onShareRequest).not.toHaveBeenCalled()
+    expect(props.onPaymentReceived).not.toHaveBeenCalled()
   })
 })

@@ -5,6 +5,8 @@ import { useAppStore } from '@/store'
 export interface UseSecurityHandlersDeps {
   /** preUnlock.security — security service that exists even before unlock (created via composition, injected by MainApp) */
   security: SecurityUseCase
+  /** Revoke chat storage keys before the UI locks. */
+  lockChatStorage?: () => void
   /**
    * Full account-data wipe wiring (composition/logout.wipeAccountData).
    * MainApp injects a closure already bound to registry and removePasskey so the
@@ -42,7 +44,7 @@ export interface SecurityHandlers {
  * serviceRegistry state and composition wiring.
  */
 export function useSecurityHandlers(deps: UseSecurityHandlersDeps): SecurityHandlers {
-  const { security, wipeAccount } = deps
+  const { security, wipeAccount, lockChatStorage } = deps
   const setLocked = useAppStore((state) => state.setLocked)
 
   // Auto-lock: on idle timeout, lock the UI and wipe in-memory secrets (key,
@@ -53,9 +55,10 @@ export function useSecurityHandlers(deps: UseSecurityHandlersDeps): SecurityHand
   const handleAutoLock = useCallback(async () => {
     // Await the memory wipe before flipping the UI to locked — reaching
     // LockScreen must guarantee the session secrets are already gone.
+    lockChatStorage?.()
     await security.lock()
     setLocked(true)
-  }, [security, setLocked])
+  }, [security, setLocked, lockChatStorage])
 
   const handleChangePassword = useCallback(async (oldPassword: string, newPassword: string): Promise<boolean> => {
     const result = await security.changePassword(oldPassword, newPassword)

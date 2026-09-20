@@ -128,6 +128,7 @@ export interface MintSelectionRequest {
 export interface SendFlowProps {
   onBack: () => void
   onComplete: () => void
+  completionMode?: 'receipt' | 'chat'
   // Routing-based send handler (primary)
   onExecuteRoute: (selection: RouteSelection, context: RouteContext) => Promise<RouteExecutionResult | null>
   onResolveInvoice: (selection: RouteSelection, context: RouteContext) => Promise<string | null>
@@ -176,6 +177,7 @@ export interface SendFlowProps {
 export function SendFlow({
   onBack,
   onComplete,
+  completionMode = 'receipt',
   onExecuteRoute,
   onResolveInvoice,
   onMintSwap,
@@ -289,9 +291,16 @@ export function SendFlow({
   // Loading state for async operations
   const [isLoading, setIsLoading] = useState(false)
 
-  // The domain result usually lands mid-print — hold the receipt scene for a
-  // beat so the outcome doesn't cut the animation off the moment it starts.
-  // On success the beat is the finish choreography: fast feed-out → tear → stamp.
+  const chatCompletedRef = useRef(false)
+  const mountedRef = useRef(true)
+  const onCompleteRef = useRef(onComplete)
+  onCompleteRef.current = onComplete
+  const completeChat = useCallback(() => {
+    if (!mountedRef.current || chatCompletedRef.current) return
+    chatCompletedRef.current = true
+    onCompleteRef.current()
+  }, [])
+  // Wallet sends finish the receipt animation after the payment result.
   const sendingDwellTimerRef = useRef<number | null>(null)
   const [sendingFinishing, setSendingFinishing] = useState(false)
 
@@ -308,7 +317,9 @@ export function SendFlow({
   )
 
   useEffect(() => {
+    mountedRef.current = true
     return () => {
+      mountedRef.current = false
       if (sendingDwellTimerRef.current) window.clearTimeout(sendingDwellTimerRef.current)
     }
   }, [])
@@ -648,7 +659,7 @@ export function SendFlow({
 
   /** Confirm step → execute send via routing layer */
   const handleConfirmSend = useCallback(async () => {
-    if (isProcessingRef.current || !state.validatedData || !state.selectedMintUrl || !state.routeSelection) return
+    if (chatCompletedRef.current || isProcessingRef.current || !state.validatedData || !state.selectedMintUrl || !state.routeSelection) return
 
     if (!isOnline) {
       addToast({
@@ -713,6 +724,10 @@ export function SendFlow({
       const result = await onExecuteRoute(routeSelection, context)
 
       if (result?.status === 'settled' || result?.status === 'in_transit') {
+        if (completionMode === 'chat') {
+          completeChat()
+          return
+        }
         // in_transit is NOT a failure: the melt left the wallet and the poller
         // will settle it. Re-enabling Send here would open a double-pay window.
         const completePending = result.status === 'in_transit'
@@ -757,7 +772,7 @@ export function SendFlow({
     } finally {
       isProcessingRef.current = false
     }
-  }, [state, onExecuteRoute, onMintSwap, isOnline, addToast, t, completeSendingAfterDwell])
+  }, [state, onExecuteRoute, onMintSwap, isOnline, addToast, t, completeSendingAfterDwell, completionMode, completeChat])
 
   // ============= Direct Transfer (bearer token, no recipient) =============
 
@@ -1116,7 +1131,7 @@ export function SendFlow({
                     sendingSlow={sendingSlow}
                     sendingFinishing={sendingFinishing}
                     actualFee={state.settledFee ?? undefined}
-                    onExitSending={onComplete}
+                    onExitSending={completionMode === 'chat' ? completeChat : onComplete}
                     feeQuote={
                       state.directTransfer
                         ? directFeeQuote

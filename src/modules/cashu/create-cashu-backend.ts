@@ -59,7 +59,9 @@ export function createCashuBackend(deps: CreateCashuBackendDeps): CashuModuleBac
     finalizeSend: backend.finalizeSend,
     getSendOperationState: backend.getSendOperationState,
     checkProofStates: backend.checkProofStates,
-    receiveToken: (token: string) => backend.receiveToken(token, activeMintOptions()),
+    receiveToken: (token: string, resume?: import('./adapters/cashu-ecash.adapter').ReceiveResumeOptions) => resume
+      ? backend.receiveToken(token, activeMintOptions(), resume)
+      : backend.receiveToken(token, activeMintOptions()),
     estimateReceiveFee: (token: string) => backend.estimateReceiveFee(token, activeMintOptions()),
     async recoverPendingSendTokens() {
       const sendOps = await backend.getSendRecoveryOps()
