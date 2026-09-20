@@ -18,5 +18,6 @@ export interface OutgoingPaymentParams {
 
 export interface OutgoingPaymentResult {
   success: boolean
+  deliveryId?: string
   error?: string
 }

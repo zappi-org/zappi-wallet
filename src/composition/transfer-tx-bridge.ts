@@ -27,6 +27,19 @@ export interface TransferTxBridgeDeps {
   triggerTxRefresh?: () => void;
 }
 
+function incomingDeliveryMetadata(transfer: PendingTransfer): Record<string, unknown> {
+  const ref = transfer.transportRef as {
+    type?: string; eventId?: string; sender?: string; recipientPubkey?: string; requestId?: string
+  } | undefined;
+  if (transfer.direction !== "incoming" || ref?.type !== "nostr-giftwrap" ||
+      !ref.eventId || !ref.sender || !ref.recipientPubkey) return {};
+  return { paymentDelivery: {
+    id: ref.eventId, sender: ref.sender, recipient: ref.recipientPubkey,
+    amount: transfer.amount,
+    ...(ref.requestId ? { requestId: ref.requestId } : {}),
+  } };
+}
+
 /**
  * Token 문자열에서 prefix 제거한 raw token 추출 (비교용)
  */
@@ -296,7 +309,7 @@ export function connectTransferTxBridge(
         if (tx) {
           // 기존 것 업데이트
           if (transfer.direction === "incoming") {
-            tx = settleAsDelivered(tx);
+            tx = { ...settleAsDelivered(tx), metadata: { ...tx.metadata, ...incomingDeliveryMetadata(transfer) } };
           } else {
             // outgoing이 settled면 = 상대방이 받음 (claimed)]
             if (tx.protocol === "bolt11") {
@@ -386,6 +399,7 @@ export function connectTransferTxBridge(
               | undefined;
             const tokenContent = transportRef?.token ?? transportRef?.content;
             metadata = {
+              ...incomingDeliveryMetadata(transfer),
               token: tokenContent,
               tokenState: "spent",
               direction: transfer.direction,
@@ -531,6 +545,7 @@ export function connectTransferTxBridge(
               | undefined;
             const tokenContent = transportRef?.token ?? transportRef?.content;
             metadata = {
+              ...incomingDeliveryMetadata(transfer),
               token: tokenContent,
               direction: transfer.direction,
             };
@@ -538,7 +553,7 @@ export function connectTransferTxBridge(
 
           const baseTx = createTransaction({
             id: transfer.txId,
-            direction: "send",
+            direction: transfer.direction === "incoming" ? "receive" : "send",
             method,
             protocol: proto,
             amount: sat(amount),
@@ -558,7 +573,7 @@ export function connectTransferTxBridge(
           if (tx.status === "settled") {
             return;
           }
-          const failedTx = failTransaction(tx, event.payload.reason);
+          const failedTx = failTransaction({ ...tx, metadata: { ...tx.metadata, ...incomingDeliveryMetadata(transfer) } }, event.payload.reason);
           await deps.txRepo.update(transfer.txId, failedTx);
           console.log("[TransferTxBridge] Transaction failed:", transfer.txId);
         }

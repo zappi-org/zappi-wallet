@@ -239,21 +239,32 @@ export class NostrSessionController {
   }
 
   /** Publish to explicit relays — acquires a session lease, releases after confirmation */
-  async publishScoped(relays: string[], event: unknown): Promise<{ ok: string[]; failed: string[] }> {
+  async publishScoped(relays: string[], event: unknown, options?: { timeoutMs: number; firstAck?: boolean }): Promise<{ ok: string[]; failed: string[] }> {
     const lease = await this.acquireSession(relays)
     try {
-      return await this.publishTo(relays, event)
+      return await this.publishTo(relays, event, options)
     } finally {
       lease.release()
     }
   }
 
-  private async publishTo(relays: string[], event: unknown): Promise<{ ok: string[]; failed: string[] }> {
+  private async publishTo(relays: string[], event: unknown, options?: { timeoutMs: number; firstAck?: boolean }): Promise<{ ok: string[]; failed: string[] }> {
     if (relays.length === 0) return { ok: [], failed: [] }
     for (const relay of relays) {
       netLog({ layer: 'relay', op: 'publish', key: relay, detail: '', caller: 'controller' })
     }
-    const results = await Promise.allSettled(this.pool.publish(relays, event))
+    const publications = options
+      ? this.pool.publish(relays, event, { maxWait: options.timeoutMs })
+      : this.pool.publish(relays, event)
+    if (options?.firstAck) {
+      try {
+        const accepted = await Promise.any(publications.map((pending, index) => pending.then(() => relays[index])))
+        return { ok: [accepted], failed: [] }
+      } catch {
+        return { ok: [], failed: relays }
+      }
+    }
+    const results = await Promise.allSettled(publications)
     const ok: string[] = []
     const failed: string[] = []
     results.forEach((r, i) => (r.status === 'fulfilled' ? ok : failed).push(relays[i]))
@@ -357,6 +368,11 @@ export class NostrSessionController {
 
   private async connectAndAttach(url: string): Promise<void> {
     await this.connectRelay(url)
+    const id = relayIdentity(url)
+    if (!this.persistentIds.has(id)) {
+      if (!this.sessionLeases.has(id)) this.closeRelay(url)
+      return
+    }
     this.attachSubscriptionsTo(url)
   }
 

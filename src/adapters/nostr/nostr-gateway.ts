@@ -22,7 +22,7 @@ import type {
 import type { GiftwrapCursorStore } from '@/core/ports/driven/giftwrap-cursor-store.port'
 import { sinceForCatchUp, sinceForRelay } from '@/core/domain/giftwrap-cursor'
 import type { NostrEvent, NostrFilter, UnsignedNostrEvent } from '@/core/domain/nostr'
-import { signEvent, wrapEvent, unwrapEvent } from './internal/nostr-crypto'
+import { signEvent, wrapEvent, unwrapEvent, wrapChatRumor } from './internal/nostr-crypto'
 import { createRelayPool, type RelayPool } from './internal/nostr-relay'
 import { NostrSessionController } from './internal/session-controller'
 import { RequestGate } from '@/core/utils/request-gate'
@@ -359,25 +359,37 @@ export class NostrGatewayAdapter implements NostrGateway {
   }
 
   async sendGiftWrap(params: GiftWrapParams): Promise<NostrEvent> {
-    const wrapped = wrapEvent(
-      this.config.privateKeyHex,
-      params.recipientPubkey,
-      params.content,
-    )
+    const wrapped = params.rumor
+      ? wrapChatRumor(params.rumor, this.config.privateKeyHex, params.recipientPubkey)
+      : wrapEvent(this.config.privateKeyHex, params.recipientPubkey, params.content)
 
     if (this.controller) {
-      const { ok } = await this.controller.publishScoped(params.relays, wrapped)
+      const { ok } = params.timeoutMs || params.firstAck
+        ? await this.controller.publishScoped(params.relays, wrapped, {
+            timeoutMs: params.timeoutMs ?? 8000,
+            ...(params.firstAck ? { firstAck: true } : {}),
+          })
+        : await this.controller.publishScoped(params.relays, wrapped)
       if (ok.length === 0) {
         throw new Error('Failed to publish gift wrap to any relay')
       }
       return wrapped
     }
 
-    await this.connect(params.relays)
+    if (params.firstAck) {
+      await Promise.allSettled(params.relays.map((relay) => this.connectRelay(relay)))
+    } else {
+      await this.connect(params.rumor ? [...new Set([...this.targetRelays, ...params.relays])] : params.relays)
+    }
 
-    const results = await Promise.allSettled(
-      this.pool.publish(params.relays, wrapped),
-    )
+    const publications = params.timeoutMs || params.firstAck
+      ? this.pool.publish(params.relays, wrapped, { maxWait: params.timeoutMs ?? 8000 })
+      : this.pool.publish(params.relays, wrapped)
+    if (params.firstAck) {
+      await Promise.any(publications)
+      return wrapped
+    }
+    const results = await Promise.allSettled(publications)
     const succeeded = results.filter(r => r.status === 'fulfilled').length
 
     if (succeeded === 0) {
@@ -548,42 +560,51 @@ export class NostrGatewayAdapter implements NostrGateway {
       // EOSE history accumulates.
       const targets = new Set(cursor.fullSyncTargets ?? [])
       const eosed = new Set<string>()
-      // Crash-during-processing guard: defer the full-sync mark until every handler for
-      // events that arrived by EOSE has settled (preserves the pre-cursor "next session's
-      // full replay re-delivers" safety net within the window).
-      const inflightHandlers = new Set<Promise<unknown>>()
+      // Failed handlers keep the replay window open until a later subscription succeeds.
+      const inflightHandlers = new Set<Promise<void>>()
+      let handlerFailed = false
       let fullSyncQueued = false
+
+      const afterHandlers = (mark: () => Promise<void>) => {
+        void Promise.all([...inflightHandlers]).then(() => {
+          if (!closed && !handlerFailed) void mark().catch(() => {})
+        })
+      }
 
       const queueFullSyncMark = () => {
         if (fullSyncQueued) return
         fullSyncQueued = true
-        const pending = [...inflightHandlers]
-        void Promise.allSettled(pending).then(() => {
-          if (closed) return
-          void store.markFullSync(cursor.key, t0).catch(() => {})
-        })
+        afterHandlers(() => store.markFullSync(cursor.key, t0))
       }
 
       inner = this.subscribeInternal(
         [filter],
         (event: NostrEvent) => {
+          let unwrapped: ReturnType<typeof unwrapEvent>
           try {
-            const unwrapped = unwrapEvent(event, this.config.privateKeyHex)
+            unwrapped = unwrapEvent(event, this.config.privateKeyHex)
+          } catch {
+            return
+          }
+          try {
             const result = handler({
               eventId: event.id,
               content: unwrapped.content,
               sender: unwrapped.sender,
             })
-            if (result instanceof Promise) {
-              inflightHandlers.add(result)
-              void result.finally(() => inflightHandlers.delete(result))
-            }
-          } catch {
-            // Not our message or decryption failed
+            const pending = Promise.resolve(result).catch((error) => {
+              handlerFailed = true
+              console.warn('[NostrGateway] Gift wrap handling failed:', error)
+            })
+            inflightHandlers.add(pending)
+            void pending.then(() => inflightHandlers.delete(pending))
+          } catch (error) {
+            handlerFailed = true
+            console.warn('[NostrGateway] Gift wrap handling failed:', error)
           }
         },
         (relayUrl) => {
-          void store.markRelayEose(cursor.key, relayUrl, t0).catch(() => {})
+          afterHandlers(() => store.markRelayEose(cursor.key, relayUrl, t0))
           if (targets.has(relayUrl) && !eosed.has(relayUrl)) {
             eosed.add(relayUrl)
             if (targets.size > 0 && eosed.size === targets.size) {
@@ -629,10 +650,12 @@ export class NostrGatewayAdapter implements NostrGateway {
     return this.subscribe([baseFilter], (event: NostrEvent) => {
       try {
         const unwrapped = unwrapEvent(event, this.config.privateKeyHex)
-        handler({
+        void Promise.resolve(handler({
           eventId: event.id,
           content: unwrapped.content,
           sender: unwrapped.sender,
+        })).catch((error) => {
+          console.warn('[NostrGateway] Gift wrap handling failed:', error)
         })
       } catch {
         // Not our message or decryption failed — skip

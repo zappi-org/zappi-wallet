@@ -8,9 +8,12 @@ const mocks = vi.hoisted(() => {
       trustMint: vi.fn(),
       untrustMint: vi.fn(),
     },
+    wallet: { decodeToken: vi.fn() },
     ops: {
       receive: {
         prepare: vi.fn(),
+        get: vi.fn(),
+        refresh: vi.fn(),
         execute: vi.fn(),
         cancel: vi.fn(),
       },
@@ -52,6 +55,93 @@ describe('cashu-backend receive mint trust scope', () => {
     mocks.manager.ops.receive.prepare.mockResolvedValue({ id: 'receive-op-1', amount: 10, fee: 1 })
     mocks.manager.ops.receive.execute.mockResolvedValue(undefined)
     mocks.manager.ops.receive.cancel.mockResolvedValue(undefined)
+  })
+
+  it('rejects malformed token data without retrying or preparing a receive', async () => {
+    mocks.getTokenMetadata.mockImplementationOnce(() => { throw new Error('Invalid CBOR') })
+    await expect(receiveToken('malformed', undefined, { onPrepared: vi.fn() }))
+      .rejects.toMatchObject({ code: 'INVALID_TOKEN', isRetryable: false })
+    expect(mocks.manager.ops.receive.prepare).not.toHaveBeenCalled()
+  })
+
+  it('persists the operation checkpoint before executing and stops if persistence fails', async () => {
+    const onPrepared = vi.fn().mockRejectedValue(new Error('disk unavailable'))
+    await expect(receiveToken('cashuA...', undefined, { onPrepared })).rejects.toThrow()
+    expect(onPrepared).toHaveBeenCalledWith('receive-op-1')
+    expect(mocks.manager.ops.receive.execute).not.toHaveBeenCalled()
+  })
+
+  it('accepts the same operation finalized by Coco after execute throws', async () => {
+    mocks.manager.ops.receive.execute.mockRejectedValueOnce(new Error('response lost'))
+    mocks.manager.ops.receive.get.mockResolvedValueOnce({ id: 'receive-op-1', state: 'finalized' })
+    await expect(receiveToken('cashuA...')).resolves.toMatchObject({ amount: 9 })
+  })
+
+  it('does not treat a spent token error as received without finalized operation evidence', async () => {
+    mocks.manager.ops.receive.execute.mockRejectedValueOnce(new Error('Token already spent'))
+    mocks.manager.ops.receive.get.mockResolvedValueOnce({ state: 'rolled_back' })
+    await expect(receiveToken('cashuA...')).rejects.toThrow()
+  })
+
+  it('recovers the persisted operation after restart without preparing a second one', async () => {
+    const proof = { secret: 'secret', C: 'signature', amount: 10 }
+    const op = { id: 'saved-op', state: 'executing', unit: 'sat', mintUrl: 'https://source.mint', inputProofs: [proof], amount: 10, fee: 1 }
+    mocks.manager.wallet.decodeToken.mockResolvedValue({ proofs: [proof] })
+    mocks.manager.ops.receive.get.mockResolvedValueOnce(op)
+    mocks.manager.ops.receive.refresh.mockResolvedValueOnce({ ...op, state: 'finalized' })
+    await expect(receiveToken('cashuA...', undefined, {
+      operationId: op.id,
+      onPrepared: vi.fn(),
+    })).resolves.toMatchObject({ amount: 9 })
+    expect(mocks.manager.ops.receive.prepare).not.toHaveBeenCalled()
+    expect(mocks.manager.ops.receive.execute).not.toHaveBeenCalled()
+    expect(mocks.manager.ops.receive.refresh).toHaveBeenCalledWith('saved-op')
+  })
+
+  it('leaves unresolved execution retryable without creating another operation', async () => {
+    const proof = { secret: 'secret', C: 'signature', amount: 10 }
+    const op = { id: 'saved-op', state: 'executing', unit: 'sat', mintUrl: 'https://source.mint', inputProofs: [proof], amount: 10, fee: 1 }
+    mocks.manager.wallet.decodeToken.mockResolvedValue({ proofs: [proof] })
+    mocks.manager.ops.receive.get.mockResolvedValueOnce(op)
+    mocks.manager.ops.receive.refresh.mockResolvedValueOnce(op)
+    await expect(receiveToken('cashuA...', undefined, { operationId: op.id, onPrepared: vi.fn() }))
+      .rejects.toMatchObject({ isRetryable: true })
+    expect(mocks.manager.ops.receive.prepare).not.toHaveBeenCalled()
+    expect(mocks.manager.ops.receive.execute).not.toHaveBeenCalled()
+  })
+
+  it('marks an explicitly rolled-back operation nonretryable', async () => {
+    const proof = { secret: 'secret', C: 'signature', amount: 10 }
+    mocks.manager.wallet.decodeToken.mockResolvedValue({ proofs: [proof] })
+    mocks.manager.ops.receive.get.mockResolvedValueOnce({
+      id: 'saved-op', state: 'rolled_back', unit: 'sat', mintUrl: 'https://source.mint', inputProofs: [proof], amount: 10, fee: 1,
+    })
+    await expect(receiveToken('cashuA...', undefined, { operationId: 'saved-op', onPrepared: vi.fn() }))
+      .rejects.toMatchObject({ isRetryable: false })
+    expect(mocks.manager.ops.receive.prepare).not.toHaveBeenCalled()
+  })
+
+  it.each(['unit', 'keyset'])('rejects a finalized operation with a different %s', async (mismatch) => {
+    const proof = { id: 'keyset', secret: 'secret', C: 'signature', amount: 10 }
+    mocks.manager.wallet.decodeToken.mockResolvedValue({ unit: 'sat', proofs: [proof] })
+    mocks.manager.ops.receive.get.mockResolvedValueOnce({
+      id: 'saved-op', state: 'finalized', mintUrl: 'https://source.mint', amount: 10, fee: 1,
+      unit: mismatch === 'unit' ? 'usd' : 'sat',
+      inputProofs: [{ ...proof, id: mismatch === 'keyset' ? 'other' : proof.id }],
+    })
+    await expect(receiveToken('cashuA...', undefined, { operationId: 'saved-op', onPrepared: vi.fn() }))
+      .rejects.toMatchObject({ isRetryable: false })
+    expect(mocks.manager.ops.receive.execute).not.toHaveBeenCalled()
+  })
+
+  it('rejects a persisted operation belonging to a different token', async () => {
+    mocks.manager.wallet.decodeToken.mockResolvedValue({ proofs: [{ secret: 'other', C: 'c', amount: 10 }] })
+    mocks.manager.ops.receive.get.mockResolvedValueOnce({
+      id: 'saved-op', state: 'finalized', unit: 'sat', mintUrl: 'https://source.mint',
+      inputProofs: [{ secret: 'original', C: 'c', amount: 10 }], amount: 10, fee: 1,
+    })
+    await expect(receiveToken('cashuA...', undefined, { operationId: 'saved-op', onPrepared: vi.fn() })).rejects.toThrow()
+    expect(mocks.manager.ops.receive.execute).not.toHaveBeenCalled()
   })
 
   it('keeps user-trusted token mints trusted during fee estimation', async () => {

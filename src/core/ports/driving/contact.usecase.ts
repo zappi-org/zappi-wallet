@@ -15,6 +15,7 @@ export interface CreateContactParams {
 }
 
 export interface UpdateContactParams {
+  favorite?: boolean
   name?: string
   addresses?: ContactAddress[]
 }

@@ -1,5 +1,6 @@
 import { useCallback } from 'react'
 import { sat } from '@/core/domain/amount'
+import type { TransactionMgmtUseCase } from '@/core/ports/driving/transaction-mgmt.usecase'
 import type { NostrGateway } from '@/core/ports/driven/nostr-gateway.port'
 import type { ProcessedStore } from '@/core/ports/driven/processed-store.port'
 import type { ReceiveRequestUseCase } from '@/core/ports/driving/receive-request.usecase'
@@ -19,6 +20,7 @@ import { normalizeMintUrl, isSameMintUrl } from '@/utils/url'
  */
 export type ResolveIncomingReviewFn = (
   deps: {
+    transactionMgmt?: Pick<TransactionMgmtUseCase, 'getById' | 'update'>
     processedStore: Pick<ProcessedStore, 'save'>
     receiveRequest: Pick<ReceiveRequestUseCase, 'findByRequestId' | 'complete'>
     removeIncomingReview: (externalId: string) => void | Promise<void>
@@ -138,6 +140,7 @@ export function useReceiveHandlers(deps: UseReceiveHandlersDeps): ReceiveHandler
     if (!serviceRegistry) return
 
     await resolveReview({
+      transactionMgmt: serviceRegistry.transactionMgmt,
       processedStore: serviceRegistry.processedStore,
       receiveRequest: serviceRegistry.receiveRequest,
       // Remove from the durable queue; the queue adapter syncs the Zustand mirror

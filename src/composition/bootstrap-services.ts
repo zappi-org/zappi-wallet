@@ -137,16 +137,17 @@ export function assembleCoreServices(deps: {
     runCocoSweeps: runCocoRecoverySweeps,
     reviewQueue: incomingReviewQueue,
     redeemToken: (input) => payment.redeem({ input }),
-    resolveReview: (review) =>
+    resolveReview: (review, transactionId) =>
       resolveIncomingReview(
         {
+          transactionMgmt: txRepo,
           processedStore,
           receiveRequest,
           removeIncomingReview: (id) => incomingReviewQueue.remove(id),
           nostrGateway,
           posDevices: useAppStore.getState().settings.posDevices,
         },
-        { review }
+        { review, transactionId }
       ),
     discardReview: async (review, reason) => {
       await processedStore.save({

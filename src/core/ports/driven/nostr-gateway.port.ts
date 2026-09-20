@@ -44,6 +44,10 @@ export interface DirectMessageParams {
 }
 
 export interface GiftWrapParams {
+  /** Resolve after one relay accepts the event. */
+  firstAck?: boolean
+  timeoutMs?: number
+  rumor?: UnsignedNostrEvent
   recipientPubkey: string
   content: string
   relays: string[]

@@ -155,3 +155,43 @@ describe('resolveIncomingReview', () => {
     warnSpy.mockRestore()
   })
 })
+
+describe('approved receipt binding', () => {
+  it.each([100n, 98n])('links the authenticated delivery after approved redemption (%s sat)', async (value) => {
+    const review = createReview({ recipientPubkey: 'receiver' });
+    const tx = { id: 'local-receive', direction: 'receive', status: 'settled',
+      amount: amount(value, 'sat'), accountId: review.token.mintUrl,
+      fee: { effective: amount(2, 'sat'), quoted: amount(2, 'sat') },
+      metadata: { token: review.token.token },
+    };
+    const update = vi.fn();
+    const save = vi.fn();
+    await resolveIncomingReview({
+      transactionMgmt: { getById: vi.fn().mockResolvedValueOnce(null).mockResolvedValue(tx), update },
+      processedStore: { save },
+      receiveRequest: { findByRequestId: vi.fn().mockResolvedValue(null), complete: vi.fn() },
+      removeIncomingReview: vi.fn(),
+    }, { review, transactionId: tx.id });
+    expect(update).toHaveBeenCalledWith(tx.id, { metadata: {
+      token: review.token.token,
+      paymentDelivery: { id: review.externalId, sender: review.senderPubkey, recipient: review.recipientPubkey, amount: 100, requestId: review.requestId },
+    } });
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({ externalId: review.externalId, txId: tx.id, result: 'success' }));
+  });
+  it.each([{ direction: 'send' }, { status: 'pending' }, { metadata: { token: 'other-token' } }, { accountId: 'https://other.mint' }])('keeps the review when the receipt mismatches %#', async (patch) => {
+    const review = createReview({ recipientPubkey: 'receiver' });
+    const remove = vi.fn();
+    const update = vi.fn();
+    await expect(resolveIncomingReview({
+      transactionMgmt: { getById: vi.fn().mockResolvedValue({
+        id: 'local', direction: 'receive', status: 'settled', amount: amount(100, 'sat'),
+        accountId: review.token.mintUrl, metadata: { token: review.token.token }, ...patch,
+      }), update },
+      processedStore: { save: vi.fn() },
+      receiveRequest: { findByRequestId: vi.fn(), complete: vi.fn() },
+      removeIncomingReview: remove,
+    }, { review, transactionId: 'local' })).rejects.toThrow('does not match');
+    expect(remove).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
+  });
+});

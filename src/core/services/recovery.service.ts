@@ -29,6 +29,7 @@ import type {
 } from '@/core/ports/driving/recovery.usecase'
 import type { FailedIncoming, SyncResult, ProcessedRecord } from '@/core/types'
 import { RETRY } from '@/core/constants'
+import { matchesTokenReceipt } from '@/core/domain/payment-receipt'
 import { amount as createAmount } from '@/core/domain/amount'
 import {
   candidateAmount,
@@ -330,6 +331,7 @@ export class RecoveryService implements RecoveryUseCase {
               },
               queuedAt: Date.now(),
               senderPubkey: msg.sender,
+              recipientPubkey: params.publicKey,
               source: 'recovery',
             })
             if (this.processedStore) {
@@ -355,6 +357,20 @@ export class RecoveryService implements RecoveryUseCase {
           const receiveResult = await this.tokenReceiver.receiveToken(directToken.token)
 
           if (receiveResult.ok) {
+            if (this.txRepo) {
+              const transactionId = receiveResult.value.transactionId
+              const transaction = await this.txRepo.getById(transactionId)
+              if (!matchesTokenReceipt(transaction, {
+                token: directToken.token, mintUrl: info.mint, amount: info.amount,
+              })) throw new Error('Recovered receipt does not match the received token')
+              await this.txRepo.update(transactionId, {
+                metadata: { ...transaction.metadata, paymentDelivery: {
+                  id: msg.eventId, sender: msg.sender, recipient: params.publicKey,
+                  amount: Number(info.amount.value),
+                  ...(restoreRequestId ? { requestId: restoreRequestId } : {}),
+                } },
+              })
+            }
             result.tokensReceived++
             result.amountReceived += receiveResult.value.amount
             await this.markProcessed(msg.eventId, 'success', receiveResult.value.transactionId)

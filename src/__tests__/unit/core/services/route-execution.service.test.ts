@@ -73,7 +73,7 @@ describe('RouteExecutionService', () => {
       deletePendingMelt: vi.fn(),
     } as unknown as RouteExecutionStore
     const delivery: PaymentDeliveryPort = {
-      deliverToken: vi.fn().mockResolvedValue({ success: true, transportUsed: 'nostr' }),
+      deliverToken: vi.fn().mockResolvedValue({ success: true, transportUsed: 'nostr', deliveryId: 'payment-event' }),
     }
     const eventBus = { emit: vi.fn() } as unknown as EventBus
     const syncNotifier = { notifyBalanceChanged: vi.fn() }
@@ -132,6 +132,7 @@ describe('RouteExecutionService', () => {
     }))
     expect(syncNotifier.notifyBalanceChanged).toHaveBeenCalledOnce()
     expect(result.value.transportUsed).toBe('nostr')
+    expect(result.value.deliveryId).toBe('payment-event')
   })
 
   // Delivery reports failure by return value. Before this, nothing threw, the

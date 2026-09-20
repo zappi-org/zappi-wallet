@@ -1,3 +1,4 @@
+import { BaseError } from '@/core/errors/base'
 /**
  * TransferLifecycleService — protocol-neutral transfer state management.
  *
@@ -23,6 +24,7 @@ import type { OperationMap } from '@/core/ports/driven/operation-map.port'
  * second TAB's sweep can still fail this tab's live transfer.
  */
 const liveOutgoingTransferIds = new Set<string>()
+const liveIncomingTransferIds = new Set<string>()
 
 /** Stuck threshold — one remote check once this long has passed since the last transition. */
 const STUCK_THRESHOLD_MS = 120_000
@@ -177,6 +179,13 @@ export class TransferLifecycleService {
     const operator = this.findOperator(transfer)
     if (!operator) return
 
+    if (operator.canResumeIncoming?.(transfer)) {
+      if (!countStuck || now - transfer.updatedAt > STUCK_THRESHOLD_MS) {
+        await this.processIncomingTransfer(transfer.id)
+      }
+      return
+    }
+
     // Pass 1: local judgment (no network) — reclaims local remnants that missed a
     // push. Locally-visible transitions aren't counted (no remote check needed).
     if (operator.pollLocal) {
@@ -301,44 +310,64 @@ export class TransferLifecycleService {
   }
 
   async processIncomingTransfer(transferId: string): Promise<void> {
-    const transfer = await this.transferStore.get(transferId)
-    if (!transfer || transfer.direction !== 'incoming') {
-      return
-    }
-    // Block the path where a duplicate incoming:received re-redeems an already
-    // settled transfer (→TOKEN_SPENT → catch demotes it to failed).
-    if (isTerminal(transfer.phase)) {
-      return
-    }
-
-    const operator = this.findOperator(transfer)
-    if (!operator?.processIncoming) {
-      return
-    }
-
+    if (liveIncomingTransferIds.has(transferId)) return
+    liveIncomingTransferIds.add(transferId)
     try {
-      const processed = await operator.processIncoming(transfer)
-      await this.transferStore.update(processed.id, processed)
-
-      this.eventBus.emit({
-        type: 'incoming:processed',
-        payload: { transfer: processed },
-      })
-
-      if (isTerminal(processed.phase)) {
-        await this.finalizeTransfer(processed)
+      const transfer = await this.transferStore.get(transferId)
+      if (!transfer || transfer.direction !== 'incoming') {
+        return
       }
-    } catch (error) {
-      console.error('[TLS] processIncomingTransfer error:', error)
-      const failed = transitionPhase(transfer, 'failed', Date.now())
-      await this.transferStore.update(failed.id, failed)
+      // Block the path where a duplicate incoming:received re-redeems an already
+      // settled transfer (→TOKEN_SPENT → catch demotes it to failed).
+      if (isTerminal(transfer.phase)) {
+        return
+      }
 
-      this.eventBus.emit({
-        type: 'transfer:failed',
-        payload: { transfer: failed, reason: String(error) },
-      })
+      const operator = this.findOperator(transfer)
+      if (!operator?.processIncoming) {
+        return
+      }
 
-      throw error
+      try {
+        const checkpoint = async (next: PendingTransfer) => {
+          await this.transferStore.update(transferId, {
+            transportRef: next.transportRef,
+            updatedAt: Date.now(),
+          })
+        }
+        const processed = await operator.processIncoming(transfer, checkpoint)
+        const current = await this.transferStore.get(transferId)
+        if (!current || isTerminal(current.phase)) return
+        await this.transferStore.update(processed.id, processed)
+        this.eventBus.emit({
+          type: 'incoming:processed',
+          payload: { transfer: processed },
+        })
+        if (isTerminal(processed.phase)) await this.finalizeTransfer(processed)
+      } catch (error) {
+        const latest = await this.transferStore.get(transferId)
+        if (!latest || isTerminal(latest.phase)) throw error
+        if (
+          operator.canResumeIncoming?.(latest) &&
+          !(error instanceof BaseError && !error.isRetryable)
+        ) {
+          await this.transferStore.update(
+            transferId,
+            transitionPhase(latest, 'submitted', Date.now())
+          )
+          this.ensureSweepScheduled()
+        } else {
+          const failed = transitionPhase(latest, 'failed', Date.now())
+          await this.transferStore.update(failed.id, failed)
+          this.eventBus.emit({
+            type: 'transfer:failed',
+            payload: { transfer: failed, reason: String(error) },
+          })
+        }
+        throw error
+      }
+    } finally {
+      liveIncomingTransferIds.delete(transferId)
     }
   }
 
@@ -435,6 +464,12 @@ export class TransferLifecycleService {
       const operator = this.findOperator(transfer)
       if (!operator) continue
 
+      if (operator.canResumeIncoming?.(transfer)) {
+        if (Date.now() - transfer.updatedAt > STUCK_THRESHOLD_MS) {
+          await this.processIncomingTransfer(transfer.id).catch(() => {})
+        }
+        continue
+      }
       const newPhase = await operator.poll(transfer)
 
       if (newPhase !== transfer.phase) {

@@ -10,11 +10,12 @@
  * redeem → redeem-confirm-{trusted,untrusted} → received
  */
 
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import { useState, useCallback, useEffect, useLayoutEffect, useRef, useMemo } from 'react'
 import { AnimatePresence } from 'motion/react'
 import { PageTransition } from '@/ui/components/common/PageTransition'
 import { useTranslation } from 'react-i18next'
 
+import type { CreateReceiveRequestParams } from '@/core/ports/driving/receive-request.usecase'
 import { toNumber } from '@/core/domain/amount'
 import type { ValidatedCashuToken, ValidatedData } from '@/core/domain/input-types'
 import type { BaseError } from '@/core/errors/base'
@@ -23,6 +24,7 @@ import { TokenSpentError } from '@/core/errors/cashu'
 import type { PendingIncomingReview } from '@/core/types'
 
 import { useAppStore } from '@/store'
+import { useIsActivityTop } from '@/ui/navigation/use-is-activity-top'
 import { useNetwork } from '@/ui/hooks/use-network'
 import { useReceiveRequest } from '@/ui/hooks/use-receive-request'
 import { usePaymentRequest } from '@/ui/hooks/use-payment-request'
@@ -98,6 +100,7 @@ interface ReceiveFlowState {
 }
 
 export interface ReceiveFlowProps {
+  onShareRequest?: (content: string, request: { requestId: string; amount: number; expiresAt: number }) => Promise<void>
   onBack: () => void
   onComplete: () => void
   // request path (unchanged from today)
@@ -123,6 +126,7 @@ export interface ReceiveFlowProps {
 // ============= Component =============
 
 export function ReceiveFlow({
+  onShareRequest,
   onBack,
   onComplete,
   onCreateInvoice,
@@ -209,6 +213,20 @@ export function ReceiveFlow({
 
   const [isLoading, setIsLoading] = useState(false)
   const isProcessingRef = useRef(false)
+  const isActivityTop = useIsActivityTop()
+  const chatShareActiveRef = useRef(isActivityTop)
+  useLayoutEffect(() => {
+    chatShareActiveRef.current = isActivityTop
+  }, [isActivityTop])
+  const chatRequestRef = useRef<{
+    params: CreateReceiveRequestParams
+    amount: number
+    memo: string
+    mintUrl: string
+    expiresAt: number
+    persisted: boolean
+    shared: boolean
+  } | null>(null)
   // False once this flow instance unmounts (exit paths that skip onBack — OS
   // back, external navigation — still unmount the activity). Async redeem
   // continuations check it so a dead flow can never execute a reclaim or
@@ -266,12 +284,7 @@ export function ReceiveFlow({
 
   // ============= Request path =============
 
-  /**
-   * Create both the NUT-18 ecash request and the Lightning invoice, persist the
-   * ReceiveRequest entity, then land on the request-QR step. Shared by the
-   * amount-sheet confirm and regenerate — ecash creation ported verbatim from
-   * ReceiveInputStep.handleNext; invoice + persistence from ReceiveFlow.handleInputNext.
-   */
+  // Persist once, then show a QR or share directly with the conversation.
   const createRequest = useCallback(async (amount: number, memo: string, mintUrl: string) => {
     if (isProcessingRef.current) return
     isProcessingRef.current = true
@@ -285,6 +298,42 @@ export function ReceiveFlow({
     }
 
     try {
+      const shareChatRequest = async (request: NonNullable<typeof chatRequestRef.current>) => {
+        if (!aliveRef.current || !chatShareActiveRef.current || !onShareRequest || request.shared) return
+        if (!request.persisted) {
+          await receiveReq.create(request.params)
+          request.persisted = true
+          if (request.params.quoteId && request.params.bolt11) {
+            addPendingQuote({
+              quoteId: request.params.quoteId,
+              mintUrl: request.mintUrl,
+              amount: request.amount,
+              invoice: request.params.bolt11,
+              expiry: request.expiresAt,
+            })
+          }
+        }
+        if (!aliveRef.current || !chatShareActiveRef.current) return
+        if (request.expiresAt <= Date.now()) {
+          addToast({ type: 'error', message: t('chat.paymentCard.expired') })
+          return
+        }
+        await onShareRequest(request.params.ecashRequest || request.params.bolt11!, {
+          requestId: request.params.ecashRequestId || request.params.quoteId!,
+          amount: request.amount,
+          expiresAt: request.expiresAt,
+        })
+        request.shared = true
+      }
+      const previous = chatRequestRef.current
+      if (onShareRequest && previous) {
+        if (previous.amount === amount && previous.memo === memo && previous.mintUrl === mintUrl && previous.expiresAt > Date.now()) {
+          await shareChatRequest(previous)
+          return
+        }
+        if (previous.persisted) await receiveReq.cancel(previous.params.requestId!)
+        chatRequestRef.current = null
+      }
       // Always create an ecash payment request alongside Lightning for the unified QR
       let ecashRequest: string | undefined
       let ecashRequestId: string | undefined
@@ -359,20 +408,27 @@ export function ReceiveFlow({
           bip321Uri = `bitcoin:?${params.toString()}`
         }
 
+        const params: CreateReceiveRequestParams = {
+          requestId,
+          accountId: mintUrl,
+          amount: { value: BigInt(amount), unit: 'sat' },
+          description: memo.trim() || undefined,
+          quoteId: invoiceResult?.quoteId,
+          bolt11: invoiceResult?.invoice,
+          ecashRequest,
+          ecashRequestId,
+          httpEndpoint: httpEndpoint || undefined,
+          bip321Uri,
+          expiresAt,
+        }
+        if (onShareRequest) {
+          const request = { params, amount, memo, mintUrl, expiresAt, persisted: false, shared: false }
+          chatRequestRef.current = request
+          await shareChatRequest(request)
+          return
+        }
         try {
-          await receiveReq.create({
-            requestId,
-            accountId: mintUrl,
-            amount: { value: BigInt(amount), unit: 'sat' },
-            description: memo.trim() || undefined,
-            quoteId: invoiceResult?.quoteId,
-            bolt11: invoiceResult?.invoice,
-            ecashRequest,
-            ecashRequestId,
-            httpEndpoint: httpEndpoint || undefined,
-            bip321Uri,
-            expiresAt,
-          })
+          await receiveReq.create(params)
           receiveRequestId = requestId
         } catch (err) {
           console.error('[ReceiveFlow] Failed to persist ReceiveRequest:', err)
@@ -414,7 +470,7 @@ export function ReceiveFlow({
       isProcessingRef.current = false
       setIsLoading(false)
     }
-  }, [isOnline, userNprofile, supportsHttp, paymentReq, onCreateInvoice, addToast, addPendingQuote, t, receiveReq])
+  }, [isOnline, userNprofile, supportsHttp, paymentReq, onCreateInvoice, addToast, addPendingQuote, t, receiveReq, onShareRequest])
 
   /** Cancel the current request (if any) and create a fresh one with new inputs. */
   const regenerate = useCallback((amount: number, memo: string) => {
@@ -634,9 +690,13 @@ export function ReceiveFlow({
   }, [])
 
   const handleAmountBack = useCallback(() => {
-    if (state.amountReturn === 'exit') { onBack(); return }
+    if (state.amountReturn === 'exit') {
+      if (onShareRequest) aliveRef.current = false
+      onBack()
+      return
+    }
     setState((prev) => ({ ...prev, step: 'request' }))
-  }, [state.amountReturn, onBack])
+  }, [state.amountReturn, onBack, onShareRequest])
 
   const handleMakeAnother = useCallback(() => {
     regenerate(state.amount, state.memo)
@@ -666,6 +726,7 @@ export function ReceiveFlow({
         {state.step === 'amount' && (
           <PageTransition key="receive-amount" variant="page" className="flex-1">
             <ReceiveAmountStep
+              chatRequest={!!onShareRequest}
               mintUrl={state.selectedMintUrl}
               mintDisplayName={mintDisplayName}
               mintIconUrl={mintIconUrl}

@@ -1,3 +1,12 @@
+import { ChatService } from '@/core/services/chat.service'
+import { DexieChatRepository } from '@/adapters/storage/dexie/dexie-chat.repository'
+import { NostrChatTransport } from '@/adapters/nostr/nostr-chat.transport'
+import { derivePublicKey, nprofileEncode } from '@/adapters/nostr/internal/nostr-crypto'
+import { useAppStore } from '@/store'
+import { DEFAULT_RELAYS } from '@/core/constants'
+import { ChatStorageCipherAdapter } from '@/adapters/crypto/chat-storage-cipher'
+import { DexieChatKeyStore } from '@/adapters/storage/dexie/dexie-chat-key-store'
+import { createChatStorageSession } from './chat-storage-session'
 /**
  * Bootstrap — Composition Root (the only boundary-crossing point).
  *
@@ -64,7 +73,7 @@ export type RouteResult = Result<RouteExecutionResult, BaseError>;
 export interface BootstrapDeps {
   /** Nostr private key (hex) — available after unlock */
   nostrPrivateKeyHex: string;
-  /** BIP-39 seed — used only to derive the support key; never stored */
+  /** BIP-39 seed — support identity and chat storage wrapping; never persisted here */
   bip39Seed: Uint8Array;
 }
 
@@ -77,6 +86,9 @@ export interface BootstrapResult extends ServiceRegistry {
   activate(): Promise<void>;
   onResume(): Promise<void>;
   onPause(): Promise<void>;
+  unlockChatStorage(seed: Uint8Array): Promise<void>;
+  lockChatStorage(): void;
+  readonly chatAddress: string;
   /** Clean up timers/subscriptions on registry swap/disposal (flusher, TLS polling, watcher, gateway) */
   dispose(): void;
   disconnectBridge(): void;
@@ -298,7 +310,22 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     bip39Seed: deps.bip39Seed,
   });
 
+  const chatOwner = derivePublicKey(deps.nostrPrivateKeyHex);
+  const chatRelays = () => [...new Set([...DEFAULT_RELAYS, ...useAppStore.getState().settings.relays])];
+  const chatTransport = new NostrChatTransport(nostrGateway, deps.nostrPrivateKeyHex, chatRelays);
+  const chatCipher = new ChatStorageCipherAdapter(chatOwner, new DexieChatKeyStore());
+  const chatRepository = new DexieChatRepository(chatOwner, chatCipher);
+  const chat = new ChatService(chatRepository, chatTransport);
+  const chatStorage = createChatStorageSession(chat, chatCipher, chatRepository);
+  const stopChatLock = useAppStore.subscribe((state, previous) => {
+    if (state.isLocked && !previous.isLocked) chatStorage.lock();
+  });
+
   return {
+    chat,
+    get chatAddress() { return nprofileEncode(chatOwner, chatRelays().slice(0, 8)); },
+    unlockChatStorage: chatStorage.unlock,
+    lockChatStorage: chatStorage.lock,
     // ─── ServiceRegistry (driving ports only) ───
     eventBus,
     payment,
@@ -343,7 +370,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     activate,
     onResume,
     onPause,
-    dispose,
+    dispose: () => { stopChatLock(); chatStorage.dispose(); chatTransport.destroy(); dispose(); },
     disconnectBridge,
     disconnectGiftWrapSettlement,
 

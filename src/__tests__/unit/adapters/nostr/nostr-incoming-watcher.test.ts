@@ -20,7 +20,7 @@ describe('NostrIncomingWatcher', () => {
   let eventBus: EventBus
   let watcher: NostrIncomingWatcher
   let mockGateway: NostrGateway
-  let giftWrapHandler: ((msg: UnwrappedMessage) => void) | null
+  let giftWrapHandler: ((msg: UnwrappedMessage) => void | Promise<void>) | null
   let mockProcessedStore: ProcessedStore
   let mockRecoveryStore: RecoveryStore
   let mockTrustedMintProvider: TrustedMintProvider
@@ -102,6 +102,37 @@ describe('NostrIncomingWatcher', () => {
       () => null,
       () => ['wss://persistent.test'],
     )
+  })
+
+  it('keeps a failed durable transfer write replayable', async () => {
+    watcher.start('recipient-pubkey')
+    const message = { eventId: 'retry-write', content: 'cashuAeyJt...', sender: 'sender' }
+    const create = vi.spyOn(store, 'create').mockRejectedValueOnce(new Error('storage unavailable'))
+    const received = vi.fn()
+    eventBus.on('incoming:received', received)
+
+    await expect(giftWrapHandler!(message)).rejects.toThrow('storage unavailable')
+    expect(mockProcessedStore.save).not.toHaveBeenCalled()
+    expect(received).not.toHaveBeenCalled()
+    await giftWrapHandler!(message)
+    expect(create).toHaveBeenCalledTimes(2)
+    expect(received).toHaveBeenCalledTimes(1)
+    const [transfer] = await store.listByTxId(message.eventId)
+    expect(transfer.transportRef).toMatchObject({ sender: 'sender', recipientPubkey: 'recipient-pubkey' })
+  })
+
+  it('notifies redemption after durable creation even if processed marking fails', async () => {
+    watcher.start('recipient-pubkey')
+    const message = { eventId: 'retry-marker', content: 'cashuAeyJt...', sender: 'sender' }
+    const received = vi.fn()
+    eventBus.on('incoming:received', received)
+    vi.mocked(mockProcessedStore.save).mockRejectedValueOnce(new Error('marker unavailable'))
+
+    await expect(giftWrapHandler!(message)).rejects.toThrow('marker unavailable')
+    expect(received).toHaveBeenCalledTimes(1)
+    await giftWrapHandler!(message)
+    expect(await store.listByTxId(message.eventId)).toHaveLength(1)
+    expect(received).toHaveBeenCalledTimes(1)
   })
 
   // ─── Start / Stop ───

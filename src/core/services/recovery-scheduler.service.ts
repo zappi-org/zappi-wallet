@@ -32,9 +32,9 @@ export interface RecoverySchedulerDeps {
   /** Source queue for drain. */
   reviewQueue: IncomingReviewQueue
   /** Drain redeem — a narrowed surface of payment.redeem. */
-  redeemToken(input: string): Promise<Result<{ amount: Amount }, BaseError>>
+  redeemToken(input: string): Promise<Result<{ amount: Amount; requestId?: string }, BaseError>>
   /** Drain-success post-processing — mark processedStore success, complete the linked request, remove from queue, ACK. */
-  resolveReview(review: PendingIncomingReview): Promise<void>
+  resolveReview(review: PendingIncomingReview, transactionId?: string): Promise<void>
   /** Drain permanent-failure post-processing — mark processedStore skipped, remove from queue. */
   discardReview(review: PendingIncomingReview, reason: string): Promise<void>
 }
@@ -82,7 +82,7 @@ export class RecoverySchedulerService implements RecoverySchedulerUseCase {
         if (result.ok) {
           redeemed++
           amount += toNumber(result.value.amount)
-          await this.deps.resolveReview(review)
+          await this.deps.resolveReview(review, result.value.requestId)
         } else if (PERMANENT_TOKEN_ERROR_CODES.has(result.error.code)) {
           // Token already spent/invalid — retry is pointless, close the queue.
           await this.deps.discardReview(review, result.error.message)

@@ -59,9 +59,7 @@ export class NostrIncomingWatcher {
         },
       },
       async (msg) => {
-        await this.handleMessage(msg).catch((err) => {
-          console.warn('[NostrIncomingWatcher] Failed to process giftwrap:', err)
-        })
+        await this.handleMessage(msg, recipientPubkey)
       },
     )
 
@@ -82,7 +80,7 @@ export class NostrIncomingWatcher {
   // checks below all race, so a same-event message must wait its turn out.
   private readonly inflightEventIds = new Set<string>()
 
-  private async handleMessage(msg: UnwrappedMessage): Promise<void> {
+  private async handleMessage(msg: UnwrappedMessage, recipientPubkey: string): Promise<void> {
     // Instrumentation: the deduped-to-received ratio measures replay waste — the basis for
     // comparing before and after the cursor rollout.
     incrementNetCounter('giftwrap_events_received')
@@ -93,13 +91,13 @@ export class NostrIncomingWatcher {
     }
     this.inflightEventIds.add(msg.eventId)
     try {
-      await this.processMessage(msg)
+      await this.processMessage(msg, recipientPubkey)
     } finally {
       this.inflightEventIds.delete(msg.eventId)
     }
   }
 
-  private async processMessage(msg: UnwrappedMessage): Promise<void> {
+  private async processMessage(msg: UnwrappedMessage, recipientPubkey: string): Promise<void> {
 
     // 1. Skip if RecoveryService already processed this eventId (prevents recovery-sync duplicates).
     if (await this.recoveryStore.isProcessed(msg.eventId)) {
@@ -123,11 +121,7 @@ export class NostrIncomingWatcher {
       return
     }
 
-    // Ordering contract: mark processed only immediately before/after each branch's durable
-    // action (review enqueue / transfer creation). Marking in bulk before parsing would mean a
-    // crash between the mark and the enqueue makes replay hit dedup and the token is lost forever.
-    // The wider watcher↔recovery concurrency window from deferred marking is accepted — enqueue is
-    // PK-idempotent, and the transfer path is kept just as narrow by marking right before the branch.
+    // Persist the recoverable token before marking the event processed.
     const markProcessed = (result: 'pending' | 'skipped') =>
       this.processedStore.save({
         externalId: msg.eventId,
@@ -179,15 +173,13 @@ export class NostrIncomingWatcher {
         queuedAt: Date.now(),
         requestId: parsed.requestId,
         senderPubkey: msg.sender,
+        recipientPubkey,
         txId: parsed.txId,
         source: 'gift-wrap',
       })
       await markProcessed('pending')
       return
     }
-
-    // Narrow the concurrency window with recovery: mark right before transfer creation.
-    await markProcessed('pending')
 
     // 6. Trusted: create the PendingTransfer (direction: incoming).
     const transfer = createPendingTransfer({
@@ -202,6 +194,7 @@ export class NostrIncomingWatcher {
         protocol: 'ecash',
         eventId: msg.eventId,
         sender: msg.sender,
+        recipientPubkey,
         content: msg.content,
         token: parsed.token,
         mintUrl: info.mint,
@@ -220,6 +213,7 @@ export class NostrIncomingWatcher {
       type: 'incoming:received',
       payload: { transfer },
     })
+    await markProcessed('pending')
   }
 
   private materializeCandidate(candidate: GiftWrapTokenCandidate): {
