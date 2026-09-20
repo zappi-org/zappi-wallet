@@ -9,15 +9,8 @@ import type {
   CreateContactParams,
   UpdateContactParams,
 } from '@/core/ports/driving/contact.usecase'
-import type { Contact, ContactAddress } from '@/core/domain/contact'
+import type { Contact } from '@/core/domain/contact'
 import type { ContactRepository } from '@/core/ports/driven/contact.repository.port'
-
-function validateAddresses(addresses: ContactAddress[]) {
-  for (const address of addresses) {
-    if (!address.value.trim()) throw new Error('Empty contact address')
-  }
-  if (!addresses.length) throw new Error('Contact address required')
-}
 
 export class ContactService implements ContactUseCase {
   constructor(private repo: ContactRepository) {}
@@ -35,7 +28,6 @@ export class ContactService implements ContactUseCase {
   }
 
   async create(params: CreateContactParams): Promise<Contact> {
-    validateAddresses(params.addresses)
     const now = Date.now()
     const contact: Contact = {
       id: crypto.randomUUID(),
@@ -49,7 +41,6 @@ export class ContactService implements ContactUseCase {
   }
 
   async update(id: string, params: UpdateContactParams): Promise<void> {
-    if (params.addresses) validateAddresses(params.addresses)
     await this.repo.update(id, {
       ...params,
       updatedAt: Date.now(),

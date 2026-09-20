@@ -8,6 +8,5 @@ export interface PaymentDeliveryPort {
   }): Promise<{
     success: boolean
     transportUsed: 'nostr' | 'post' | 'none'
-    deliveryId?: string
   }>
 }

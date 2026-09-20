@@ -62,36 +62,6 @@ describe('NostrGatewayAdapter', () => {
     gateway = new NostrGatewayAdapter({ privateKeyHex: 'a'.repeat(64) })
   })
 
-  describe('payment gift-wrap acknowledgment', () => {
-    const params = { recipientPubkey: 'b'.repeat(64), content: 'payment', relays: ['wss://good', 'wss://silent'], timeoutMs: 8000, firstAck: true }
-
-    it('publishes one identical wrap and returns on the first accepted relay', async () => {
-      mockPublish.mockReturnValueOnce([Promise.resolve('ok'), new Promise(() => {})])
-      const result = await gateway.sendGiftWrap(params)
-      expect(result.id).toBe('wrapped')
-      expect(mockPublish).toHaveBeenCalledOnce()
-      expect(mockPublish).toHaveBeenCalledWith(params.relays, result, { maxWait: 8000 })
-    })
-
-    it('reports failure if every relay rejects the same wrap', async () => {
-      mockPublish.mockImplementationOnce(() => [Promise.reject(new Error('rejected')), Promise.reject(new Error('timeout'))])
-      await expect(gateway.sendGiftWrap(params)).rejects.toThrow()
-      expect(mockPublish).toHaveBeenCalledOnce()
-    })
-
-    it('preserves all-relay waiting for callers without firstAck', async () => {
-      let finish!: () => void
-      mockPublish.mockReturnValueOnce([Promise.resolve('ok'), new Promise<void>((resolve) => { finish = resolve })])
-      let completed = false
-      const pending = gateway.sendGiftWrap({ ...params, firstAck: undefined }).then(() => { completed = true })
-      await vi.waitFor(() => expect(mockPublish).toHaveBeenCalledOnce())
-      expect(completed).toBe(false)
-      finish()
-      await pending
-      expect(completed).toBe(true)
-    })
-  })
-
   // ─── connect / disconnect ───
 
   describe('connect', () => {

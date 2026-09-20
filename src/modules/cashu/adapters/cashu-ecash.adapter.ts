@@ -24,7 +24,6 @@ import type { TokenCodec } from '@/core/ports/driven/token-codec.port'
 import type { PendingTransfer, TransferPhase } from '@/core/domain/pending-transfer'
 import { createPendingTransfer, transitionPhase, isExpired } from '@/core/domain/pending-transfer'
 import { withMintCycleLock } from '../internal/mint-cycle-lock'
-import { InvalidTokenError } from '@/core/errors/cashu'
 import type { EventBus } from '@/core/events/event-bus'
 import { getTokenMetadata } from '@cashu/cashu-ts'
 
@@ -59,11 +58,6 @@ export interface ReceiveFeeEstimate {
 
 import type { ProofStateResult } from '@/core/ports/driven/send-token-operator.port'
 
-export interface ReceiveResumeOptions {
-  operationId?: string
-  onPrepared: (operationId: string) => Promise<void>
-}
-
 export interface EcashBackend {
   prepareSend(params: {
     mintUrl: string
@@ -73,7 +67,7 @@ export interface EcashBackend {
   executeSend(operationId: string, options?: { memo?: string }): Promise<{ token: string }>
   rollbackSend(operationId: string): Promise<void>
   finalizeSend(operationId: string): Promise<void>
-  receiveToken(token: string, resume?: ReceiveResumeOptions): Promise<ReceivedTokenResult>
+  receiveToken(token: string): Promise<ReceivedTokenResult>
   estimateReceiveFee(token: string): Promise<ReceiveFeeEstimate>
   recoverPendingSendTokens(): Promise<{ reclaimed: number; recorded: number }>
   redeemPendingReceivedTokens(): Promise<{ redeemed: number; failed: number }>
@@ -154,16 +148,8 @@ export class CashuEcashAdapter implements PaymentMethodAdapter, TransferOperator
     return this.executeOutgoing(transfer)
   }
 
-  canResumeIncoming(transfer: PendingTransfer): boolean {
-    return transfer.direction === 'incoming'
-      && (transfer.transportRef as { type?: string }).type === 'nostr-giftwrap'
-  }
-
-  async processIncoming(
-    transfer: PendingTransfer,
-    checkpoint?: (transfer: PendingTransfer) => Promise<void>,
-  ): Promise<PendingTransfer> {
-    return this.executeIncoming(transfer, checkpoint)
+  async processIncoming(transfer: PendingTransfer): Promise<PendingTransfer> {
+    return this.executeIncoming(transfer)
   }
 
   private async executeOutgoing(transfer: PendingTransfer): Promise<PendingTransfer> {
@@ -221,34 +207,22 @@ export class CashuEcashAdapter implements PaymentMethodAdapter, TransferOperator
     }
   }
 
-  private async executeIncoming(
-    transfer: PendingTransfer,
-    checkpoint?: (transfer: PendingTransfer) => Promise<void>,
-  ): Promise<PendingTransfer> {
+  private async executeIncoming(transfer: PendingTransfer): Promise<PendingTransfer> {
     const ref = transfer.transportRef as {
       content?: string
       token?: string
       requestId?: string
       eventId?: string
-      receiveOperationId?: string
       memo?: string
     }
 
     const token = ref.token ?? this.extractTokenFromContent(ref.content ?? '')
     if (!token) {
-      throw new InvalidTokenError('No token found in incoming transfer')
+      throw new Error('No token found in incoming transfer')
     }
 
     // redeem — store fee/net amount in transportRef for bridge/tx records
-    const resume = checkpoint ? {
-      operationId: ref.receiveOperationId,
-      onPrepared: async (operationId: string) => {
-        const nextRef = { ...ref, receiveOperationId: operationId }
-        await checkpoint({ ...transfer, transportRef: nextRef })
-        ref.receiveOperationId = operationId
-      },
-    } : undefined
-    const { amount, fee, unit, mintUrl, memo } = await this.backend.receiveToken(token, resume)
+    const { amount, fee, unit, mintUrl, memo } = await this.backend.receiveToken(token)
 
     // Restores the receive:settled event lost in the GiftWrapWatcher → TLS migration.
     // Needed so ReceiveQRStep switches to the completion page via lastReceivedRequestId
@@ -306,7 +280,6 @@ export class CashuEcashAdapter implements PaymentMethodAdapter, TransferOperator
   }
 
   async poll(transfer: PendingTransfer): Promise<TransferPhase> {
-    if (transfer.direction === 'incoming') return transfer.phase
     const ref = transfer.transportRef as {
       operationId?: string
       token?: string

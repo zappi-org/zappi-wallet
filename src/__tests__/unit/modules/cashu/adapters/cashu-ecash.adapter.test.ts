@@ -39,44 +39,6 @@ describe('CashuEcashAdapter', () => {
     adapter = new CashuEcashAdapter(backend)
   })
 
-  it('treats a missing incoming token as a permanent rejection', async () => {
-    const transfer = createPendingTransfer({
-      id: 'invalid', txId: 'event', direction: 'incoming', finality: 'deferred', onExpiry: 'expire',
-      transportRef: { type: 'nostr-giftwrap', protocol: 'ecash' }, now: Date.now(),
-    })
-    await expect(adapter.processIncoming(transfer, vi.fn()))
-      .rejects.toMatchObject({ code: 'INVALID_TOKEN', isRetryable: false })
-    expect(backend.receiveToken).not.toHaveBeenCalled()
-  })
-
-  it('checkpoints the operation ID while preserving verified delivery metadata', async () => {
-    const transfer = createPendingTransfer({
-      id: 'incoming', txId: 'event', direction: 'incoming', finality: 'deferred', onExpiry: 'expire',
-      transportRef: { type: 'nostr-giftwrap', protocol: 'ecash', token: 'cashuToken', sender: 'sender', recipientPubkey: 'recipient' },
-      now: Date.now(),
-    })
-    const checkpoint = vi.fn().mockResolvedValue(undefined)
-    vi.mocked(backend.receiveToken).mockImplementationOnce(async (_, resume) => {
-      await resume!.onPrepared('receive-op')
-      return { amount: 498, fee: 2, unit: 'sat', mintUrl: 'https://mint.test' }
-    })
-    const result = await adapter.processIncoming(transfer, checkpoint)
-    expect(checkpoint).toHaveBeenCalledWith(expect.objectContaining({ transportRef: expect.objectContaining({
-      receiveOperationId: 'receive-op', sender: 'sender', recipientPubkey: 'recipient',
-    }) }))
-    expect(result.transportRef).toMatchObject({ receiveOperationId: 'receive-op', receivedAmount: 498 })
-  })
-
-  it('never confirms incoming ownership from globally spent proofs', async () => {
-    const transfer = createPendingTransfer({
-      id: 'incoming', txId: 'event', direction: 'incoming', finality: 'deferred', onExpiry: 'expire',
-      transportRef: { token: 'cashuToken' }, now: Date.now(),
-    })
-    vi.mocked(backend.checkProofStates).mockResolvedValue({ allSpent: true, allPending: false, states: [] })
-    expect(await adapter.poll(transfer)).toBe('preparing')
-    expect(backend.checkProofStates).not.toHaveBeenCalled()
-  })
-
   // ─── Identity ───
 
   it('has correct id and capabilities', () => {

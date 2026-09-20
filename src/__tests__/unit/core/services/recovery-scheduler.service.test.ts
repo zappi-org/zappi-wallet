@@ -119,7 +119,7 @@ describe('RecoverySchedulerService', () => {
   })
 
   describe('drainReviewQueue', () => {
-    it('redeems queued reviews for the mint and resolves their receipt IDs', async () => {
+    it('redeems queued reviews for the mint and resolves them', async () => {
       const reviews = [makeReview('a'), makeReview('b')]
       const deps = makeDeps({
         reviewQueue: {
@@ -129,7 +129,6 @@ describe('RecoverySchedulerService', () => {
           remove: vi.fn(),
         },
       })
-      vi.mocked(deps.redeemToken).mockResolvedValue(Ok({ amount: { value: 10n, unit: 'sat' }, requestId: 'receipt-id' }))
       const scheduler = new RecoverySchedulerService(deps)
 
       const result = await scheduler.drainReviewQueue('https://mint.test')
@@ -137,7 +136,6 @@ describe('RecoverySchedulerService', () => {
       expect(deps.reviewQueue.listByMint).toHaveBeenCalledWith('https://mint.test')
       expect(result).toEqual({ redeemed: 2, amount: 20 })
       expect(deps.resolveReview).toHaveBeenCalledTimes(2)
-      expect(deps.resolveReview).toHaveBeenCalledWith(reviews[0], 'receipt-id')
       expect(deps.discardReview).not.toHaveBeenCalled()
     })
 

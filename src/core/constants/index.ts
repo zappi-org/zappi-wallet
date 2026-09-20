@@ -122,10 +122,7 @@ export const DATABASE = {
   // v23: dropped legacy proofs table (leftover after coco migration. Real-fund proofs
   //      live in the coco DB, and this table had no read/write code, so the data itself
   //      was removable. Surviving tables pass the schema diff losslessly)
-  // v24: private conversations, messages and replay records
-  // v25: bounded chat storage accounting and scoped replay indexes
-  // v26: preserve legacy chat messages while migrating to scoped primary keys
-  VERSION: 27,
+  VERSION: 23,
 } as const
 
 /**

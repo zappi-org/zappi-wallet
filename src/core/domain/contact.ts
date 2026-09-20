@@ -12,7 +12,6 @@ export interface ContactAddress {
 }
 
 export interface Contact {
-  favorite?: boolean
   id: string
   name: string
   addresses: ContactAddress[]

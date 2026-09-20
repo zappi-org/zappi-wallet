@@ -323,7 +323,6 @@ export class RouteExecutionService implements RouteExecutionUseCase {
         transactionId: txId,
         token,
         transportUsed: deliveryResult.transportUsed,
-        ...(deliveryResult.deliveryId ? { deliveryId: deliveryResult.deliveryId } : {}),
       };
     } catch (error) {
       await this.compensateTokenSend(mintUrl, operationId, txId);

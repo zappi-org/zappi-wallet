@@ -24,7 +24,7 @@ function makeRequest(overrides: Partial<ParsedCashuRequest> = {}): ParsedCashuRe
 describe('PaymentDelivery', () => {
   it('delivers over nostr when the request names a nostr transport', async () => {
     const transport: OutgoingPaymentTransport = {
-      send: vi.fn().mockResolvedValue({ success: true, deliveryId: 'payment-event' }),
+      send: vi.fn().mockResolvedValue({ success: true }),
     }
     const delivery = new PaymentDelivery(transport, decodeToken)
 
@@ -37,7 +37,7 @@ describe('PaymentDelivery', () => {
       }),
     })
 
-    expect(result).toEqual({ success: true, transportUsed: 'nostr', deliveryId: 'payment-event' })
+    expect(result).toEqual({ success: true, transportUsed: 'nostr' })
     expect(transport.send).toHaveBeenCalledWith(expect.objectContaining({
       recipientPubkey: 'nprofile1abc',
       token: 'cashuAtoken',

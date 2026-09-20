@@ -61,7 +61,7 @@ export function Toast({ toast, onDismiss }: ToastProps) {
   return (
     <div
       className={`
-        inline-flex max-w-full items-center gap-2.5 px-5 py-3 rounded-full
+        inline-flex items-center gap-2.5 px-5 py-3 rounded-full
         bg-white text-foreground shadow-[0_4px_24px_rgba(0,0,0,0.12),0_1px_4px_rgba(0,0,0,0.08)]
         transition-all duration-300 ease-out
         ${isVisible ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 -translate-y-3 scale-95'}
@@ -71,7 +71,7 @@ export function Toast({ toast, onDismiss }: ToastProps) {
       onClick={handleClick}
     >
       <span className="shrink-0 opacity-90">{icons[toast.type]}</span>
-      <p className="min-w-0 break-words [overflow-wrap:anywhere] text-caption font-medium whitespace-pre-line">{toast.message}</p>
+      <p className="text-caption font-medium whitespace-pre-line">{toast.message}</p>
     </div>
   )
 }
@@ -90,7 +90,7 @@ export function ToastContainer({ toasts, onDismiss }: ToastContainerProps) {
       style={{ top: 'calc(1rem + env(safe-area-inset-top, 0px))' }}
     >
       {toasts.map((toast) => (
-        <div key={toast.id} className="pointer-events-auto max-w-[calc(100%-2rem)]">
+        <div key={toast.id} className="pointer-events-auto">
           <Toast toast={toast} onDismiss={onDismiss} />
         </div>
       ))}

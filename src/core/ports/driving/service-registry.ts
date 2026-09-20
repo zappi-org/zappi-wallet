@@ -39,10 +39,7 @@ import type { ExternalWalletRecoveryUseCase } from '@/core/ports/driving/externa
 import type { DiagnosticsUseCase } from '@/core/ports/driving/diagnostics.usecase'
 import type { TransferLifecycleService } from '@/core/services/transfer-lifecycle.service'
 
-import type { ChatUseCase } from './chat.usecase'
-
 export interface ServiceRegistry {
-  readonly chat: ChatUseCase
   readonly eventBus: EventBus
   readonly payment: PaymentUseCase
   readonly balance: BalanceUseCase

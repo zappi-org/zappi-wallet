@@ -77,29 +77,6 @@ describe('NostrSessionController', () => {
   })
 
   describe('subscription attach guarantee (B3/B4)', () => {
-    it('does not attach a removed relay whose connection finishes after settings change', async () => {
-      const ensureRelay = mock.pool.ensureRelay
-      let finishOld!: () => void
-      vi.mocked(mock.pool.ensureRelay).mockImplementationOnce((url) => new Promise(resolve => {
-        finishOld = () => {
-          const state = mock.ensure(url)
-          state.connected = true
-          resolve({ connected: true, subscribe: vi.fn() } as unknown as Relay)
-        }
-      }))
-      controller.subscribe([{ kinds: [1059] }], vi.fn())
-      const oldConnection = controller.connectPersistent(['wss://old'])
-      await controller.connectPersistent(['wss://new'])
-      finishOld()
-      await oldConnection
-      await flush()
-      expect(mock.ensure('wss://old').subs).toHaveLength(0)
-      expect(vi.mocked(ensureRelay).mock.calls.filter(([url]) => url === 'wss://old')).toHaveLength(1)
-      expect(mock.closedUrls.filter(url => url === 'wss://old')).toHaveLength(2)
-      expect(controller.getConnectedPersistent()).toEqual(['wss://new'])
-      expect(mock.ensure('wss://new').subs).toHaveLength(1)
-    })
-
     it('attaches an existing subscription when a relay connects later', async () => {
       await controller.connectPersistent(['wss://a'])
       const onEvent = vi.fn()
@@ -146,24 +123,6 @@ describe('NostrSessionController', () => {
 
       expect(controller.getRelayStatus().map((s) => s.url)).toEqual(['wss://mine'])
       expect(controller.getConnectedPersistent()).toEqual(['wss://mine'])
-    })
-
-    it('returns the first ACK while publishing the same event to every relay', async () => {
-      const event = { id: 'one-payment-wrap' }
-      vi.mocked(mock.pool.publish).mockReturnValueOnce([Promise.resolve('ok'), new Promise(() => {})])
-      const result = await controller.publishScoped(['wss://good', 'wss://silent'], event, { timeoutMs: 8000, firstAck: true })
-      expect(result.ok).toEqual(['wss://good'])
-      expect(mock.pool.publish).toHaveBeenCalledExactlyOnceWith(['wss://good', 'wss://silent'], event, { maxWait: 8000 })
-    })
-
-    it('bounds a hung connection before publishing and handles all relay failures', async () => {
-      vi.useFakeTimers()
-      vi.mocked(mock.pool.ensureRelay).mockImplementationOnce(() => new Promise(() => {}))
-      vi.mocked(mock.pool.publish).mockImplementationOnce(() => [Promise.reject(new Error('no ACK'))])
-      const result = controller.publishScoped(['wss://silent'], { id: 'payment' }, { timeoutMs: 8000, firstAck: true })
-      await vi.advanceTimersByTimeAsync(5000)
-      await expect(result).resolves.toEqual({ ok: [], failed: ['wss://silent'] })
-      expect(mock.pool.publish).toHaveBeenCalledOnce()
     })
 
     it('closes a session relay only after TTL with zero refs', async () => {

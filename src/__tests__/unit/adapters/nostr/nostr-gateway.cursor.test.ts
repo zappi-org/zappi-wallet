@@ -226,30 +226,9 @@ describe('NostrGatewayAdapter cursor wiring', () => {
       call.opts.oneose!()
       await new Promise((r) => setTimeout(r, 10))
       expect(store.markFullSync).not.toHaveBeenCalled()
-      expect(store.markRelayEose).not.toHaveBeenCalled()
 
       resolveHandler()
       await vi.waitFor(() => expect(store.markFullSync).toHaveBeenCalledTimes(1))
-    })
-
-    it.each(['before', 'after'] as const)('keeps both cursors unchanged when a handler fails %s EOSE', async (timing) => {
-      const store = makeCursorStore(recordWithFullSync())
-      const { gateway, relays } = await connectedGateway(store, ['wss://a'])
-      let rejectHandler!: (error: Error) => void
-      gateway.subscribeGiftWraps(
-        { recipientPubkey: 'pk', cursor: { key: KEY, fullSyncTargets: ['wss://a'] } },
-        () => new Promise<void>((_, reject) => { rejectHandler = reject }),
-      )
-      await vi.waitFor(() => expect(relays.get('wss://a')!.relay.subscribe).toHaveBeenCalled())
-      const call = relays.get('wss://a')!.subscribeCalls[0]
-      call.opts.onevent({ id: 'failed-event', kind: 1059 })
-      if (timing === 'after') call.opts.oneose!()
-      rejectHandler(new Error('durable write failed'))
-      await new Promise((resolve) => setTimeout(resolve, 0))
-      if (timing === 'before') call.opts.oneose!()
-      await new Promise((resolve) => setTimeout(resolve, 0))
-      expect(store.markRelayEose).not.toHaveBeenCalled()
-      expect(store.markFullSync).not.toHaveBeenCalled()
     })
 
     it('fullReplay skips since but still records the attempt', async () => {

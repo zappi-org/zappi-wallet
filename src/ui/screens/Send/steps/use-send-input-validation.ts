@@ -737,7 +737,7 @@ export function useSendInputValidation({
     isPreValidating,
     preValidationError,
     isValidating,
-    contacts: contacts.filter((contact) => !!contact.address),
+    contacts,
     contactsReady,
     applyDestinationState,
     processExternalInput,

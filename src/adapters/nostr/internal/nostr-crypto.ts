@@ -6,7 +6,7 @@
  */
 
 import { finalizeEvent, verifyEvent, getPublicKey } from 'nostr-tools'
-import { nip19, nip17, nip59, getEventHash } from 'nostr-tools'
+import { nip19, nip17 } from 'nostr-tools'
 import * as nip44 from 'nostr-tools/nip44'
 import { hexToBytes } from '@noble/hashes/utils.js'
 import type { NostrEvent, UnsignedNostrEvent } from '@/core/domain/nostr'
@@ -121,10 +121,10 @@ const SEAL_KIND = 13
  * seal's signer is the only provable identity, so the rumor must match it —
  * callers treat the sender as authenticated.
  */
-export function unwrapChatRumor(
+export function unwrapEvent(
   event: NostrEvent,
   recipientPrivkeyHex: string,
-): UnsignedNostrEvent & { id: string } {
+): { content: string; sender: string } {
   const seal = JSON.parse(
     decrypt(event.content, getConversationKey(recipientPrivkeyHex, event.pubkey)),
   ) as NostrEvent
@@ -144,18 +144,8 @@ export function unwrapChatRumor(
     throw new Error('Gift wrap rumor author does not match the seal signer')
   }
 
-  return rumor
-}
-
-export function unwrapEvent(event: NostrEvent, privateKey: string): { content: string; sender: string } {
-  const rumor = unwrapChatRumor(event, privateKey)
-  return { content: rumor.content, sender: rumor.pubkey }
-}
-
-export function wrapChatRumor(rumor: UnsignedNostrEvent, privateKey: string, recipient: string): NostrEvent {
-  return nip59.wrapEvent(rumor, hexToBytes(privateKey), recipient) as NostrEvent
-}
-
-export function rumorId(rumor: UnsignedNostrEvent): string {
-  return getEventHash(rumor)
+  return {
+    content: rumor.content,
+    sender: rumor.pubkey,
+  }
 }

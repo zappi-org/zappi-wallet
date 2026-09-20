@@ -136,18 +136,3 @@ describe('ContactService', () => {
     })
   })
 })
-
-describe('contact address validation', () => {
-  it('rejects empty addresses before persistence', async () => {
-    const repo = createMockRepo()
-    const service = new ContactService(repo)
-    await expect(
-      service.create({ name: 'Peer', addresses: [] })
-    ).rejects.toThrow('required')
-    await expect(
-      service.update('id', { addresses: [{ value: ' ', type: 'npub' }] })
-    ).rejects.toThrow('Empty')
-    expect(repo.save).not.toHaveBeenCalled()
-    expect(repo.update).not.toHaveBeenCalled()
-  })
-})

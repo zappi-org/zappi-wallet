@@ -51,15 +51,13 @@ export class NostrPaymentTransport implements OutgoingPaymentTransport {
       }
       const content = await buildContent(token, this.decodeToken, memo, requestId)
 
-      const delivered = await this.nostrGateway.sendGiftWrap({
+      await this.nostrGateway.sendGiftWrap({
         recipientPubkey: address.hex,
-        timeoutMs: 8000,
-        firstAck: true,
         content,
         relays,
       })
 
-      return { success: true, ...(delivered?.id ? { deliveryId: delivered.id } : {}) }
+      return { success: true }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error)
       console.error('[NostrPaymentTransport] send failed:', error)

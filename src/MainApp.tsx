@@ -1,10 +1,3 @@
-import { MessageCircle } from 'lucide-react'
-import { useChatView } from '@/store/chat-view'
-import { useChatNotifications } from '@/ui/hooks/use-chat'
-import { contactPubkey } from '@/ui/screens/Chat/chat-address'
-import { executeChatPayment, type ChatPaymentLaunch } from '@/ui/screens/Chat/chat-payment-flow'
-import { selectChatPaymentMint } from '@/ui/screens/Chat/chat-payment-source'
-import { getNavigationSnapshot } from '@/ui/navigation/navigation-store'
 import { AppLifecycleWatcher } from '@/composition/app-lifecycle.watcher'
 import { createBootstrap, type BootstrapResult, type RouteContext, type RouteExecutionResult, type RouteSelection } from '@/composition/bootstrap'
 import { resolveIncomingReview } from '@/composition/incoming-review'
@@ -59,8 +52,6 @@ import {
 
 // Tier 2: Lazy loaded (frequently used)
 const SettingsScreen = lazy(() => import('@/ui/screens/Settings/SettingsScreen'))
-const ChatListScreen = lazy(() => import('@/ui/screens/Chat/ChatListScreen'))
-const ChatScreen = lazy(() => import('@/ui/screens/Chat/ChatScreen'))
 const ContactsScreen = lazy(() => import('@/ui/screens/Contacts/ContactsScreen'))
 const HistoryScreen = lazy(() => import('@/ui/screens/History/HistoryScreen'))
 const TransferScreen = lazy(() => import('@/ui/screens/Transfer/TransferScreen'))
@@ -161,10 +152,6 @@ export default function MainApp() {
     handleBack,
   } = useAppNavigation()
 
-  const chatUnread = useChatNotifications(serviceRegistry, !isLocked)
-  const selectedChatId = useChatView(s => s.selectedId)
-  const [chatPaymentLaunch, setChatPaymentLaunch] = useState<ChatPaymentLaunch | null>(null)
-
   const navItems = useMemo(() => [
     {
       id: 'wallet',
@@ -179,19 +166,13 @@ export default function MainApp() {
       activeIcon: <IdentificationIconSolid className="w-[20px] h-[20px]" />,
     },
     {
-      id: 'messages',
-      label: t('chat.title'),
-      icon: <MessageCircle className="w-[20px] h-[20px]" />,
-      badge: chatUnread,
-    },
-    {
       id: 'settings',
       label: t('nav.settings'),
       icon: <Cog6ToothIconOutline className="w-[20px] h-[20px]" />,
       activeIcon: <Cog6ToothIconSolid className="w-[20px] h-[20px]" />,
       badge: supportUnreadCount,
     },
-  ], [t, supportUnreadCount, chatUnread])
+  ], [t, supportUnreadCount])
 
   const [selectedMint, setSelectedMint] = useState<MintInfo | null>(null)
   const [selectedMintIndex, setSelectedMintIndex] = useState(0)
@@ -213,7 +194,6 @@ export default function MainApp() {
   const [npubMintSelection, setNpubMintSelection] = useState<{
     validatedData: ValidatedData
     rawAddress: string
-    displayName?: string
     commonMintUrls: string[]
   } | null>(null)
 
@@ -261,7 +241,7 @@ export default function MainApp() {
    *  same resolve → mint-select flow as ContactsScreen so the destination
    *  step is skipped. Falls back to the destination step if the service
    *  registry isn't ready. */
-  const handleRecipientInput = useCallback(async (raw: string, displayName?: string) => {
+  const handleHomeScanResult = useCallback(async (raw: string) => {
     setShowHomeScanner(false)
     setValidatedScanData(null)
     setScannedAmount(0)
@@ -316,7 +296,7 @@ export default function MainApp() {
           setActiveMintUrl(decision.mintUrl ?? null)
           setValidatedScanData(decision.data)
           setScannedAmount(0)
-          setContactInfo({ address: '', displayName: displayName || formatNpubShort(raw) })
+          setContactInfo({ address: '', displayName: formatNpubShort(raw) })
           setPreviousScreen(currentScreen)
           setCurrentScreen('send')
           return
@@ -324,7 +304,6 @@ export default function MainApp() {
           setNpubMintSelection({
             validatedData: decision.data,
             rawAddress: raw,
-            displayName,
             commonMintUrls: decision.commonMintUrls,
           })
           return
@@ -612,10 +591,6 @@ export default function MainApp() {
       // keys are the same wallet. A full reconnect on every unlock would revive, per
       // lock cycle, the burst the network rework removed.
       if (serviceRegistry) {
-        await serviceRegistry.unlockChatStorage(result.bip39Seed).catch(() => {
-          console.warn('[Chat] Encrypted storage unavailable')
-          addToast({ type: 'error', message: t('chat.storageUnavailable') })
-        })
         setLocked(false)
         return
       }
@@ -623,10 +598,6 @@ export default function MainApp() {
       const registry = createBootstrap({
         nostrPrivateKeyHex: result.keys.privateKey,
         bip39Seed: result.bip39Seed,
-      })
-      await registry.unlockChatStorage(result.bip39Seed).catch(() => {
-        console.warn('[Chat] Encrypted storage unavailable')
-        addToast({ type: 'error', message: t('chat.storageUnavailable') })
       })
       // On re-unlock, dispose the previous registry generation's timers/subscriptions
       // (prevents flusher / TLS-polling leaks).
@@ -648,7 +619,7 @@ export default function MainApp() {
     } finally {
       applyingUnlockRef.current = false
     }
-  }, [setLocked, setNostrKeyPair, setP2pkPubkey, serviceRegistry, addToast, t])
+  }, [setLocked, setNostrKeyPair, setP2pkPubkey, serviceRegistry])
 
   const handleUnlock = useCallback(async (password: string): Promise<boolean> => {
     const result = await preUnlock.security.unlock(password)
@@ -673,17 +644,13 @@ export default function MainApp() {
     () => wipeAccountData({ security: preUnlock.security, registry: serviceRegistry, removePasskey }),
     [preUnlock.security, serviceRegistry],
   )
-  const lockChatStorage = useCallback(() => {
-    serviceRegistry?.lockChatStorage()
-    useChatView.getState().setActive(null)
-  }, [serviceRegistry])
   const {
     handleAutoLock,
     handleChangePassword,
     handleVerifyPin,
     handleBackupMnemonic,
     handleLogout,
-  } = useSecurityHandlers({ security: preUnlock.security, wipeAccount, lockChatStorage })
+  } = useSecurityHandlers({ security: preUnlock.security, wipeAccount })
 
   useAutoLock({
     enabled: settings.autoLockEnabled,
@@ -1081,74 +1048,8 @@ export default function MainApp() {
       <ScreenRedirect to="history" navigate={replaceScreen} />
     ),
 
-    messages: () => <ChatListScreen ownAddress={serviceRegistry?.chatAddress} onOpen={() => setCurrentScreen('chat')} />,
-    chat: () => selectedChatId ? (
-      <ChatScreen
-        key={selectedChatId}
-        onBack={handleBack}
-        onSend={async (address, displayName) => {
-          if (!serviceRegistry) throw new Error('Wallet unavailable')
-          const conversation = serviceRegistry.chat.getSnapshot().conversations.find(c => c.id === selectedChatId)
-          if (!conversation) throw new Error('Conversation unavailable')
-          if (contactPubkey(address) !== conversation.peer) throw new Error('Invalid recipient')
-          setChatPaymentLaunch({ conversationId: selectedChatId, peer: conversation.peer })
-          return handleRecipientInput(address, displayName)
-        }}
-        onRequest={() => {
-          const conversation = serviceRegistry?.chat.getSnapshot().conversations.find(c => c.id === selectedChatId)
-          if (!conversation) return
-          setChatPaymentLaunch({ conversationId: selectedChatId, peer: conversation.peer })
-          setPreviousScreen('chat')
-          setReceiveLaunch(null)
-          setScannedAmount(0)
-          setValidatedScanData(null)
-          setCurrentScreen('receive')
-        }}
-        onPay={async (content, messageId) => {
-          if (!serviceRegistry) return
-          const requestMessage = serviceRegistry.chat.getSnapshot().messages.find(m => m.id === messageId && m.conversationId === selectedChatId)
-          if (requestMessage?.expiresAt !== undefined && requestMessage.expiresAt <= Date.now()) {
-            throw new Error('Payment request expired')
-          }
-          const detected = serviceRegistry.inputParser.detectAndClassify(content)
-          const validated = await serviceRegistry.inputParser.validateAsync(detected)
-          if (validated.type !== 'cashu-request' && validated.type !== 'bolt11') {
-            throw new Error('Invalid payment request')
-          }
-          const conversation = serviceRegistry.chat.getSnapshot().conversations.find(c => c.id === selectedChatId)
-          if (!conversation) throw new Error('Conversation unavailable')
-          if (requestMessage?.expiresAt !== undefined && requestMessage.expiresAt <= Date.now()) throw new Error('Payment request expired')
-          const wallet = useAppStore.getState()
-          const sourceMint = selectChatPaymentMint(validated, wallet.settings.mints, wallet.balance.byMint, activeMintUrl)
-          if (!sourceMint) {
-            addToast({ type: 'error', message: t('send.direct.noMint') })
-            return
-          }
-          setActiveMintUrl(sourceMint)
-          setChatPaymentLaunch({ conversationId: selectedChatId, peer: conversation.peer, requestMessageId: messageId, expiresAt: requestMessage?.expiresAt })
-          setPreviousScreen('chat')
-          setContactInfo(null)
-          setValidatedScanData(validated)
-          setScannedAmount(0)
-          setCurrentScreen('send')
-        }}
-        onDetails={async transactionId => {
-          const transaction = await serviceRegistry?.transactionMgmt.getById(transactionId)
-          if (!transaction) throw new Error('Transaction unavailable')
-          setSelectedTransaction(transaction)
-          setCurrentScreen('transaction-detail')
-        }}
-      />
-    ) : <ScreenRedirect to="messages" navigate={replaceScreen} />,
-
     contacts: () => (
       <ContactsScreen
-        onChatWithContact={async address => {
-          const peer = contactPubkey(address)
-          if (!peer || !serviceRegistry) throw new Error('Invalid recipient')
-          useChatView.getState().select(await serviceRegistry.chat.open(address))
-          setCurrentScreen('chat')
-        }}
         onSendToContact={(validatedData, displayName, mintUrl) => {
           setPreviousScreen('contacts')
           setActiveMintUrl(mintUrl)
@@ -1258,7 +1159,6 @@ export default function MainApp() {
 
     send: () => (
       <SendFlow
-        completionMode={previousScreen === 'chat' && chatPaymentLaunch ? 'chat' : 'receipt'}
         onBack={() => {
           const backTo = previousScreen || 'home'
           setPreviousScreen(null)
@@ -1266,31 +1166,11 @@ export default function MainApp() {
           setCurrentScreen(backTo)
         }}
         onComplete={() => {
-          if (previousScreen === 'chat' && chatPaymentLaunch)
-            useChatView.getState().select(chatPaymentLaunch.conversationId)
-          setChatPaymentLaunch(null)
           setPreviousScreen(null)
           setContactInfo(null)
-          setCurrentScreen(previousScreen === 'chat' ? 'chat' : 'home')
+          setCurrentScreen('home')
         }}
-        onExecuteRoute={previousScreen === 'chat' && chatPaymentLaunch && serviceRegistry
-          ? async (selection, context) => {
-            const { result, noticeSaved, expired } = await executeChatPayment(
-              chatPaymentLaunch,
-              () => handleExecuteRoute(selection, context),
-              (id, content, link) => serviceRegistry.chat.enqueue(id, content, link),
-              () => {
-                if (chatPaymentLaunch.requestMessageId)
-                  useChatView.getState().markSubmitted(chatPaymentLaunch.conversationId, chatPaymentLaunch.requestMessageId)
-              },
-            )
-            if (expired) addToast({ type: 'error', message: t('chat.paymentCard.expired') })
-            void noticeSaved.then(saved => {
-              if (!saved) addToast({ type: 'error', message: t('chat.paymentCard.noticeFailed') })
-            })
-            return result
-          }
-          : handleExecuteRoute}
+        onExecuteRoute={handleExecuteRoute}
         onResolveInvoice={handleResolveRouteInvoice}
         onMintSwap={handleMintSwap}
         onEstimateSwapFee={handleEstimateSwapFee}
@@ -1311,16 +1191,6 @@ export default function MainApp() {
 
     receive: () => (
       <ReceiveFlow
-        onShareRequest={previousScreen === 'chat' && chatPaymentLaunch && serviceRegistry
-          ? async (content, request) => {
-            await serviceRegistry.chat.enqueue(chatPaymentLaunch.conversationId, content, { kind: 'request', ...request })
-            if (getNavigationSnapshot().currentScreen !== 'receive' || useAppStore.getState().isLocked) return
-            useChatView.getState().select(chatPaymentLaunch.conversationId)
-            setChatPaymentLaunch(null)
-            setPreviousScreen(null)
-            setCurrentScreen('chat')
-          }
-          : undefined}
         onBack={() => {
           const backTo = previousScreen || 'home'
           clearIncomingReviewState()
@@ -1507,7 +1377,7 @@ export default function MainApp() {
       <QrScannerModal
         isOpen={showHomeScanner}
         onClose={() => setShowHomeScanner(false)}
-        onScan={handleRecipientInput}
+        onScan={handleHomeScanResult}
       />
 
       {/* Home's pending-row detail — overlay, same screen the history block opens */}
@@ -1533,7 +1403,7 @@ export default function MainApp() {
           setActiveMintUrl(mintUrl)
           setValidatedScanData(npubMintSelection.validatedData)
           setScannedAmount(0)
-          setContactInfo({ address: '', displayName: npubMintSelection.displayName || formatNpubShort(npubMintSelection.rawAddress) })
+          setContactInfo({ address: '', displayName: formatNpubShort(npubMintSelection.rawAddress) })
           setPreviousScreen(currentScreen)
           setCurrentScreen('send')
           setNpubMintSelection(null)

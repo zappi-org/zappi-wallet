@@ -16,7 +16,6 @@ vi.mock('@/utils/cross-tab-sync', () => ({
 
 function createMockRegistry(reclaimService: ReturnType<typeof vi.fn>, txMgmt?: { getById: ReturnType<typeof vi.fn> }): ServiceRegistry {
   return {
-    chat: {} as ServiceRegistry['chat'],
     payment: {} as unknown as ServiceRegistry['payment'],
     reclaim: {
       reclaim: reclaimService,

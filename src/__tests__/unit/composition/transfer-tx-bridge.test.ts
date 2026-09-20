@@ -632,36 +632,3 @@ describe("TransferTxBridge - refresh emission contract", () => {
     );
   });
 });
-
-describe('incoming delivery identity', () => {
-  it.each([[false, 'settled'], [true, 'settled'], [false, 'failed'], [true, 'failed']])('preserves verified delivery binding (existing=%s, phase=%s)', async (existing, phase) => {
-    let settle!: (event: unknown) => Promise<void>;
-    const transfer = {
-      id: 'transfer', txId: 'c'.repeat(64), direction: 'incoming', amount: 1200,
-      phase, transportRef: {
-        type: 'nostr-giftwrap', protocol: 'ecash', eventId: 'c'.repeat(64),
-        sender: 'a'.repeat(64), recipientPubkey: 'b'.repeat(64),
-        mintUrl: 'https://mint.test', receivedAmount: 1198, fee: 2, requestId: 'request-ref',
-      },
-    };
-    const repo = {
-      getById: vi.fn().mockResolvedValue(existing ? { id: transfer.txId, metadata: { kept: true } } : null),
-      save: vi.fn(), update: vi.fn(),
-    };
-    connectTransferTxBridge({
-      eventBus: { on: (name: string, fn: typeof settle) => {
-        if (name === `transfer:${phase}`) settle = fn;
-        return () => {};
-      } } as unknown as EventBus,
-      txRepo: repo as unknown as TransactionRepository,
-    });
-    await settle({ payload: { transfer } });
-    const tx = existing ? repo.update.mock.calls[0][1] : repo.save.mock.calls[0][0];
-    expect(tx.metadata.paymentDelivery).toEqual({
-      id: transfer.txId, sender: 'a'.repeat(64), recipient: 'b'.repeat(64), amount: 1200, requestId: 'request-ref',
-    });
-    if (existing) expect(tx.metadata.kept).toBe(true);
-    else expect(tx.direction).toBe('receive');
-    expect(tx.status).toBe(phase);
-  });
-});

@@ -56,10 +56,6 @@ export interface TransferOperator {
 
   reclaim?(transfer: PendingTransfer): Promise<void>
 
-  canResumeIncoming?(transfer: PendingTransfer): boolean
-  processIncoming?(
-    transfer: PendingTransfer,
-    checkpoint?: (transfer: PendingTransfer) => Promise<void>,
-  ): Promise<PendingTransfer>
+  processIncoming?(transfer: PendingTransfer): Promise<PendingTransfer>
 }
 

@@ -46,22 +46,6 @@ function render(security: SecurityUseCase, wipeAccount = vi.fn().mockResolvedVal
 }
 
 describe('useSecurityHandlers — Result discriminant (.ok) semantics', () => {
-  it('revokes chat keys before waiting for wallet lock and updating the UI', async () => {
-    const order: string[] = []
-    useAppStore.getState().setLocked(false)
-    const security = createSecurityMock({ lock: vi.fn(async () => {
-      order.push('wallet')
-      expect(useAppStore.getState().isLocked).toBe(false)
-    }) })
-    const { result } = renderHook(() => useSecurityHandlers({
-      security,
-      wipeAccount: vi.fn(),
-      lockChatStorage: () => { order.push('chat') },
-    }))
-    await result.current.handleAutoLock()
-    expect(order).toEqual(['chat', 'wallet'])
-    expect(useAppStore.getState().isLocked).toBe(true)
-  })
   describe('handleChangePassword', () => {
     it('Ok → true', async () => {
       const { handlers } = render(createSecurityMock())

@@ -24,4 +24,4 @@ export const fadeVariants = {
   exit: { opacity: 0 },
 }
 
-export const pickerTabIds = ['wallet', 'contacts', 'messages', 'settings'] as const
+export const pickerTabIds = ['wallet', 'contacts', 'settings'] as const

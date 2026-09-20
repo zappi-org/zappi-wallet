@@ -168,52 +168,6 @@ describe('SendFlow direct-transfer fee quote', () => {
     estimateRouteFeeMock.mockResolvedValue({ fee: 0, availableBalance: 1000 })
   })
 
-  it('cannot quote a chat request until a source mint is selected', async () => {
-    render(
-      <SendFlow
-        {...baseProps}
-        initialMintUrl={null}
-        completionMode="chat"
-        validatedData={fixedCashuRequest('CREQBrequest')}
-      />,
-    )
-    expect(capturedAmount!.feeQuote).toBe('unavailable')
-    expect(estimateRouteFeeMock).not.toHaveBeenCalled()
-
-    storeState.balance.byMint = { 'https://mint.example.com': 1000 }
-    await act(async () => {
-      capturedAmount!.onChangeMint!('https://mint.example.com')
-    })
-    expect(capturedAmount!.feeQuote).toBe(0)
-    expect(estimateRouteFeeMock).toHaveBeenCalledWith(
-      1, 'https://mint.example.com', 50, 'https://mint.example.com', undefined,
-    )
-  })
-
-  it.each([
-    ['https://mint.example.com', 1],
-    ['https://other.example.com', 4],
-  ] as const)('quotes a chat request from %s without requiring a Lightning invoice', async (source, route) => {
-    const onResolveInvoice = vi.fn()
-    storeState.balance.byMint = { [source]: 1000 }
-    estimateRouteFeeMock.mockResolvedValue({ fee: 2, availableBalance: 1000 })
-    render(
-      <SendFlow
-        {...baseProps}
-        initialMintUrl={source}
-        completionMode="chat"
-        onResolveInvoice={onResolveInvoice}
-        validatedData={fixedCashuRequest('CREQBrequest')}
-      />,
-    )
-    await act(async () => { await Promise.resolve() })
-    expect(onResolveInvoice).not.toHaveBeenCalled()
-    expect(estimateRouteFeeMock).toHaveBeenCalledWith(
-      route, source, 50, 'https://mint.example.com', undefined,
-    )
-    expect(capturedAmount!.feeQuote).toBe(2)
-  })
-
   it('quotes pending then resolves ceil-clamped (29.4 -> 30)', async () => {
     let resolveFee: (value: { fee: number; availableBalance: number } | null) => void = () => {}
     const feeMock = vi.fn(
@@ -653,79 +607,12 @@ describe('SendFlow direct-transfer fee quote', () => {
     expect(completeMounted).toBe(true)
   })
 
-  it.each(['settled', 'in_transit'] as const)(
-    'returns chat sends after %s without waiting for the receipt',
-    async (status) => {
-      let resolveResult!: () => void
-      const onExecuteRoute = vi.fn(
-        () =>
-          new Promise<{
-            status: typeof status
-            amount: number
-            fee: number
-            sourceMintUrl: string
-            transactionId: string
-            transportUsed: 'none'
-          }>((resolve) => {
-            resolveResult = () =>
-              resolve({
-                status,
-                amount: 50,
-                fee: 0,
-                sourceMintUrl: 'https://mint.example.com',
-                transactionId: 'tx-chat',
-                transportUsed: 'none',
-              })
-          }),
-      )
-      const onComplete = vi.fn()
-      const latestComplete = vi.fn()
-      const props = {
-        ...baseProps,
-        completionMode: 'chat' as const,
-        onExecuteRoute,
-        onComplete,
-        validatedData: {
-          type: 'bolt11' as const,
-          invoice: 'lnbc1test',
-          amountSats: 50,
-          expiry: 9999999999,
-        },
-      }
-      const view = render(<SendFlow {...props} />)
-      await act(async () => {
-        await Promise.resolve()
-      })
-      let sending!: Promise<void>
-      act(() => {
-        sending = capturedAmount!.onConfirmSend!() as Promise<void>
-      })
-      expect(onComplete).not.toHaveBeenCalled()
-      expect(capturedAmount!.sending).toBe(true)
-      view.rerender(<SendFlow {...props} onComplete={latestComplete} onExecuteRoute={() => onExecuteRoute()} />)
-      await act(async () => {
-        resolveResult()
-        await sending
-      })
-      expect(latestComplete).toHaveBeenCalledOnce()
-      expect(onComplete).not.toHaveBeenCalled()
-      expect(completeMounted).toBe(false)
-      await act(async () => {
-        await capturedAmount!.onConfirmSend!()
-        capturedAmount!.onExitSending!()
-      })
-      expect(latestComplete).toHaveBeenCalledOnce()
-      expect(onExecuteRoute).toHaveBeenCalledOnce()
-    },
-  )
-
-  it.each(['receipt', 'chat'] as const)('returns a failed %s send to confirmation after the dwell', async (completionMode) => {
+  it('returns a failed routed send to confirmation after the dwell', async () => {
     const onExecuteRoute = vi.fn(async () => null)
 
     render(
       <SendFlow
         {...baseProps}
-        completionMode={completionMode}
         onExecuteRoute={onExecuteRoute}
         validatedData={{ type: 'bolt11', invoice: 'lnbc1test', amountSats: 50, expiry: 9999999999 }}
       />,

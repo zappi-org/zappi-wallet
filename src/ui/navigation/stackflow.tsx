@@ -22,7 +22,6 @@ import {
   isExternalNavigation,
   reportActiveScreen,
 } from './navigation-store'
-import { sanitizeInitialHistory } from './restore-history'
 import { installRootBackGuard } from './root-back-guard'
 import { SCREEN_TO_ACTIVITY, type Screen, type StackActivityName } from './types'
 import { ActivityStepNavigationContext } from './activity-step-navigation'
@@ -36,8 +35,6 @@ declare module '@stackflow/config' {
     Token: EmptyParams
     Settings: EmptyParams
     Contacts: EmptyParams
-    Messages: EmptyParams
-    Chat: EmptyParams
     History: EmptyParams
     Notifications: EmptyParams
     Transfer: EmptyParams
@@ -62,8 +59,6 @@ const ACTIVITY_ROUTES: Record<StackActivityName, string> = {
   Token: '/token',
   Settings: '/settings',
   Contacts: '/contacts',
-  Messages: '/messages',
-  Chat: '/chat',
   History: '/history',
   Notifications: '/notifications',
   Transfer: '/transfer',
@@ -160,15 +155,8 @@ function ScreenActivity({ screen }: { screen: Screen }) {
   )
 
   useEffect(() => {
-    if (!activity.isActive) return
-    const names = new Map(Object.entries(SCREEN_TO_ACTIVITY).map(([name, activityName]) => [activityName as string, name as Screen]))
-    const rendered = stack.activities
-      .filter(item => item.transitionState === 'enter-active' || item.transitionState === 'enter-done')
-      .sort((a, b) => a.zIndex - b.zIndex)
-      .map(item => names.get(item.name))
-      .filter((item): item is Screen => item !== undefined)
-    reportActiveScreen(screen, rendered)
-  }, [activity.isActive, screen, stack])
+    if (activity.isTop) reportActiveScreen(screen)
+  }, [activity.isTop, screen])
 
   if (!renderScreen) return null
 
@@ -225,8 +213,6 @@ const components = {
   Token: makeScreenActivity('Token', 'token'),
   Settings: makeScreenActivity('Settings', 'settings'),
   Contacts: makeScreenActivity('Contacts', 'contacts'),
-  Messages: makeScreenActivity('Messages', 'messages'),
-  Chat: makeScreenActivity('Chat', 'chat'),
   History: makeScreenActivity('History', 'history'),
   Notifications: makeScreenActivity('Notifications', 'notifications'),
   Transfer: makeScreenActivity('Transfer', 'transfer'),
@@ -244,8 +230,6 @@ const components = {
   TokenDetail: makeScreenActivity('TokenDetail', 'token-detail'),
   TokenEasterEgg: makeScreenActivity('TokenEasterEgg', 'token-easter-egg'),
 }
-
-sanitizeInitialHistory(new Set(config.activities.map(activity => activity.name)))
 
 const { Stack, actions } = stackflow({
   config,

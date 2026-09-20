@@ -66,7 +66,6 @@ function toRecord(review: PendingIncomingReview): IncomingReviewRecord {
     queuedAt: review.queuedAt,
     requestId: review.requestId,
     senderPubkey: review.senderPubkey,
-    recipientPubkey: review.recipientPubkey,
     txId: review.txId,
     source: review.source,
   }
@@ -85,7 +84,6 @@ function fromRecord(record: IncomingReviewRecord): PendingIncomingReview {
     queuedAt: record.queuedAt,
     requestId: record.requestId,
     senderPubkey: record.senderPubkey,
-    recipientPubkey: record.recipientPubkey,
     txId: record.txId,
     source: record.source,
   }

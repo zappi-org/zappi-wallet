@@ -1,4 +1,3 @@
-import { TokenSpentError } from '@/core/errors/cashu'
 /**
  * TransferLifecycleService — unit tests
  *
@@ -337,65 +336,6 @@ describe('TransferLifecycleService', () => {
   // ─── processIncomingTransfer ───
 
   describe('processIncomingTransfer', () => {
-    it('persists checkpoints, keeps transient failures active, and resumes after restart', async () => {
-      const transfer = createPendingTransfer({
-        id: 'resume-incoming', txId: 'incoming-event', direction: 'incoming', finality: 'deferred',
-        onExpiry: 'expire', transportRef: { protocol: 'mock', sender: 'sender' }, now: Date.now(),
-      })
-      const processIncoming = vi.fn<NonNullable<TransferOperator['processIncoming']>>()
-        .mockImplementationOnce(async (current, checkpoint) => {
-          await checkpoint!({ ...current, transportRef: { ...current.transportRef as object, receiveOperationId: 'same-op' } })
-          throw new Error('network timeout')
-        })
-        .mockImplementationOnce(async (current) => transitionPhase(current, 'settled', Date.now()))
-      const mockOp = makeMockOperator({ canResumeIncoming: () => true, processIncoming })
-      createService(new Map([['mock', mockOp]]))
-      await store.create(transfer)
-      await expect(service.processIncomingTransfer(transfer.id)).rejects.toThrow('network timeout')
-      const saved = (await store.get(transfer.id))!
-      expect(saved.phase).toBe('submitted')
-      expect(saved.transportRef).toMatchObject({ receiveOperationId: 'same-op', sender: 'sender' })
-      expect(emittedEvents.some((event) => event.type === 'transfer:failed')).toBe(false)
-      createService(new Map([['mock', mockOp]]))
-      await service.runStuckSweepOnce()
-      expect(processIncoming).toHaveBeenCalledTimes(1)
-      await service.runStuckSweepOnce({ countStuck: false })
-      expect(processIncoming).toHaveBeenCalledTimes(2)
-      expect((await store.get(transfer.id))?.phase).toBe('settled')
-    })
-
-    it('does not retry a permanent rejection', async () => {
-      const processIncoming = vi.fn().mockRejectedValue(new TokenSpentError())
-      createService(new Map([['mock', makeMockOperator({ canResumeIncoming: () => true, processIncoming })]]))
-      await store.create(createPendingTransfer({
-        id: 'spent-in', txId: 'spent-event', direction: 'incoming', finality: 'deferred',
-        onExpiry: 'expire', transportRef: { protocol: 'mock' }, now: Date.now(),
-      }))
-      await expect(service.processIncomingTransfer('spent-in')).rejects.toThrow()
-      expect((await store.get('spent-in'))?.phase).toBe('failed')
-      await service.runStuckSweepOnce()
-      expect(processIncoming).toHaveBeenCalledTimes(1)
-    })
-
-    it('serializes concurrent incoming attempts', async () => {
-      let release!: () => void
-      const processIncoming = vi.fn(async (current: PendingTransfer) => {
-        await new Promise<void>((resolve) => { release = resolve })
-        return transitionPhase(current, 'settled', Date.now())
-      })
-      createService(new Map([['mock', makeMockOperator({ processIncoming })]]))
-      await store.create(createPendingTransfer({
-        id: 'parallel-in', txId: 'parallel-event', direction: 'incoming', finality: 'deferred',
-        onExpiry: 'expire', transportRef: { protocol: 'mock' }, now: Date.now(),
-      }))
-      const first = service.processIncomingTransfer('parallel-in')
-      await vi.waitFor(() => expect(processIncoming).toHaveBeenCalledTimes(1))
-      await service.processIncomingTransfer('parallel-in')
-      expect(processIncoming).toHaveBeenCalledTimes(1)
-      release()
-      await first
-    })
-
     it('delegates an incoming transfer to operator.processIncoming', async () => {
       const mockOp = makeMockOperator()
       createService(new Map([['mock', mockOp]]))

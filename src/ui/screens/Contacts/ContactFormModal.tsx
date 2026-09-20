@@ -1,7 +1,3 @@
-import { detectAddressType } from '@/core/types/contact'
-import { useChatViewport } from '@/ui/hooks/use-chat-viewport'
-import { useIsActivityTop } from '@/ui/navigation/use-is-activity-top'
-import { npubDecode, nprofileDecode } from '@/core/domain/nostr-address'
 import { useState, useCallback } from 'react'
 import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -14,30 +10,30 @@ import type { ContactAddressType } from '@/core/types/contact'
 import { LIMITS } from '@/core/constants'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 
+function detectAddressType(address: string): ContactAddressType {
+  const trimmed = address.trim()
+  if (trimmed.includes('@')) return 'lightning'
+  if (trimmed.startsWith('npub1') || trimmed.startsWith('nprofile1')) return 'npub'
+  return 'custom'
+}
 
 interface ContactFormModalProps {
   isOpen: boolean
   onClose: () => void
-  onSave: (data: { name: string; address: string }) => void | Promise<void>
+  onSave: (data: { name: string; address: string }) => void
   contact?: Contact | null
-  initialAddress?: string
 }
 
 type VerifyStatus = 'idle' | 'verifying' | 'valid' | 'invalid'
 
-type VerifyErrorCode =
-  | 'invalidFormat'
-  | 'notReachable'
-  | 'invalidNpub'
+type VerifyErrorCode = 'invalidFormat' | 'notReachable' | 'invalidNpub' | 'noNutzapInfo' | 'noMints' | 'noRelay' | 'decodeFailed'
 
-type AddressVerifier = {
-  resolve(address: string): Promise<unknown>
-}
+type AddressVerifier = { resolve(address: string): Promise<{ capabilities: { directToken?: { mints: string[]; dmRelays?: string[] } } }> }
 
 async function verifyAddress(
   address: string,
   type: ContactAddressType,
-  addressResolver: AddressVerifier
+  addressResolver: AddressVerifier,
 ): Promise<{ valid: boolean; errorCode?: VerifyErrorCode }> {
   if (type === 'lightning') {
     // Simple format check: must contain @ and .
@@ -54,11 +50,18 @@ async function verifyAddress(
 
   if (type === 'npub') {
     try {
-      if (address.startsWith('nprofile1')) nprofileDecode(address)
-      else npubDecode(address)
+      const result = await addressResolver.resolve(address)
+      const mints = result.capabilities.directToken?.mints
+      if (!mints || mints.length === 0) {
+        return { valid: false, errorCode: 'noMints' }
+      }
+      const relays = result.capabilities.directToken?.dmRelays
+      if (!relays || relays.length === 0) {
+        return { valid: false, errorCode: 'noRelay' }
+      }
       return { valid: true }
     } catch {
-      return { valid: false, errorCode: 'invalidNpub' }
+      return { valid: false, errorCode: address.startsWith('npub1') || address.startsWith('nprofile1') ? 'noNutzapInfo' : 'decodeFailed' }
     }
   }
 
@@ -66,53 +69,26 @@ async function verifyAddress(
   return { valid: true }
 }
 
-export function ContactFormModal({
-  isOpen,
-  onClose,
-  onSave,
-  contact,
-  initialAddress,
-}: ContactFormModalProps) {
+export function ContactFormModal({ isOpen, onClose, onSave, contact }: ContactFormModalProps) {
   const { t } = useTranslation()
   const resetKey = `${isOpen}-${contact?.id ?? 'new'}`
-  const top = useIsActivityTop()
-  const viewport = useChatViewport(isOpen && top)
 
   return (
     <Modal
-      isOpen={isOpen && top}
-      viewportRef={viewport}
+      isOpen={isOpen}
       onClose={onClose}
       title={contact ? t('contacts.editContact') : t('contacts.addContact')}
     >
-      <ContactFormInner
-        key={resetKey}
-        initialAddress={initialAddress}
-        contact={contact}
-        onSave={onSave}
-        onClose={onClose}
-      />
+      <ContactFormInner key={resetKey} contact={contact} onSave={onSave} onClose={onClose} />
     </Modal>
   )
 }
 
-function ContactFormInner({
-  contact,
-  onSave,
-  onClose,
-  initialAddress,
-}: {
-  initialAddress?: string
-  contact?: Contact | null
-  onSave: ContactFormModalProps['onSave']
-  onClose: () => void
-}) {
+function ContactFormInner({ contact, onSave, onClose }: { contact?: Contact | null; onSave: ContactFormModalProps['onSave']; onClose: () => void }) {
   const { t } = useTranslation()
   const { addressResolver } = useServiceRegistry()
   const [name, setName] = useState(contact?.name || '')
-  const [address, setAddress] = useState(
-    contact?.address || initialAddress || ''
-  )
+  const [address, setAddress] = useState(contact?.address || '')
   const [error, setError] = useState('')
   const [verifyStatus, setVerifyStatus] = useState<VerifyStatus>('idle')
   const [showScanner, setShowScanner] = useState(false)
@@ -121,7 +97,7 @@ function ContactFormInner({
 
   const handleSave = useCallback(async () => {
     const trimmedName = name.trim()
-    const trimmedAddress = address.trim().replace(/^nostr:/i, '')
+    const trimmedAddress = address.trim()
 
     if (!trimmedName) {
       setError(t('contacts.nameRequired'))
@@ -134,7 +110,7 @@ function ContactFormInner({
 
     const addrType = detectAddressType(trimmedAddress)
 
-    if (trimmedAddress && addrType !== 'lightning' && addrType !== 'npub') {
+    if (addrType !== 'lightning' && addrType !== 'npub') {
       setError(t('contacts.onlyLightningOrNpub'))
       return
     }
@@ -144,30 +120,21 @@ function ContactFormInner({
     const result = await verifyAddress(trimmedAddress, addrType, addressResolver)
     if (!result.valid) {
       setVerifyStatus('invalid')
-      const errorKey = result.errorCode
-        ? (`contacts.verify.${result.errorCode}` as const)
-        : 'contacts.verificationFailed'
+      const errorKey = result.errorCode ? (`contacts.verify.${result.errorCode}` as const) : 'contacts.verificationFailed'
       setError(t(errorKey))
       return
     }
-    try {
-      await onSave({
-        name: trimmedName,
-        address: trimmedAddress,
-      })
-      setVerifyStatus('valid')
-      onClose()
-    } catch {
-      setVerifyStatus('invalid')
-      setError(t('chat.saveFailed'))
-    }
+    setVerifyStatus('valid')
+
+    onSave({ name: trimmedName, address: trimmedAddress })
+    onClose()
   }, [name, address, onSave, onClose, t, addressResolver])
 
   const handleScan = useCallback((result: string) => {
     setShowScanner(false)
     const trimmed = result.trim()
     if (trimmed) {
-      setAddress(trimmed.replace(/^nostr:/i, ''))
+      setAddress(trimmed)
       setError('')
       setVerifyStatus('idle')
     }
@@ -178,48 +145,33 @@ function ContactFormInner({
       {/* Name */}
       <div>
         <p className="text-caption font-medium text-foreground-muted mb-1">
-          {t('contacts.name')}{' '}
-          <span className="text-overline text-foreground-muted/50 ml-1">
-            {name.length}/{LIMITS.MAX_CONTACT_NAME_LENGTH}
-          </span>
+          {t('contacts.name')} <span className="text-overline text-foreground-muted/50 ml-1">{name.length}/{LIMITS.MAX_CONTACT_NAME_LENGTH}</span>
         </p>
         <div className="flex items-center border-b border-border focus-within:border-foreground/20 transition-colors">
           <input
             type="text"
             value={name}
-            onChange={(e) => {
-              setName(e.target.value.slice(0, LIMITS.MAX_CONTACT_NAME_LENGTH))
-              setError('')
-            }}
+            onChange={(e) => { setName(e.target.value.slice(0, LIMITS.MAX_CONTACT_NAME_LENGTH)); setError('') }}
             placeholder={t('contacts.namePlaceholder')}
             maxLength={LIMITS.MAX_CONTACT_NAME_LENGTH}
-            className="flex-1 min-w-0 bg-transparent py-2 text-base font-medium text-foreground placeholder:text-foreground-muted placeholder:font-medium focus:outline-none"
+            className="flex-1 min-w-0 bg-transparent py-2 text-body font-medium text-foreground placeholder:text-foreground-muted placeholder:font-medium focus:outline-none"
           />
         </div>
       </div>
 
       {/* Address */}
       <div>
-        <p className="text-caption font-medium text-foreground-muted mb-1">
-          {t('contacts.address')}
-        </p>
+        <p className="text-caption font-medium text-foreground-muted mb-1">{t('contacts.address')}</p>
         <div className="flex items-center border-b border-border focus-within:border-foreground/20 transition-colors">
           <input
             type="text"
-            aria-label={t('contacts.address')}
             value={address}
-            onChange={(e) => {
-              setAddress(e.target.value)
-              setError('')
-              setVerifyStatus('idle')
-            }}
+            onChange={(e) => { setAddress(e.target.value); setError(''); setVerifyStatus('idle') }}
             placeholder={t('contacts.addressPlaceholder')}
-            className="flex-1 min-w-0 bg-transparent py-2 text-base font-medium text-foreground placeholder:text-foreground-muted placeholder:font-medium focus:outline-none"
+            className="flex-1 min-w-0 bg-transparent py-2 text-body font-medium text-foreground placeholder:text-foreground-muted placeholder:font-medium focus:outline-none"
           />
           <button
-            onClick={() => {
-              setShowScanner(true)
-            }}
+            onClick={() => setShowScanner(true)}
             aria-label={t('scanner.title')}
             className="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors shrink-0"
           >
@@ -240,16 +192,13 @@ function ContactFormInner({
       </div>
 
       {/* Error */}
-      {error && <p className="text-caption text-accent-danger">{error}</p>}
+      {error && (
+        <p className="text-caption text-accent-danger">{error}</p>
+      )}
 
       {/* Actions */}
       <div className="flex gap-2 pt-1">
-        <Button
-          variant="secondary"
-          size="lg"
-          onClick={onClose}
-          className="flex-1"
-        >
+        <Button variant="secondary" size="lg" onClick={onClose} className="flex-1">
           {t('common.cancel')}
         </Button>
         <Button
@@ -263,11 +212,7 @@ function ContactFormInner({
         </Button>
       </div>
 
-      <QrScannerModal
-        isOpen={showScanner}
-        onClose={() => setShowScanner(false)}
-        onScan={handleScan}
-      />
+      <QrScannerModal isOpen={showScanner} onClose={() => setShowScanner(false)} onScan={handleScan} />
     </div>
   )
 }

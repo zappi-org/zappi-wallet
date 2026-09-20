@@ -16,7 +16,6 @@ import { AmountEntry } from '@/ui/components/payment/AmountEntry'
 import { hapticTap } from '@/ui/utils/haptic'
 
 export interface ReceiveAmountStepProps {
-  chatRequest?: boolean
   mintUrl: string | null
   mintDisplayName: string
   mintIconUrl?: string | null
@@ -29,7 +28,6 @@ export interface ReceiveAmountStepProps {
 }
 
 export function ReceiveAmountStep({
-  chatRequest = false,
   mintUrl,
   mintDisplayName,
   mintIconUrl,
@@ -52,7 +50,7 @@ export function ReceiveAmountStep({
 
   return (
     <div className="flex h-full flex-col">
-      <ScreenHeader title={t(chatRequest ? 'chat.paymentRequest' : 'receive.title')} onBack={onBack} />
+      <ScreenHeader title={t('receive.title')} onBack={onBack} />
 
       <AmountEntry
         key={amountEntryKey}
@@ -116,7 +114,7 @@ export function ReceiveAmountStep({
                 }}
                 className="flex-1"
               >
-                {t(chatRequest ? 'chat.request' : 'common.confirm')}
+                {t('common.confirm')}
               </Button>
             </div>
           </div>

@@ -26,7 +26,7 @@ export class PaymentDelivery implements PaymentDeliveryPort {
           requestId: parsedRequest.id,
         })
         if (result.success) {
-          return { success: true, transportUsed: 'nostr' as const, ...(result.deliveryId ? { deliveryId: result.deliveryId } : {}) }
+          return { success: true, transportUsed: 'nostr' as const }
         }
       } catch (error) {
         console.warn('[PaymentDelivery] Nostr delivery failed, trying HTTP fallback:', error)

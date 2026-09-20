@@ -6,7 +6,6 @@ export interface PendingIncomingReview {
   queuedAt: number
   requestId?: string
   senderPubkey?: string
-  recipientPubkey?: string
   txId?: string
   source: 'gift-wrap' | 'recovery'
 }

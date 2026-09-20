@@ -143,29 +143,13 @@ function navigateToTabRoot(target: Screen, animate: boolean): void {
 
   if (target === 'home') {
     runStackAction(animate, (bound) => {
-      const homeIndex = state.stack.lastIndexOf('home')
-      if (homeIndex >= 0) {
-        const count = state.stack.length - 1 - homeIndex
-        if (count > 0) bound.pop(count, { animate })
-      } else {
-        if (state.stack.length > 1) bound.pop(state.stack.length - 1, { animate: false })
-        bound.replace(SCREEN_TO_ACTIVITY.home, {}, { animate })
-      }
+      if (state.stack.length > 1) bound.pop(state.stack.length - 1, { animate })
     })
     store.setState({ currentScreen: 'home', stack: ['home'], previousOverride: null })
     return
   }
 
   const activityName = SCREEN_TO_ACTIVITY[target]
-  if (state.stack[0] !== 'home') {
-    runStackAction(animate, bound => {
-      if (state.stack.length > 1) bound.pop(state.stack.length - 1, { animate: false })
-      bound.replace(SCREEN_TO_ACTIVITY.home, {}, { animate: false })
-      bound.push(activityName, {}, { animate })
-    })
-    store.setState({ currentScreen: target, stack: ['home', target], previousOverride: null })
-    return
-  }
   // A non-home tab already sitting directly above home is the "tab layer" we swap.
   const tabAboveHome = state.stack.length >= 2 && state.stack[0] === 'home' && isTabRoot(state.stack[1])
     ? state.stack[1]
@@ -326,25 +310,13 @@ function reconcileBootActivity(screen: Screen): boolean {
 }
 
 /** Synchronizes imperative state when historySyncPlugin handles browser back/forward. */
-export function reportActiveScreen(screen: Screen, renderedStack?: readonly Screen[]): void {
+export function reportActiveScreen(screen: Screen): void {
   if (!stackMounted) {
     stackMounted = true
     if (reconcileBootActivity(screen)) return
     if (screen !== store.getState().currentScreen) {
       store.setState({ currentScreen: screen, stack: [screen], previousOverride: null })
     }
-    return
-  }
-
-  // Browser restores and redirects may replace the root; trust the rendered stack.
-  if (renderedStack?.at(-1) === screen) {
-    const state = store.getState()
-    if (state.currentScreen === screen && state.stack.length === renderedStack.length && state.stack.every((entry, i) => entry === renderedStack[i])) return
-    store.setState({
-      currentScreen: screen,
-      stack: [...renderedStack],
-      previousOverride: state.currentScreen === screen ? state.previousOverride : null,
-    })
     return
   }
 
