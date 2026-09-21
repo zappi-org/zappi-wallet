@@ -56,6 +56,7 @@ import { deleteCocoData } from '@/modules/cashu'
 import { broadcastSync } from '@/utils/cross-tab-sync'
 import { useAppStore } from '@/store'
 import { STORAGE_KEYS } from '@/core/constants'
+import { clearAllMyAddressCaches } from '@/ui/utils/my-address-cache'
 
 const ZAPPI_DB_DELETE_TIMEOUT_MS = 5_000
 
@@ -116,6 +117,9 @@ export async function wipeAccountData(deps: WipeAccountDeps): Promise<void> {
     new AnchorStoreAdapter().clearCachedAnchor()
     new LocalStorageBalanceCache().clear()
     localStorage.removeItem(STORAGE_KEYS.LAST_ALIVE)
+    // Per-account my-address caches — a new account must never inherit the
+    // previous account's address when the server lookup fails.
+    clearAllMyAddressCaches()
 
     // ⑥ Reload any tabs that may have opened during erasure
     broadcastSync('logout')

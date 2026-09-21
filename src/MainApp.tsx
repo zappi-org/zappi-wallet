@@ -1020,9 +1020,9 @@ export default function MainApp() {
           setPreviousScreen('settings')
           setCurrentScreen('relay-management')
         }}
-        onChangeUsername={() => {
+        onOpenMyAddress={() => {
           setPreviousScreen('settings')
-          setCurrentScreen('username-change')
+          setCurrentScreen('my-address')
         }}
         onTransfer={() => {
           setPreviousScreen('settings')
@@ -1242,10 +1242,7 @@ export default function MainApp() {
     'my-address': () => (
       <MyAddressScreen
         onBack={handleBack}
-        onOpenSettings={() => {
-          setPreviousScreen('my-address')
-          setCurrentScreen('settings')
-        }}
+        onSaveSettings={handleSaveSettings}
       />
     ),
 

@@ -80,7 +80,7 @@ function createMockRegistry(): ServiceRegistry {
     inputParser: {} as ServiceRegistry['inputParser'],
     paymentRequest: {} as ServiceRegistry['paymentRequest'],
     routing: {} as ServiceRegistry['routing'],
-    username: {} as ServiceRegistry['username'],
+    paymentAlias: {} as unknown as ServiceRegistry['paymentAlias'],
     trustRegistry: {} as ServiceRegistry['trustRegistry'],
     support: {} as ServiceRegistry['support'],
     nostrDirectPayment: {} as ServiceRegistry['nostrDirectPayment'],
