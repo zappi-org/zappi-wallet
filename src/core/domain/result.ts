@@ -9,3 +9,7 @@ export function Ok<T>(value: T): Result<T, never> {
 export function Err<E>(error: E): Result<never, E> {
   return { ok: false, error }
 }
+
+export function isErr<T, E>(result: Result<T, E>): result is { ok: false; error: E } {
+  return !result.ok
+}

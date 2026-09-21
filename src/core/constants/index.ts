@@ -42,6 +42,9 @@ export const NOSTR_KINDS = {
 export const ZAPPI_LINK_URL = 'https://link.zappi.space'
 export const ZAPPI_LINK_DOMAIN = 'zappi.space'
 
+export const NPUBCASH_URL = import.meta.env.VITE_NPUBCASH_URL || 'http://127.0.0.1:8000'
+export const NPUBCASH_DOMAIN = new URL(NPUBCASH_URL).hostname
+
 /**
  * Timeout configurations (in milliseconds)
  */
@@ -108,6 +111,10 @@ export const STORAGE_KEYS = {
   LAST_BACKGROUND_TIME: 'zappi_last_background_time',
   /** Foreground-liveness heartbeat (written by bootstrap, cleared on logout) */
   LAST_ALIVE: 'zappi_last_alive_at',
+  /** Per-account my-address display cache (ui/utils/my-address-cache); keys are
+      `zappi-myaddress-cache:<nostrPubkey>` so one account never shows another's
+      address, and logout can erase every account's entry by prefix. */
+  MYADDRESS_CACHE: 'zappi-myaddress-cache',
 } as const
 
 /**
@@ -122,7 +129,10 @@ export const DATABASE = {
   // v23: dropped legacy proofs table (leftover after coco migration. Real-fund proofs
   //      live in the coco DB, and this table had no read/write code, so the data itself
   //      was removable. Surviving tables pass the schema diff losslessly)
-  VERSION: 23,
+  // v24: added paymentAliasProcessedQuotes table (npubcash payment alias dedup)
+  // v25: added lightningReceiptCursors table (npubcash paid-quote cursor)
+  // v26: added paymentAliasPendingQuotes table (npubcash paid-quote retry persistence)
+  VERSION: 26,
 } as const
 
 /**

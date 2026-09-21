@@ -267,6 +267,8 @@ describe('wipeAccountData', () => {
     localStorage.setItem('zappi-anchor', '{"eventId":"old"}')
     localStorage.setItem('zappi-balance-cache', '{"total":999}')
     localStorage.setItem('zappi_last_alive_at', String(Date.now()))
+    localStorage.setItem('zappi-myaddress-cache:deadbeef', '{"address":"old@zappi.link"}')
+    localStorage.setItem('zappi-myaddress-cache:beefdead', '{"address":"other@zappi.link"}')
     // To be kept
     localStorage.setItem('zappi-language', 'ko')
     localStorage.setItem('zappi.ks.cursor', '1')
@@ -277,6 +279,8 @@ describe('wipeAccountData', () => {
     expect(localStorage.getItem('zappi-anchor')).toBeNull()
     expect(localStorage.getItem('zappi-balance-cache')).toBeNull()
     expect(localStorage.getItem('zappi_last_alive_at')).toBeNull()
+    expect(localStorage.getItem('zappi-myaddress-cache:deadbeef')).toBeNull()
+    expect(localStorage.getItem('zappi-myaddress-cache:beefdead')).toBeNull()
     expect(localStorage.getItem('zappi-language')).toBe('ko')
     expect(localStorage.getItem('zappi.ks.cursor')).toBe('1')
     expect(localStorage.getItem('zappi_invite_attempts')).toBe('3')
