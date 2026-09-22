@@ -2,11 +2,15 @@ import { describe, expect, it, vi } from 'vitest'
 import { getPublicKey } from 'nostr-tools'
 import {
   INCOMING_TAG,
+  PUSH_KIND_NIP_1059,
+  PUSH_LABEL_TITLE,
+  PUSH_LABEL_ZAPPI_NIP_17,
   WebPushAdapter,
   readKkachiConfig,
   urlBase64ToUint8Array,
   type KkachiConfig,
   type PushBrowser,
+  type PushDevOptions,
   type PushPermission,
   type PushSdk,
 } from '@/adapters/runtime/web-push.adapter'
@@ -28,6 +32,9 @@ type Spec = {
   browser?: BrowserOptions
   sdk?: { status?: number; reject?: boolean; bad?: boolean }
   relays?: string[]
+  opts?: PushDevOptions
+  /** Sync-time persisted intent (or null = production defaults). */
+  intent?: PushDevOptions | null
   ok?: boolean
   sub: number
   pm?: number
@@ -52,9 +59,14 @@ function harness(c: Spec) {
     subscribe: c.sdk?.reject ? vi.fn().mockRejectedValue(new TypeError('Load failed')) : vi.fn().mockResolvedValue(new Response('{}', { status: c.sdk?.status ?? 200 })),
     unsubscribe: vi.fn().mockResolvedValue(new Response('{}', { status: 200 })),
     parsePushMaterial: vi.fn(async (value: unknown) => (c.sdk?.bad ? null : (value as PushMaterial))),
+    getSubscription: vi.fn().mockResolvedValue(new Response('{}', { status: 200 })),
   }
-  const adapter = new WebPushAdapter({ config: c.config === undefined ? CONFIG : c.config, identitySecretKey: IDENTITY, browser, sdk })
-  return { adapter, sdk, browser, pushManager, unsubscribe }
+  const labelToken = vi.fn().mockResolvedValue('label-token-abc')
+  const storeLabel = vi.fn().mockResolvedValue(undefined)
+  const persistIntent = vi.fn().mockResolvedValue(undefined)
+  const readIntent = vi.fn().mockResolvedValue(c.intent === undefined ? null : c.intent)
+  const adapter = new WebPushAdapter({ config: c.config === undefined ? CONFIG : c.config, identitySecretKey: IDENTITY, browser, sdk, labelToken, storeLabel, persistIntent, readIntent })
+  return { adapter, sdk, browser, pushManager, unsubscribe, storeLabel, persistIntent, readIntent }
 }
 
 const CASES: Spec[] = [
@@ -70,6 +82,10 @@ const CASES: Spec[] = [
   { name: 'enable resubscribes when the VAPID key changed', browser: { existing: true, vapidMismatch: true }, ok: true, sub: 1, pm: 1, unsub: 1 },
   { name: 'sync skips when permission is not granted', act: 'sync', browser: { permission: 'denied' }, sub: 0 },
   { name: 'sync registers when permission is granted', act: 'sync', sub: 1 },
+  { name: 'dev: token without label resolution (store off) shows payload as-is', opts: { obfuscate: true, store: false }, ok: true, sub: 1 },
+  { name: 'dev: plaintext label registered verbatim', opts: { obfuscate: false, label: 'EDITABLE-LABEL' }, ok: true, sub: 1 },
+  { name: 'dev: sync honors the persisted raw mode (store off)', act: 'sync', intent: { obfuscate: true, store: false }, sub: 1 },
+  { name: 'dev: custom resolution title stored in mode 2', opts: { label: 'dsdasda', title: '테스트 타이틀' }, ok: true, sub: 1 },
 ]
 
 describe('web-push helpers', () => {
@@ -89,18 +105,29 @@ describe('WebPushAdapter enable()/sync()', () => {
   it.each(CASES)('$name', async (c) => {
     const h = harness(c)
     if (c.act === 'sync') await h.adapter.sync(c.relays)
-    else await expect(h.adapter.enable(c.relays)).resolves.toBe(c.ok)
+    else await expect(h.adapter.enable(c.relays, c.opts)).resolves.toBe(c.ok)
+
+    if (c.act === 'sync' && (c.browser?.permission ?? 'granted') === 'granted') expect(h.readIntent).toHaveBeenCalled()
+    else if (c.opts !== undefined) expect(h.persistIntent).toHaveBeenCalledWith(c.opts)
 
     expect(h.sdk.subscribe).toHaveBeenCalledTimes(c.sub)
     if (c.pm !== undefined) expect(h.pushManager?.subscribe).toHaveBeenCalledTimes(c.pm)
     if (c.unsub !== undefined) expect(h.unsubscribe).toHaveBeenCalledTimes(c.unsub)
     if (c.sub > 0) {
-      expect(h.sdk.subscribe).toHaveBeenCalledWith(
-        CONFIG.serverUrl,
-        expect.objectContaining({ inboxPub: getPublicKey(IDENTITY) }),
-        MATERIAL,
-        c.relays,
-      )
+      const called = (h.sdk.subscribe as unknown as { mock: { calls: unknown[][] } }).mock.calls[0]
+      const opts = c.opts ?? (c.act === 'sync' ? (c.intent ?? {}) : {})
+      const expectedMessage = opts.obfuscate === false ? (opts.label ?? PUSH_LABEL_ZAPPI_NIP_17) : 'label-token-abc'
+      expect(called[0]).toBe(CONFIG.serverUrl)
+      expect(called[1]).toEqual(expect.objectContaining({ inboxPub: getPublicKey(IDENTITY) }))
+      expect(called[2]).toBe(MATERIAL)
+      expect(called[3]).toMatchObject({ kinds: [PUSH_KIND_NIP_1059], message: expectedMessage })
+      if (c.relays) expect(called[3]).toMatchObject({ relays: c.relays })
+      // 단일 레코드: mode 2 → 등록 타이틀(기본 '새 알림'), mode 1/평문 → null
+      const expectedTitle =
+        (opts.obfuscate ?? true) && (opts.store ?? true)
+          ? (opts.title?.trim() || PUSH_LABEL_TITLE)
+          : null
+      expect(h.storeLabel).toHaveBeenCalledWith(expectedMessage, expectedTitle)
     }
   })
 })

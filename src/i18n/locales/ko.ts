@@ -409,7 +409,7 @@ export default {
 
   // Push notification observer summaries (replace the generic wake hint)
   push: {
-    hint: '새 알림',
+    hint: '알림',
   },
 
   // Add Mint Screen

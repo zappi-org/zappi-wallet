@@ -6,6 +6,7 @@ import { Switch } from '@/ui/components/common/Switch'
 import { Button } from '@/ui/components/common/Button'
 import { SettingsDetailPage } from '../components/SettingsDetailPage'
 import type { PushDevToolsAdapter } from '@/adapters/runtime/push-dev-tools.adapter'
+import { PUSH_LABEL_TITLE, PUSH_LABEL_ZAPPI_NIP_17, type PushDevOptions } from '@/adapters/runtime/web-push.adapter'
 
 interface PushNotificationSettingPageProps {
   onBack: () => void
@@ -154,6 +155,17 @@ function PushDevToolsSection({
   addToast: (toast: Omit<Toast, 'id'>) => void
 }) {
   const [busy, setBusy] = useState(false)
+  const [label, setLabel] = useState(PUSH_LABEL_ZAPPI_NIP_17)
+  const [title, setTitle] = useState(PUSH_LABEL_TITLE)
+  const [modeIndex, setModeIndex] = useState(0)
+  const [subscription, setSubscription] = useState('')
+
+  const modes: { name: string; opts: PushDevOptions }[] = [
+    { name: '난독화 + 해제 (토큰 → 타이틀)', opts: {} },
+    { name: '난독화 + 해제 안 함 (페이로드 그대로)', opts: { obfuscate: true, store: false } },
+    { name: '난독화 안 함 (평문 메시지)', opts: { obfuscate: false } },
+  ]
+  const devOpts: PushDevOptions = { ...modes[modeIndex].opts, label: label.trim(), title: title.trim() }
 
   const run = useCallback(
     async (label: string, action: () => Promise<unknown>) => {
@@ -191,14 +203,76 @@ function PushDevToolsSection({
       <p className="text-caption text-foreground-muted break-all mb-3">
         audit: <code>{tools.inboxPub()}</code>
       </p>
+      <div className="flex flex-col gap-2 mb-3">
+        <input
+          type="text"
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          placeholder="payload message (label)"
+          className="w-full px-3 py-2 rounded-xl bg-background border border-border text-caption focus:outline-none focus:ring-1 focus:ring-primary"
+        />
+        <input
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="알림 타이틀 (난독화+해제 모드에서만 사용, 서버엔 안 감)"
+          className="w-full px-3 py-2 rounded-xl bg-background border border-border text-caption focus:outline-none focus:ring-1 focus:ring-primary"
+        />
+        <select
+          value={modeIndex}
+          onChange={(e) => setModeIndex(Number(e.target.value))}
+          className="w-full px-3 py-2 rounded-xl bg-background border border-border text-caption focus:outline-none focus:ring-1 focus:ring-primary"
+        >
+          {modes.map((m, i) => (
+            <option key={m.name} value={i}>
+              {m.name}
+            </option>
+          ))}
+        </select>
+        <p className="text-[11px] leading-snug text-foreground-muted break-all">
+          테스트: 같은 기기에서 발행해도 foreground면 앱이 표시한다 (앱 사용 중 숨기기 꺼야 보임).
+          기대 결과 — 해제: 설정한 타이틀, 미해제: 토큰 그대로, 평문: 라벨, 레거시/무메시지: "알림".
+        </p>
+      </div>
       <div className="flex flex-wrap gap-2">
         <Button
           variant="secondary"
           size="sm"
           disabled={busy}
-          onClick={() => run('register', () => tools.register(relays))}
+          onClick={() =>
+            run('register', () => {
+              if (!label.trim()) throw new Error('label is empty')
+              return tools.register(relays, devOpts)
+            })
+          }
         >
           등록
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={busy}
+          onClick={() =>
+            run('subscription', async () => {
+              setSubscription(JSON.stringify(await tools.serverSubscription(), null, 2))
+              return true
+            })
+          }
+        >
+          구독 조회
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={busy}
+          onClick={() =>
+            run('local map', async () => {
+              setSubscription(JSON.stringify(await tools.localLabelMap(), null, 2))
+              return true
+            })
+          }
+        >
+          로컬 해석 조회
         </Button>
         <Button
           variant="secondary"
@@ -217,6 +291,13 @@ function PushDevToolsSection({
           self 1059 발행
         </Button>
       </div>
+      <textarea
+        readOnly
+        value={subscription}
+        placeholder="'구독 조회' = 서버 등록 (filter/push/relays/message), '로컬 해석 조회' = 해석 맵 — mode 1이면 현재 토큰의 title이 null이어야 함·정상) — title null 또는 부재면 raw 표시"
+        rows={5}
+        className="w-full mt-3 px-3 py-2 rounded-xl bg-background border border-border text-caption font-mono break-all focus:outline-none focus:ring-1 focus:ring-primary"
+      />
     </div>
   )
 }

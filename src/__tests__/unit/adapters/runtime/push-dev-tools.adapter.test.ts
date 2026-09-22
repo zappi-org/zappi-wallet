@@ -22,6 +22,14 @@ describe('PushDevToolsAdapter', () => {
     expect(gateway.disable).toHaveBeenCalledTimes(1)
   })
 
+  it('register forwards the dev options (label/mode)', async () => {
+    const gateway = createPushGatewayMock()
+    const tools = new PushDevToolsAdapter({ identitySecretKey: IDENTITY, gateway })
+
+    await tools.register(['wss://relay.example'], { obfuscate: false, label: 'EDITABLE' })
+    expect(gateway.enable).toHaveBeenCalledWith(['wss://relay.example'], { obfuscate: false, label: 'EDITABLE' })
+  })
+
   it('publishes a signed kind:1059 event tagged to this inbox', async () => {
     const published: Array<{ relayUrls: string[]; event: Event }> = []
     const tools = new PushDevToolsAdapter({

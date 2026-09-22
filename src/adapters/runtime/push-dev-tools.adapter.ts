@@ -12,13 +12,13 @@
 
 import { finalizeEvent, generateSecretKey, getPublicKey, SimplePool } from 'nostr-tools'
 import type { Event } from 'nostr-tools'
-import type { WebPushAdapter } from '@/adapters/runtime/web-push.adapter'
+import type { PushDevOptions, WebPushAdapter } from '@/adapters/runtime/web-push.adapter'
 
 export interface PushDevToolsDeps {
   /** Wallet nostr secret key — the audit value is its real npub. */
   identitySecretKey: Uint8Array
-  /** Only register/unregister are needed — permission + NIP-98 live in the real adapter. */
-  gateway: Pick<WebPushAdapter, 'enable' | 'disable'>
+  /** Only register/unregister/read-backs are needed — permission + NIP-98 live in the real adapter. */
+  gateway: Pick<WebPushAdapter, 'enable' | 'disable' | 'serverSubscription' | 'localLabelMap'>
   /** Injectable seam (tests). */
   publish?: (relayUrls: string[], event: Event) => Promise<void>
 }
@@ -35,7 +35,7 @@ async function publishToRelays(relayUrls: string[], event: Event): Promise<void>
 
 export class PushDevToolsAdapter {
   private readonly identitySecretKey: Uint8Array
-  private readonly gateway: Pick<WebPushAdapter, 'enable' | 'disable'>
+  private readonly gateway: Pick<WebPushAdapter, 'enable' | 'disable' | 'serverSubscription' | 'localLabelMap'>
   private readonly publish: (relayUrls: string[], event: Event) => Promise<void>
 
   constructor(deps: PushDevToolsDeps) {
@@ -48,12 +48,24 @@ export class PushDevToolsAdapter {
     return getPublicKey(this.identitySecretKey)
   }
 
-  register(relayUrls: string[]): Promise<boolean> {
-    return this.gateway.enable(relayUrls)
+  register(relayUrls: string[], opts?: PushDevOptions): Promise<boolean> {
+    return opts === undefined
+      ? this.gateway.enable(relayUrls)
+      : this.gateway.enable(relayUrls, opts)
   }
 
   unregister(): Promise<void> {
     return this.gateway.disable()
+  }
+
+  /** Server-side subscription read-back — what message/kinds/relays are stored. */
+  serverSubscription(): Promise<unknown> {
+    return this.gateway.serverSubscription()
+  }
+
+  /** Shared-IDB token→title map (page side of what the SW resolves). */
+  localLabelMap(): Promise<unknown> {
+    return this.gateway.localLabelMap()
   }
 
   async publishSelfGiftWrap(relayUrls: string[]): Promise<void> {

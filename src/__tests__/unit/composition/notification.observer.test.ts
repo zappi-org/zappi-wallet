@@ -50,4 +50,13 @@ describe('connectServiceWorkerMessages', () => {
     target.dispatchEvent(new MessageEvent('message', { data: { type: 'zappi-push' } }))
     expect(gateway.notifyIncoming).toHaveBeenCalledTimes(1)
   })
+
+  it('foreground message shows the SW-resolved title instead of the hint', async () => {
+    const target = new EventTarget()
+    const gateway = createPushGatewayMock()
+    connectServiceWorkerMessages(target, gateway, { hintText: () => 'hint' })
+
+    target.dispatchEvent(new MessageEvent('message', { data: { type: 'zappi-push', title: '새 알림' } }))
+    expect(gateway.notifyIncoming).toHaveBeenCalledWith('새 알림')
+  })
 })
