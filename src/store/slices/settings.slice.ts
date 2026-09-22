@@ -41,6 +41,8 @@ const defaultSettings: WalletSettings = {
   fiatCurrency: 'USD',
   showFiatConversion: true,
   senderPrivacyMode: false,
+  pushNotificationsEnabled: false,
+  hideNotificationInForeground: true,
 }
 
 /**

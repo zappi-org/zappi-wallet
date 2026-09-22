@@ -392,7 +392,24 @@ export default {
     senderPrivacyMode: 'Sender Privacy Mode',
     senderPrivacyModeDescription: 'Prefer routes where the mint cannot link sender and receiver, even if fees are higher',
 
+    // Push notifications
+    pushNotifications: 'Notifications',
+    pushNotificationsDescription: 'Show a notification when a payment arrives while the app is closed',
+    pushNotificationsDenied: 'Notification permission is blocked. Allow notifications in your browser settings.',
+    pushNotificationsUnsupported: 'Push notifications are not supported on this device or browser.',
+    pushNotificationsOn: 'Background notifications enabled',
+    pushNotificationsTest: 'Send test notification',
+    pushNotificationsTestBody: 'Test notification',
+    hideNotificationInForeground: 'Hide notifications while using the app',
+    hideNotificationInForegroundDescription: 'Only show push notifications when the app is in the background',
+    pushNotificationsRelayNote: 'Push subscriptions follow your relay settings',
+
     // Descriptions
+  },
+
+  // Push notification observer summaries (replace the generic wake hint)
+  push: {
+    hint: 'New notification',
   },
 
   // Add Mint Screen

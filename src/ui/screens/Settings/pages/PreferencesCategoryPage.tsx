@@ -54,6 +54,10 @@ export function PreferencesCategoryPage({
             onPress={() => onNavigate('privacy')}
           />
           <SettingsRow
+            label={t('settings.pushNotifications')}
+            onPress={() => onNavigate('pushNotifications')}
+          />
+          <SettingsRow
             label={t('settings.diagnostics')}
             onPress={() => onNavigate('diagnostics')}
           />

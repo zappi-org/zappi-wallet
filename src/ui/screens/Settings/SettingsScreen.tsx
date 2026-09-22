@@ -26,6 +26,7 @@ import {
 } from '@/ui/services/passkey'
 import { POSSettingPage } from './pages/POSSettingPage'
 import { PrivacySettingPage } from './pages/PrivacySettingPage'
+import { PushNotificationSettingPage } from './pages/PushNotificationSettingPage'
 import { NpubDetailPage } from './pages/NpubDetailPage'
 import { LightningDetailPage } from './pages/LightningDetailPage'
 import { ProfileCategoryPage } from './pages/ProfileCategoryPage'
@@ -44,7 +45,7 @@ function normalizeRecoveryPhraseWords(value: string): string[] {
 export type SettingsPage =
   | 'category-profile' | 'category-preferences' | 'category-security' | 'category-wallet'
   | 'language' | 'unitDisplay' | 'fiat' | 'pos' | 'privacy' | 'npubDetail' | 'lightningDetail' | 'support'
-  | 'diagnostics'
+  | 'diagnostics' | 'pushNotifications'
 
 export interface SettingsScreenProps {
   onBack: () => void
@@ -591,6 +592,14 @@ export function SettingsScreen({
         )
       case 'privacy':
         return <PrivacySettingPage onBack={closeDetail} saveSettings={saveSettings} />
+      case 'pushNotifications':
+        return (
+          <PushNotificationSettingPage
+            onBack={closeDetail}
+            saveSettings={saveSettings}
+            onRelayManagement={onRelayManagement}
+          />
+        )
       case 'npubDetail':
         return <NpubDetailPage onBack={closeDetail} />
       case 'lightningDetail':

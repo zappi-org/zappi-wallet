@@ -3,6 +3,7 @@ import { Ok, Err } from '@/core/domain/result'
 import { UnknownError } from '@/core/errors/base'
 import type { ServiceRegistry } from '@/core/ports/driving/service-registry'
 import { ServiceProvider } from '@/ui/hooks/service-context'
+import { createUnsupportedPushGateway } from '@/__tests__/helpers/push.mock'
 import { useReclaim } from '@/ui/hooks/use-reclaim'
 import { act, renderHook } from '@testing-library/react'
 import type { ReactNode } from 'react'
@@ -66,6 +67,7 @@ function createMockRegistry(reclaimService: ReturnType<typeof vi.fn>, txMgmt?: {
       claimIncomingTransfer: vi.fn(),
       recoverTransfers: vi.fn(),
     } as unknown as ServiceRegistry['transferLifecycle'],
+    pushNotifications: createUnsupportedPushGateway(),
   }
 }
 

@@ -242,6 +242,10 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff,woff2,wasm}'],
         clientsClaim: true,
         cleanupOutdatedCaches: true,
+        // Kkachi push/notificationclick handlers live in public/push-sw.js. Appending
+        // them here avoids switching to injectManifest (which would require porting
+        // the whole workbox config into a hand-written src/sw.ts).
+        importScripts: ['push-sw.js'],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,

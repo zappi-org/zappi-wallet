@@ -388,7 +388,24 @@ export default {
     senderPrivacyMode: 'Mode Privasi Pengirim',
     senderPrivacyModeDescription: 'Pilih rute di mana mint tidak dapat menghubungkan pengirim dan penerima, meskipun biaya lebih tinggi',
 
+    // Push notifications
+    pushNotifications: 'Notifikasi',
+    pushNotificationsDescription: 'Tampilkan notifikasi saat pembayaran tiba ketika aplikasi tertutup',
+    pushNotificationsDenied: 'Izin notifikasi diblokir. Izinkan notifikasi di pengaturan browser.',
+    pushNotificationsUnsupported: 'Notifikasi push tidak didukung di perangkat atau browser ini.',
+    pushNotificationsOn: 'Notifikasi latar belakang diaktifkan',
+    pushNotificationsTest: 'Kirim notifikasi uji',
+    pushNotificationsTestBody: 'Notifikasi uji',
+    hideNotificationInForeground: 'Sembunyikan notifikasi saat menggunakan aplikasi',
+    hideNotificationInForegroundDescription: 'Hanya tampilkan notifikasi push saat aplikasi di latar belakang',
+    pushNotificationsRelayNote: 'Langganan push mengikuti pengaturan relay Anda',
+
     // Descriptions
+  },
+
+  // Push notification observer summaries (replace the generic wake hint)
+  push: {
+    hint: 'Notifikasi baru',
   },
 
   // Add Mint Screen
