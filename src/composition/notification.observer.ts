@@ -10,7 +10,7 @@
 
 import i18n from '@/i18n'
 import { useAppStore } from '@/store'
-import type { PushNotificationGateway } from '@/core/ports/driven/push-notification.port'
+import type { WebPushAdapter } from '@/adapters/runtime/web-push.adapter'
 
 /** Wallet default: hide OS notifications while the app is visible. */
 export function shouldNotifyWithWalletSetting(): boolean {
@@ -30,7 +30,7 @@ const defaultHintText = (): string => i18n.t('push.hint')
 
 export function connectServiceWorkerMessages(
   target: EventTarget | null,
-  gateway: PushNotificationGateway,
+  gateway: Pick<WebPushAdapter, 'notifyIncoming'>,
   options: ServiceWorkerMessagesOptions = {},
 ): () => void {
   if (!target) return () => {}

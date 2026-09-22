@@ -12,13 +12,13 @@
 
 import { finalizeEvent, generateSecretKey, getPublicKey, SimplePool } from 'nostr-tools'
 import type { Event } from 'nostr-tools'
-import type { PushNotificationGateway } from '@/core/ports/driven/push-notification.port'
-import type { PushDevTools } from '@/core/ports/driven/push-dev-tools.port'
+import type { WebPushAdapter } from '@/adapters/runtime/web-push.adapter'
 
 export interface PushDevToolsDeps {
   /** Wallet nostr secret key — the audit value is its real npub. */
   identitySecretKey: Uint8Array
-  gateway: PushNotificationGateway
+  /** Only register/unregister are needed — permission + NIP-98 live in the real adapter. */
+  gateway: Pick<WebPushAdapter, 'enable' | 'disable'>
   /** Injectable seam (tests). */
   publish?: (relayUrls: string[], event: Event) => Promise<void>
 }
@@ -33,9 +33,9 @@ async function publishToRelays(relayUrls: string[], event: Event): Promise<void>
   }
 }
 
-export class PushDevToolsAdapter implements PushDevTools {
+export class PushDevToolsAdapter {
   private readonly identitySecretKey: Uint8Array
-  private readonly gateway: PushNotificationGateway
+  private readonly gateway: Pick<WebPushAdapter, 'enable' | 'disable'>
   private readonly publish: (relayUrls: string[], event: Event) => Promise<void>
 
   constructor(deps: PushDevToolsDeps) {

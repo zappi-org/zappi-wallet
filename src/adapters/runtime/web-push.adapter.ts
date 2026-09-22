@@ -1,5 +1,5 @@
 /**
- * WebPushAdapter — PushNotificationGateway on top of the `kkachi` SDK (NIP-98)
+ * WebPushAdapter — browser Push API + `kkachi` SDK (NIP-98) integration.
  * and the browser Push API. Registers under the wallet's real npub (senders
  * still target it until the ReceiveRequest inbox path ships; the server then
  * stores the identity pubkey — docs L12/L13). The secret never leaves the
@@ -9,10 +9,8 @@
 import { getPublicKey } from 'nostr-tools'
 import type { InboxSigner } from 'kkachi/register'
 import type { PushMaterial } from 'kkachi/protocol'
-import type {
-  PushNotificationGateway,
-  PushPermission,
-} from '@/core/ports/driven/push-notification.port'
+
+export type PushPermission = 'unsupported' | 'default' | 'granted' | 'denied'
 
 export const INCOMING_TAG = 'zappi-incoming'
 
@@ -98,7 +96,7 @@ function createSdk(): PushSdk {
   return {
     async subscribe(baseUrl, signer, push, relays) {
       const { subscribe } = await import('kkachi/register')
-      return subscribe(baseUrl, signer, push, relays)
+      return subscribe(baseUrl, signer, push, { relays })
     },
     async unsubscribe(baseUrl, signer) {
       const { unsubscribe } = await import('kkachi/register')
@@ -138,7 +136,7 @@ export function urlBase64ToUint8Array(base64: string): Uint8Array {
   return out
 }
 
-export class WebPushAdapter implements PushNotificationGateway {
+export class WebPushAdapter {
   private readonly config: KkachiConfig | null
   private readonly signer: InboxSigner
   private readonly browser: PushBrowser

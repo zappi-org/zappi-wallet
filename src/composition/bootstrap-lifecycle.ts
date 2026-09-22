@@ -41,7 +41,7 @@ import type { DexieIncomingReviewQueue } from "@/adapters/storage/dexie/dexie-in
 import type { TransferLifecycleService } from "@/core/services/transfer-lifecycle.service";
 import type { MintHealthFacadeService } from "@/core/services/mint-health-facade.service";
 import type { ReclaimService } from "@/core/services/reclaim.service";
-import type { PushNotificationGateway } from "@/core/ports/driven/push-notification.port";
+import type { WebPushAdapter } from "@/adapters/runtime/web-push.adapter";
 
 export function createLifecycle(deps: {
   nostrPrivateKeyHex: string;
@@ -56,7 +56,7 @@ export function createLifecycle(deps: {
   getMintHealth: () => MintHealthFacadeService;
   getReclaim: () => ReclaimService;
   getNostrIncomingWatcher: () => NostrIncomingWatcher;
-  getPushNotifications: () => PushNotificationGateway;
+  getPushNotifications: () => WebPushAdapter;
 }) {
   const {
     nostrPrivateKeyHex,

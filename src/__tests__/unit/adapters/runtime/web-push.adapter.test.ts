@@ -7,9 +7,9 @@ import {
   urlBase64ToUint8Array,
   type KkachiConfig,
   type PushBrowser,
+  type PushPermission,
   type PushSdk,
 } from '@/adapters/runtime/web-push.adapter'
-import type { PushPermission } from '@/core/ports/driven/push-notification.port'
 import type { PushMaterial } from 'kkachi/protocol'
 
 const CONFIG: KkachiConfig = {

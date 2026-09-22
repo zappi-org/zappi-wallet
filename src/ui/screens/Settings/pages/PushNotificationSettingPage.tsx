@@ -5,7 +5,7 @@ import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import { Switch } from '@/ui/components/common/Switch'
 import { Button } from '@/ui/components/common/Button'
 import { SettingsDetailPage } from '../components/SettingsDetailPage'
-import type { PushDevTools } from '@/core/ports/driven/push-dev-tools.port'
+import type { PushDevToolsAdapter } from '@/adapters/runtime/push-dev-tools.adapter'
 
 interface PushNotificationSettingPageProps {
   onBack: () => void
@@ -149,7 +149,7 @@ function PushDevToolsSection({
   relays,
   addToast,
 }: {
-  tools: PushDevTools
+  tools: PushDevToolsAdapter
   relays: string[]
   addToast: (toast: Omit<Toast, 'id'>) => void
 }) {
