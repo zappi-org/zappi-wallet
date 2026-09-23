@@ -30,6 +30,32 @@ describe('chat payment card', () => {
     ).not.toBeInTheDocument()
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
+  it.each([
+    ['pending', 'processing', 'receiving'],
+    ['settled', 'sent', 'received'],
+    ['failed', 'failed', 'receiveFailed'],
+    ['notice', 'checkingPayment', 'notice'],
+    ['unknown', 'checkingPayment', 'notice'],
+    ['unclaimed', 'awaitingReceipt', 'notice'],
+    ['cancelled', 'cancelled', 'cancelled'],
+    ['expired', 'expired', 'expired'],
+  ] as const)('uses viewer-relative payment text for %s', (status, sentKey, receivedKey) => {
+    const view = render(<ChatPaymentCard kind="send" outgoing status={status} peerName="Alex" />)
+    expect(screen.getByRole('heading')).toHaveTextContent('chat.paymentCard.paymentTo:Alex')
+    expect(screen.getByText(`chat.paymentCard.${sentKey}`)).toBeInTheDocument()
+    view.rerender(<ChatPaymentCard kind="send" outgoing={false} status={status} peerName="Alex" />)
+    expect(screen.getByRole('heading')).toHaveTextContent('chat.paymentCard.paymentFrom:Alex')
+    expect(screen.getByText(`chat.paymentCard.${receivedKey}`)).toBeInTheDocument()
+  })
+  it.each(['unknown', 'pending', 'settled', 'unclaimed'] as const)(
+    'keeps the original request perspective for %s',
+    (status) => {
+      const view = render(<ChatPaymentCard kind="request" outgoing status={status} />)
+      expect(screen.getByText('chat.paymentCard.requested')).toBeInTheDocument()
+      view.rerender(<ChatPaymentCard kind="request" outgoing={false} status={status} />)
+      expect(screen.getByText('chat.paymentCard.receivedRequest')).toBeInTheDocument()
+    }
+  )
   it('keeps an explicit payment memo without adding a notice explanation', () => {
     render(
       <ChatPaymentCard
@@ -43,7 +69,7 @@ describe('chat payment card', () => {
     expect(screen.getByText('Dinner')).toBeInTheDocument()
     expect(screen.getByRole('region').querySelectorAll('p')).toHaveLength(3)
   })
-  it('shows an unpaid request as awaiting payment rather than an instruction', () => {
+  it('describes an incoming unpaid request from the recipient perspective', () => {
     render(
       <ChatPaymentCard
         kind="request"
@@ -53,12 +79,12 @@ describe('chat payment card', () => {
       />
     )
     expect(
-      screen.getByText('chat.paymentCard.awaitingPayment')
+      screen.getByText('chat.paymentCard.receivedRequest')
     ).toBeInTheDocument()
     expect(
       screen.queryByText('chat.paymentCard.processing')
     ).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'chat.sendMoney' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'chat.paymentCard.pay' })).toBeEnabled()
   })
   it.each([
     ['request', true, 'requestTo'],
@@ -81,23 +107,31 @@ describe('chat payment card', () => {
       )
     }
   )
-  it('keeps a submitted payment awaiting receipt after request expiry without offering another send', () => {
-    render(
-      <ChatPaymentCard
-        kind="request"
-        outgoing={false}
-        status="unclaimed"
-        expiresAt={Date.now() - 1}
-        onPay={vi.fn()}
-      />
-    )
-    expect(
-      screen.getByText('chat.paymentCard.awaitingReceipt')
-    ).toBeInTheDocument()
-    expect(
-      screen.queryByText('chat.paymentCard.expired')
-    ).not.toBeInTheDocument()
-    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+  it.each(['settled', 'unclaimed'] as const)('keeps a %s request unchanged and explains repeat sends even after expiry', (status) => {
+    const onPay = vi.fn()
+    render(<ChatPaymentCard kind="request" amount={1200} outgoing={false} status={status} expiresAt={Date.now() - 1} onPay={onPay} />)
+    expect(screen.getByText('chat.paymentCard.receivedRequest')).toBeInTheDocument()
+    expect(screen.queryByText('chat.paymentCard.expired')).not.toBeInTheDocument()
+    const send = screen.getByRole('button', { name: 'chat.paymentCard.pay' })
+    fireEvent.click(send)
+    expect(screen.getByRole('dialog')).toHaveTextContent('1,200 sat')
+    expect(screen.getByText('chat.paymentCard.alreadySent')).toBeInTheDocument()
+    expect(onPay).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'common.confirm' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(send).toHaveFocus()
+  })
+  it('preserves request text when its payment settles and blocks another send', () => {
+    const onPay = vi.fn()
+    const view = render(<ChatPaymentCard kind="request" amount={1200} outgoing={false} status="unknown" onPay={onPay} />)
+    const card = screen.getByRole('region')
+    const initialText = card.textContent
+    view.rerender(<ChatPaymentCard kind="request" amount={1200} outgoing={false} status="settled" onPay={onPay} />)
+    expect(screen.getByRole('region')).toBe(card)
+    expect(card.textContent).toBe(initialText)
+    fireEvent.click(screen.getByRole('button', { name: 'chat.paymentCard.pay' }))
+    expect(screen.getByText('chat.paymentCard.alreadySent')).toBeInTheDocument()
+    expect(onPay).not.toHaveBeenCalled()
   })
   it('blocks repeat taps while opening payment and shows recoverable failure', async () => {
     let reject!: () => void
@@ -115,7 +149,7 @@ describe('chat payment card', () => {
         onPay={pay}
       />
     )
-    const button = screen.getByRole('button', { name: 'chat.sendMoney' })
+    const button = screen.getByRole('button', { name: 'chat.paymentCard.pay' })
     fireEvent.click(button)
     fireEvent.click(button)
     expect(pay).toHaveBeenCalledOnce()
@@ -128,7 +162,7 @@ describe('chat payment card', () => {
     )
     expect(button).not.toBeDisabled()
   })
-  it.each(['settled', 'failed', 'expired', 'cancelled', 'unclaimed'] as const)(
+  it.each(['failed', 'expired', 'cancelled'] as const)(
     'does not offer payment for %s requests',
     (status) => {
       render(
@@ -142,21 +176,18 @@ describe('chat payment card', () => {
       expect(screen.queryByRole('button')).not.toBeInTheDocument()
     }
   )
-  it('shows details when locally linked and does not offer payment for own request', () => {
+  it('keeps an own request unchanged and leaves details to the separate receipt', () => {
     const details = vi.fn()
-    render(
-      <ChatPaymentCard
-        kind="request"
-        outgoing
-        status="settled"
-        onPay={vi.fn()}
-        onDetails={details}
-      />
-    )
-    expect(screen.getByText('chat.paymentCard.received')).toBeInTheDocument()
-    fireEvent.click(
-      screen.getByRole('button', { name: 'chat.paymentCard.details' })
-    )
+    render(<ChatPaymentCard kind="request" outgoing status="settled" onPay={vi.fn()} onDetails={details} />)
+    expect(screen.getByText('chat.paymentCard.requested')).toBeInTheDocument()
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+    expect(details).not.toHaveBeenCalled()
+  })
+  it.each([true, false])('shows transaction details only on a settled send card outgoing=%s', (outgoing) => {
+    const details = vi.fn()
+    render(<ChatPaymentCard kind="send" outgoing={outgoing} status="settled" onDetails={details} />)
+    expect(screen.getByText(`chat.paymentCard.${outgoing ? 'sent' : 'received'}`)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'chat.paymentCard.details' }))
     expect(details).toHaveBeenCalledOnce()
     expect(screen.getAllByRole('button')).toHaveLength(1)
   })
@@ -193,7 +224,7 @@ it('expires an open request card without another message or rerender', () => {
   )
   try {
     expect(
-      screen.getByRole('button', { name: 'chat.sendMoney' })
+      screen.getByRole('button', { name: 'chat.paymentCard.pay' })
     ).toBeInTheDocument()
     act(() => {
       vi.advanceTimersByTime(1000)
@@ -222,7 +253,7 @@ it('rechecks expiry on click when background timers have not run', () => {
     />
   )
   try {
-    const button = screen.getByRole('button', { name: 'chat.sendMoney' })
+    const button = screen.getByRole('button', { name: 'chat.paymentCard.pay' })
     vi.setSystemTime(Date.now() + 2000)
     fireEvent.click(button)
     expect(onPay).not.toHaveBeenCalled()
@@ -236,62 +267,24 @@ it('rechecks expiry on click when background timers have not run', () => {
 it('shows the requester waiting for incoming money', () => {
   render(<ChatPaymentCard kind="request" outgoing status="pending" />)
   expect(
-    screen.getByText('chat.paymentCard.awaitingIncoming')
+    screen.getByText('chat.paymentCard.requested')
   ).toBeInTheDocument()
   expect(
     screen.queryByText('chat.paymentCard.processing')
   ).not.toBeInTheDocument()
 })
 
-it.each([
-  ['settled', 'paid'],
-  ['failed', 'failed'],
-  ['cancelled', 'cancelled'],
-  ['unclaimed', 'awaitingReceipt'],
-] as const)('preserves %s after the request deadline', (status, label) => {
-  render(
-    <ChatPaymentCard
-      kind="request"
-      outgoing={false}
-      status={status}
-      expiresAt={Date.now() - 1000}
-      onPay={vi.fn()}
-      onDetails={vi.fn()}
-    />
-  )
-  expect(screen.getByText(`chat.paymentCard.${label}`)).toBeInTheDocument()
+it.each([false, true])('keeps a submitted processing request unchanged after expiry, outgoing=%s', (outgoing) => {
+  const onPay = vi.fn()
+  render(<ChatPaymentCard kind="request" amount={10} outgoing={outgoing} status="pending" paymentSubmitted expiresAt={Date.now() - 1000} onPay={onPay} />)
+  expect(screen.getByText(`chat.paymentCard.${outgoing ? 'requested' : 'receivedRequest'}`)).toBeInTheDocument()
   expect(screen.queryByText('chat.paymentCard.expired')).not.toBeInTheDocument()
-  expect(
-    screen.queryByRole('button', { name: 'chat.sendMoney' })
-  ).not.toBeInTheDocument()
-  expect(
-    screen.getByRole('button', { name: 'chat.paymentCard.details' })
-  ).toBeEnabled()
-  expect(screen.queryByText('chat.paymentCard.expires')).not.toBeInTheDocument()
-})
-
-it.each([false, true])(
-  'preserves a processing transaction after expiry, outgoing=%s',
-  (outgoing) => {
-    render(
-      <ChatPaymentCard
-        kind="request"
-        outgoing={outgoing}
-        status="pending"
-        expiresAt={Date.now() - 1000}
-        onPay={vi.fn()}
-        onDetails={vi.fn()}
-      />
-    )
-    expect(screen.getByText('chat.paymentCard.processing')).toBeInTheDocument()
-    expect(
-      screen.queryByText('chat.paymentCard.expired')
-    ).not.toBeInTheDocument()
-    expect(
-      screen.queryByRole('button', { name: 'chat.sendMoney' })
-    ).not.toBeInTheDocument()
-    expect(
-      screen.getByRole('button', { name: 'chat.paymentCard.details' })
-    ).toBeEnabled()
+  expect(screen.queryByRole('button', { name: 'chat.paymentCard.details' })).not.toBeInTheDocument()
+  if (!outgoing) {
+    fireEvent.click(screen.getByRole('button', { name: 'chat.paymentCard.pay' }))
+    expect(screen.getByText('chat.paymentCard.alreadySent')).toBeInTheDocument()
+    expect(onPay).not.toHaveBeenCalled()
+  } else {
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
   }
-)
+})

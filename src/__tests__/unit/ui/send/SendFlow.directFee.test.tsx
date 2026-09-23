@@ -9,6 +9,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, act, screen } from '@testing-library/react'
 import { SendFlow } from '@/ui/screens/Send/SendFlow'
+import { ChatPaymentAlreadySubmittedError } from '@/core/errors/chat'
 
 // Neither child step exports its props interface — extract via ComponentProps
 // instead of duplicating the shape (and drifting from it) here.
@@ -718,6 +719,30 @@ describe('SendFlow direct-transfer fee quote', () => {
       expect(onExecuteRoute).toHaveBeenCalledOnce()
     },
   )
+
+  it('returns an already submitted request to chat without showing a failed payment', async () => {
+    const onComplete = vi.fn()
+    const onExecuteRoute = vi.fn().mockRejectedValue(new ChatPaymentAlreadySubmittedError())
+    render(<SendFlow
+      {...baseProps}
+      completionMode="chat"
+      onComplete={onComplete}
+      onExecuteRoute={onExecuteRoute}
+      validatedData={{ type: 'bolt11', invoice: 'lnbc1test', amountSats: 50, expiry: 9999999999 }}
+    />)
+    await act(async () => { await Promise.resolve() })
+    await act(async () => { await capturedAmount!.onConfirmSend!() })
+    expect(onComplete).toHaveBeenCalledOnce()
+    expect(completeMounted).toBe(false)
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 150)) })
+    expect(capturedAmount!.confirmError).toBeFalsy()
+    await act(async () => {
+      await capturedAmount!.onConfirmSend!()
+      capturedAmount!.onExitSending!()
+    })
+    expect(onExecuteRoute).toHaveBeenCalledOnce()
+    expect(onComplete).toHaveBeenCalledOnce()
+  })
 
   it.each(['receipt', 'chat'] as const)('returns a failed %s send to confirmation after the dwell', async (completionMode) => {
     const onExecuteRoute = vi.fn(async () => null)

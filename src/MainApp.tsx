@@ -1,9 +1,9 @@
 import { MessageCircle } from 'lucide-react'
-import { ChatAddressError, ChatStorageInitializationError } from '@/core/errors/chat'
+import { ChatAddressError, ChatPaymentAlreadySubmittedError, ChatStorageInitializationError } from '@/core/errors/chat'
 import { useChatView } from '@/store/chat-view'
 import { useChatNotifications } from '@/ui/hooks/use-chat'
 import { contactPubkey } from '@/ui/screens/Chat/chat-address'
-import { executeChatPayment, type ChatPaymentLaunch } from '@/ui/screens/Chat/chat-payment-flow'
+import { executeChatPayment, hasSubmittedChatRequest, type ChatPaymentLaunch } from '@/ui/screens/Chat/chat-payment-flow'
 import { selectChatPaymentMint } from '@/ui/screens/Chat/chat-payment-source'
 import { getNavigationSnapshot } from '@/ui/navigation/navigation-store'
 import { AppLifecycleWatcher } from '@/composition/app-lifecycle.watcher'
@@ -1110,6 +1110,17 @@ export default function MainApp() {
         onPay={async (content, messageId) => {
           if (!serviceRegistry) return
           const requestMessage = serviceRegistry.chat.getSnapshot().messages.find(m => m.id === messageId && m.conversationId === selectedChatId)
+          if (!requestMessage || requestMessage.outgoing || requestMessage.content !== content) throw new Error('Invalid payment request')
+          const launch = { conversationId: selectedChatId, peer: requestMessage.sender, requestMessageId: messageId }
+          if (await hasSubmittedChatRequest(
+            launch,
+            serviceRegistry.chat.getSnapshot().messages,
+            id => serviceRegistry.transactionMgmt.getById(id),
+            !!useChatView.getState().submittedRequests[`${selectedChatId}:${messageId}`],
+          )) {
+            addToast({ type: 'info', message: t('chat.paymentCard.alreadySent') })
+            return
+          }
           if (requestMessage?.expiresAt !== undefined && requestMessage.expiresAt <= Date.now()) {
             throw new Error('Payment request expired')
           }
@@ -1280,7 +1291,7 @@ export default function MainApp() {
         }}
         onExecuteRoute={previousScreen === 'chat' && chatPaymentLaunch && serviceRegistry
           ? async (selection, context) => {
-            const { result, noticeSaved, expired } = await executeChatPayment(
+            const { result, noticeSaved, expired, duplicate } = await executeChatPayment(
               chatPaymentLaunch,
               () => handleExecuteRoute(selection, context),
               (id, content, link) => serviceRegistry.chat.enqueue(id, content, link),
@@ -1288,7 +1299,17 @@ export default function MainApp() {
                 if (chatPaymentLaunch.requestMessageId)
                   useChatView.getState().markSubmitted(chatPaymentLaunch.conversationId, chatPaymentLaunch.requestMessageId)
               },
+              () => hasSubmittedChatRequest(
+                chatPaymentLaunch,
+                serviceRegistry.chat.getSnapshot().messages,
+                id => serviceRegistry.transactionMgmt.getById(id),
+                !!useChatView.getState().submittedRequests[`${chatPaymentLaunch.conversationId}:${chatPaymentLaunch.requestMessageId}`],
+              ),
             )
+            if (duplicate) {
+              addToast({ type: 'info', message: t('chat.paymentCard.alreadySent') })
+              throw new ChatPaymentAlreadySubmittedError()
+            }
             if (expired) addToast({ type: 'error', message: t('chat.paymentCard.expired') })
             void noticeSaved.then(saved => {
               if (!saved) addToast({ type: 'error', message: t('chat.paymentCard.noticeFailed') })

@@ -5,6 +5,13 @@ export class ChatAddressError extends Error {
   }
 }
 
+export class ChatPaymentAlreadySubmittedError extends Error {
+  constructor() {
+    super('Chat payment already submitted')
+    this.name = 'ChatPaymentAlreadySubmittedError'
+  }
+}
+
 type ChatStorageStage = 'key' | 'migration'
 type ChatStorageFailure =
   | 'authentication'

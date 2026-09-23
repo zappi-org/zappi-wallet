@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { TokenCodecAdapter } from '@/adapters/codec/token-codec.adapter'
 import type { ChatMessage, Conversation } from '@/core/domain/chat'
 import { PaymentRequest } from '@cashu/cashu-ts'
@@ -141,7 +141,7 @@ function createRequest(outgoing: boolean, description?: string) {
 
 describe('real encoded chat payment requests', () => {
   it.each([true, false])(
-    'keeps one verified request card for requester=%s with transaction details',
+    'keeps the request and verified payment as separate directional cards for requester=%s',
     async (outgoing) => {
       const raw = createRequest(outgoing)
       const request = messages[0]
@@ -190,27 +190,37 @@ describe('real encoded chat payment requests', () => {
         },
       })
       const onDetails = vi.fn().mockResolvedValue(undefined)
+      const onPay = vi.fn().mockResolvedValue(undefined)
       render(
         <ChatScreen
           onBack={vi.fn()}
           onSend={vi.fn()}
           onRequest={vi.fn()}
-          onPay={vi.fn()}
+          onPay={onPay}
           onDetails={onDetails}
         />
       )
-      await waitFor(() => expect(screen.getAllByRole('region')).toHaveLength(1))
-      expect(screen.getByRole('region')).toHaveAccessibleName(
-        outgoing ? '지민님에게 요청' : '지민님의 송금 요청'
+      await waitFor(() => expect(screen.getByText(outgoing ? '받았어요' : '보냈어요')).toBeInTheDocument())
+      expect(screen.getAllByRole('region')).toHaveLength(2)
+      const requestCard = screen.getByRole('region', { name: outgoing ? '지민님에게 요청' : '지민님의 송금 요청' })
+      const receiptCard = screen.getAllByRole('region').find(card => card !== requestCard)!
+      expect(requestCard).toHaveTextContent(outgoing ? ko.chat.paymentCard.requested : ko.chat.paymentCard.receivedRequest)
+      expect(within(receiptCard).getByRole('heading')).toHaveTextContent(
+        outgoing ? '지민님의 송금' : '지민님에게 송금'
       )
-      expect(
-        screen.getByText(outgoing ? '입금 완료' : '송금 완료')
-      ).toBeInTheDocument()
-      expect(
-        screen.queryByRole('button', { name: '송금하기' })
-      ).not.toBeInTheDocument()
-      fireEvent.click(screen.getByRole('button', { name: '거래 내역' }))
+      expect(requestCard.closest('.group')).toHaveClass(outgoing ? 'justify-end' : 'justify-start')
+      expect(receiptCard.closest('.group')).toHaveClass(outgoing ? 'justify-start' : 'justify-end')
+      expect(within(requestCard).queryByRole('button', { name: '내역 보기' })).not.toBeInTheDocument()
+      fireEvent.click(within(receiptCard).getByRole('button', { name: '내역 보기' }))
       expect(onDetails).toHaveBeenCalledWith(localId)
+      if (!outgoing) {
+        fireEvent.click(within(requestCard).getByRole('button', { name: '보내기' }))
+        expect(screen.getByRole('dialog')).toHaveTextContent('1,234 sat')
+        expect(screen.getByText(ko.chat.paymentCard.alreadySent)).toBeInTheDocument()
+        expect(onPay).not.toHaveBeenCalled()
+      } else {
+        expect(within(requestCard).queryByRole('button')).not.toBeInTheDocument()
+      }
     }
   )
 
@@ -254,14 +264,14 @@ describe('real encoded chat payment requests', () => {
       />
     )
     await waitFor(() =>
-      expect(screen.getAllByText('송금 완료')).toHaveLength(2)
+      expect(screen.getByText('보냈어요')).toBeInTheDocument()
     )
     expect(screen.getAllByRole('region')).toHaveLength(2)
     expect(
       screen.getByRole('button', { name: ko.common.retry })
     ).toBeInTheDocument()
   })
-  it('shows the sender-written memo instead of generic helper copy', () => {
+  it('shows the sender-written memo instead of generic helper copy', async () => {
     createRequest(false, '저녁값')
     render(
       <ChatScreen
@@ -271,6 +281,7 @@ describe('real encoded chat payment requests', () => {
         onPay={vi.fn()}
       />
     )
+    await act(async () => {})
     expect(screen.getByText('저녁값')).toBeInTheDocument()
   })
   it.each([true, false])(
@@ -286,6 +297,7 @@ describe('real encoded chat payment requests', () => {
           onPay={onPay}
         />
       )
+      await act(async () => {})
       const card = screen.getByRole('region', {
         name: outgoing ? '지민님에게 요청' : '지민님의 송금 요청',
       })
@@ -294,11 +306,11 @@ describe('real encoded chat payment requests', () => {
       expect(document.body).not.toHaveTextContent('CREQB')
       if (outgoing) {
         expect(
-          screen.queryByRole('button', { name: '송금하기' })
+          within(screen.getByRole('region')).queryByRole('button', { name: '보내기' })
         ).not.toBeInTheDocument()
       } else {
         await act(async () => {
-          fireEvent.click(screen.getByRole('button', { name: '송금하기' }))
+          fireEvent.click(within(screen.getByRole('region')).getByRole('button', { name: '보내기' }))
         })
         expect(onPay).toHaveBeenCalledExactlyOnceWith(
           request,
@@ -328,7 +340,7 @@ describe('real encoded chat payment requests', () => {
     ).toHaveTextContent('1,234')
     expect(document.body).not.toHaveTextContent(request)
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: '송금하기' }))
+      fireEvent.click(within(screen.getByRole('region')).getByRole('button', { name: '보내기' }))
     })
     expect(onPay).toHaveBeenCalledExactlyOnceWith(request, 'encoded-request')
   })
@@ -349,14 +361,14 @@ describe('real encoded chat payment requests', () => {
         />
       )
       expect(
-        screen.getByRole('button', { name: '송금하기' })
+        within(screen.getByRole('region')).getByRole('button', { name: '보내기' })
       ).toBeInTheDocument()
       await act(async () => {
         vi.advanceTimersByTime(1001)
       })
       expect(screen.getByText('만료됨')).toBeInTheDocument()
       expect(
-        screen.queryByRole('button', { name: '송금하기' })
+        within(screen.getByRole('region')).queryByRole('button', { name: '보내기' })
       ).not.toBeInTheDocument()
       expect(onPay).not.toHaveBeenCalled()
       view.unmount()

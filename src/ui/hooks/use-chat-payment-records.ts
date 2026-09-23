@@ -19,7 +19,6 @@ export interface ChatPaymentRecord {
     | 'expired'
     | 'unknown'
   transaction?: Transaction
-  foldedIntoRequestId?: string
 }
 
 const empty = new Map<string, ChatPaymentRecord>()
@@ -92,7 +91,7 @@ export function useChatPaymentRecords(
       const current = ++revision
       if (document.visibilityState !== 'visible') return
       const records = new Map<string, ChatPaymentRecord>()
-      const aliases: Array<[string, string, ChatPaymentRecord]> = []
+      const aliases: Array<[string, ChatPaymentRecord]> = []
       const read = async (message: (typeof linked)[number]) => {
         let record: ChatPaymentRecord = { status: 'unknown' }
         const link = parseChatPaymentLink(message.payment)
@@ -211,9 +210,9 @@ export function useChatPaymentRecords(
               decoded.amount === notice.amount &&
               matchesRequest
             )
-              aliases.push([request.id, message.id, record])
+              aliases.push([request.id, record])
           } catch {
-            // Invalid requests retain their separate payment notice.
+            // Invalid requests cannot establish a payment association.
           }
         }
         records.set(message.id, record)
@@ -222,9 +221,9 @@ export function useChatPaymentRecords(
         if (disposed || current !== revision) return
         await Promise.all(linked.slice(i, i + 4).map(read))
       }
-      aliases.sort((a, b) => priority[b[2].status] - priority[a[2].status])
+      aliases.sort((a, b) => priority[b[1].status] - priority[a[1].status])
       const attachedTransactions = new Set<string>()
-      for (const [id, noticeId, record] of aliases) {
+      for (const [id, record] of aliases) {
         if (
           !record.transaction ||
           attachedTransactions.has(record.transaction.id)
@@ -239,12 +238,6 @@ export function useChatPaymentRecords(
           records.set(id, record)
         if (records.get(id) === record)
           attachedTransactions.add(record.transaction.id)
-        // Preserve failed attempts and additional transfers in the timeline.
-        if (
-          ['settled', 'unclaimed', 'pending'].includes(record.status) &&
-          records.get(id) === record
-        )
-          records.set(noticeId, { ...record, foldedIntoRequestId: id })
       }
       if (
         !disposed &&

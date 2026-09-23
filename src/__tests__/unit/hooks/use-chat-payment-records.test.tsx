@@ -271,12 +271,13 @@ describe("incoming payment receipts", () => {
     mocks.getById.mockResolvedValue(receipt);
     const original = { ...request, outgoing: true };
     const { result } = renderHook(() => useChatPaymentRecords([original, incoming], true));
-    await waitFor(() => expect(result.current.get(incoming.id)?.foldedIntoRequestId).toBe(original.id));
-    expect(result.current.get(original.id)?.transaction).toEqual(receipt);
+    await waitFor(() => expect(result.current.get(original.id)?.transaction).toEqual(receipt));
+    expect(result.current.get(incoming.id)?.transaction).toEqual(receipt);
+    expect(result.current.get(incoming.id)).not.toHaveProperty("foldedIntoRequestId");
     mocks.getById.mockResolvedValue({ ...receipt, metadata: undefined });
     act(() => window.dispatchEvent(new Event("focus")));
     await waitFor(() => expect(result.current.get(incoming.id)?.status).toBe("unknown"));
-    expect(result.current.get(incoming.id)?.foldedIntoRequestId).toBeUndefined();
+    expect(result.current.get(incoming.id)).not.toHaveProperty("foldedIntoRequestId");
     expect(result.current.get(original.id)?.transaction).toBeUndefined();
   });
   it.each([undefined, "another-request"])("keeps receipt separate when payment request binding is %s", async (requestId) => {
@@ -284,7 +285,7 @@ describe("incoming payment receipts", () => {
     const original = { ...request, outgoing: true };
     const { result } = renderHook(() => useChatPaymentRecords([original, incoming], true));
     await waitFor(() => expect(result.current.get(incoming.id)?.status).toBe("settled"));
-    expect(result.current.get(incoming.id)?.foldedIntoRequestId).toBeUndefined();
+    expect(result.current.get(incoming.id)).not.toHaveProperty("foldedIntoRequestId");
     expect(result.current.get(original.id)?.transaction).toBeUndefined();
   });
   it("uses the approved local transaction mapping while retaining authenticated identity checks", async () => {
@@ -338,26 +339,28 @@ describe("incoming payment receipts", () => {
 });
 
 describe("request payment presentation", () => {
-  it("folds a settled locally linked payment into its original request", async () => {
+  it("keeps a settled payment independent and links its transaction to the request", async () => {
     mocks.getById.mockResolvedValue({ ...transaction, status: "settled", outcome: "claimed" });
     const { result } = renderHook(() => useChatPaymentRecords([request, message], true));
-    await waitFor(() => expect(result.current.get(message.id)?.foldedIntoRequestId).toBe(request.id));
-    expect(result.current.get(request.id)?.transaction?.id).toBe(transaction.id);
+    await waitFor(() => expect(result.current.get(request.id)?.transaction?.id).toBe(transaction.id));
+    expect(result.current.get(message.id)?.transaction?.id).toBe(transaction.id);
+    expect(result.current.get(message.id)).not.toHaveProperty("foldedIntoRequestId");
   });
 
-  it.each(["pending", "unclaimed"])("folds trusted %s payments with details", async (status) => {
+  it.each(["pending", "unclaimed"])("keeps trusted %s payments independent with request transaction details", async (status) => {
     mocks.getById.mockResolvedValue({ ...transaction, status: "pending", outcome: status === "unclaimed" ? "unclaimed" : undefined });
     const { result } = renderHook(() => useChatPaymentRecords([request, message], true));
-    await waitFor(() => expect(result.current.get(message.id)?.foldedIntoRequestId).toBe(request.id));
+    await waitFor(() => expect(result.current.get(request.id)?.transaction?.id).toBe(transaction.id));
     expect(result.current.get(request.id)?.status).toBe(status);
     expect(result.current.get(request.id)?.transaction?.id).toBe(transaction.id);
+    expect(result.current.get(message.id)).not.toHaveProperty("foldedIntoRequestId");
   });
 
   it.each(["failed", "cancelled"])("keeps %s payment attempts visible", async (status) => {
     mocks.getById.mockResolvedValue({ ...transaction, status, outcome: undefined });
     const { result } = renderHook(() => useChatPaymentRecords([request, message], true));
     await waitFor(() => expect(result.current.get(message.id)?.status).toBe(status));
-    expect(result.current.get(message.id)?.foldedIntoRequestId).toBeUndefined();
+    expect(result.current.get(message.id)).not.toHaveProperty("foldedIntoRequestId");
   });
 
   it.each([
@@ -367,30 +370,35 @@ describe("request payment presentation", () => {
     { outgoing: true },
     { content: "ordinary text" },
     { id: "missing-request" },
-  ])("does not fold a mismatched request %#", async (patch) => {
+  ])("does not attach a payment to a mismatched request %#", async (patch) => {
     mocks.getById.mockResolvedValue({ ...transaction, status: "settled" });
     const { result } = renderHook(() => useChatPaymentRecords([{ ...request, ...patch }, message], true));
     await waitFor(() => expect(result.current.get(message.id)?.status).toBe("settled"));
-    expect(result.current.get(message.id)?.foldedIntoRequestId).toBeUndefined();
+    expect(result.current.get(message.id)).not.toHaveProperty("foldedIntoRequestId");
+    expect(result.current.get(patch.id ?? request.id)?.transaction).toBeUndefined();
   });
 
-  it("does not fold a different requested amount or an absent request", async () => {
+  it("does not attach a payment to a different requested amount or an absent request", async () => {
     mocks.getById.mockResolvedValue({ ...transaction, status: "settled" });
     mocks.decodeCashuRequest.mockReturnValue({ amount: 1201, unit: "sat" });
     const { result, rerender } = renderHook(({ messages }) => useChatPaymentRecords(messages, true), { initialProps: { messages: [request, message] } });
     await waitFor(() => expect(result.current.get(message.id)?.status).toBe("settled"));
-    expect(result.current.get(message.id)?.foldedIntoRequestId).toBeUndefined();
+    expect(result.current.get(message.id)).not.toHaveProperty("foldedIntoRequestId");
+    expect(result.current.get(request.id)?.transaction).toBeUndefined();
     rerender({ messages: [message] });
     await waitFor(() => expect(result.current.get(message.id)?.status).toBe("settled"));
-    expect(result.current.get(message.id)?.foldedIntoRequestId).toBeUndefined();
+    expect(result.current.get(message.id)).not.toHaveProperty("foldedIntoRequestId");
   });
 
-  it("folds only one of multiple completed payments to preserve the extra transfer", async () => {
+  it("keeps every completed payment in the timeline", async () => {
     mocks.getById.mockResolvedValue({ ...transaction, status: "settled" });
     const second = { ...message, id: "second-notice" };
     const { result } = renderHook(() => useChatPaymentRecords([request, message, second], true));
     await waitFor(() => expect(result.current.get(request.id)?.status).toBe("settled"));
-    expect([message, second].filter((m) => result.current.get(m.id)?.foldedIntoRequestId)).toHaveLength(1);
+    for (const item of [message, second]) {
+      expect(result.current.get(item.id)?.status).toBe("settled");
+      expect(result.current.get(item.id)).not.toHaveProperty("foldedIntoRequestId");
+    }
   });
 });
 
@@ -401,5 +409,8 @@ it("does not attach one verified transaction to multiple request cards", async (
   const { result } = renderHook(() => useChatPaymentRecords([request, otherRequest, message, otherNotice], true));
   await waitFor(() => expect(result.current.get(message.id)?.status).toBe("settled"));
   expect([request, otherRequest].filter((m) => result.current.get(m.id)?.transaction)).toHaveLength(1);
-  expect([message, otherNotice].filter((m) => result.current.get(m.id)?.foldedIntoRequestId)).toHaveLength(1);
+  for (const item of [message, otherNotice]) {
+    expect(result.current.get(item.id)?.status).toBe("settled");
+    expect(result.current.get(item.id)).not.toHaveProperty("foldedIntoRequestId");
+  }
 });

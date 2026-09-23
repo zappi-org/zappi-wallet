@@ -203,15 +203,23 @@ matches the original token, mint and gross amount (including receive-fee handlin
 Incoming failures retain the receive direction in wallet history.
 
 
-Request payments use one stable request card when their local transaction is verified.
-The request keeps its title/amount and gains payment status and transaction details.
-A linked full payment card is folded only while its request is in the loaded page.
-Direct sends, extra payments, unverified references, failed attempts and failed
-notification deliveries stay visible. Incoming folding additionally requires the
-actual receive record's payment request ID to match the decoded CREQ ID; a sender's
-reference alone is insufficient. One transaction cannot complete several requests.
-Terminal or verified in-progress payments are not overwritten by request expiry.
+Request and payment cards stay separate in the timeline. Requests retain their
+original title, amount and memo; paying creates an outgoing payment notice. Incoming
+receipts are shown only after the verified local wallet transaction confirms them.
+No receive button or additional receive operation is introduced.
 
-An iOS 26.3 iPhone simulator Home Screen PWA check verified +/× toggling with the
-software keyboard open, plus toggling without opening a closed keyboard. The same
-fixture showed a verified request/payment pair as one card. No real funds were used.
+Incoming request cards keep their Send action. A submitted request opens an
+already-sent acknowledgement instead of another payment. The launch and final
+execution both check local payment links and wallet transactions; concurrent calls
+for the same request are gated. A session marker also blocks retries when saving
+the payment notice fails. This is not cross-device idempotency, and deleting the
+local linkage or reloading after a failed notice save can lose that protection.
+
+Verified request-to-transaction associations remain available internally. Incoming
+associations require the actual receive record's request ID to match the decoded
+CREQ ID; a sender's reference alone is insufficient. One transaction cannot complete
+several requests. Receipt details open the existing wallet transaction.
+
+An iOS 26.3 iPhone simulator Home Screen PWA check previously verified +/× toggling
+with the software keyboard open, plus toggling without opening a closed keyboard.
+No real funds were used.

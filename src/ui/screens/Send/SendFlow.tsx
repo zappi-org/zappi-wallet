@@ -30,6 +30,7 @@ import { useRouting, PaymentRoute, ROUTE_LABELS } from '@/ui/hooks/use-routing'
 import type { RouteSelection, RouteContext, RouteExecutionResult } from '@/core/domain/routing'
 import { routeNeedsCallerInvoice } from '@/core/domain/routing'
 import { translateError } from '@/ui/utils/error-i18n'
+import { ChatPaymentAlreadySubmittedError } from '@/core/errors/chat'
 
 // ============= Helpers =============
 
@@ -757,6 +758,10 @@ export function SendFlow({
         })
       }
     } catch (err) {
+      if (completionMode === 'chat' && err instanceof ChatPaymentAlreadySubmittedError) {
+        completeChat()
+        return
+      }
       console.error('[SendFlow] Send error:', err)
       const message =
         (err as { code?: string }).code === 'INSUFFICIENT_BALANCE'

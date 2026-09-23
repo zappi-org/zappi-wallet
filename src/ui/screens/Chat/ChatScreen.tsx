@@ -155,11 +155,6 @@ export default function ChatScreen({
     )
   )
   const paymentRecords = useChatPaymentRecords(page, top)
-  const pageIds = new Set(page.map((message) => message.id))
-  const visible = page.filter((message) => {
-    const requestId = paymentRecords.get(message.id)?.foldedIntoRequestId
-    return !requestId || !pageIds.has(requestId) || message.status === 'failed'
-  })
   const historyPosition = useRef<{ height: number; top: number } | null>(null)
   useLayoutEffect(() => {
     if (!firstVisibleId && thread.length)
@@ -452,12 +447,12 @@ export default function ChatScreen({
         )}
         <div className="flow-root [overflow:clip]" data-chat-motion-clip>
           <div ref={messageMotion.content}>
-            {visible.map((m, index) => {
+            {page.map((m, index) => {
               const day = new Date(m.createdAt).toLocaleDateString(
                 i18n.language,
                 { month: 'long', day: 'numeric' }
               )
-              const prior = visible[index - 1]
+              const prior = page[index - 1]
               const newDay =
                 !prior ||
                 new Date(prior.createdAt).toDateString() !==
@@ -546,12 +541,10 @@ export default function ChatScreen({
                                 ? m.payment.expiresAt
                                 : undefined)
                             }
+                            paymentSubmitted={submittedRequests.has(m.id) || !!submittedInSession[`${id}:${m.id}`]}
                             onPay={
                               request &&
-                              !m.outgoing &&
-                              !paymentRecord?.transaction &&
-                              !submittedRequests.has(m.id) &&
-                              !submittedInSession[`${id}:${m.id}`]
+                              !m.outgoing
                                 ? () => onPay(m.content, m.id)
                                 : undefined
                             }
