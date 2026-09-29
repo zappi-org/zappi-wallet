@@ -294,4 +294,34 @@ describe('wipeAccountData', () => {
 
     expect(useAppStore.getState().txRefreshTrigger).toBe(0)
   })
+  it('does not erase data until in-flight writers have settled', async () => {
+    const db = makeDb()
+    const deps = makeDeps()
+    let finish!: () => void
+    const pending = new Promise<void>((resolve) => { finish = resolve })
+    const registry = { ...deps.registry, dispose: vi.fn(() => pending) }
+    const wipe = wipeAccountData({ ...deps, registry })
+    for (let i = 0; i < 10; i++) await Promise.resolve()
+    expect(registry.dispose).toHaveBeenCalled()
+    expect(deleteCocoDataMock).not.toHaveBeenCalled()
+    expect(db.tables[0].clear).not.toHaveBeenCalled()
+    finish()
+    await wipe
+    expect(deps.security.deleteWallet).toHaveBeenCalled()
+  })
+
+  it('fails closed on a stuck writer, preserving data and mnemonic for retry', async () => {
+    vi.useFakeTimers()
+    const db = makeDb()
+    const deps = makeDeps()
+    const registry = { ...deps.registry, dispose: () => new Promise<void>(() => {}) }
+    const failure = expect(wipeAccountData({ ...deps, registry })).rejects.toThrow('wallet writer shutdown timed out')
+    await vi.advanceTimersByTimeAsync(5_000)
+    await failure
+    expect(deleteCocoDataMock).not.toHaveBeenCalled()
+    expect(db.tables[0].clear).not.toHaveBeenCalled()
+    expect(deps.security.deleteWallet).not.toHaveBeenCalled()
+    expect(deps.removePasskey).not.toHaveBeenCalled()
+  })
+
 })

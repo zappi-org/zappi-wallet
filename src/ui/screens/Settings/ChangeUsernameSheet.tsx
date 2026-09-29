@@ -78,15 +78,16 @@ type UsernameStatus =
   | { kind: 'invalid'; message: string }
   | { kind: 'taken'; message: string }
   | { kind: 'same'; message: string }
-  | { kind: 'available'; price: AliasPriceInfo }
+  | { kind: 'available'; username: string; price: AliasPriceInfo }
 
 export interface ChangeUsernameSheetProps {
   isOpen: boolean
   onClose: () => void
   onSaveSettings: (settings: Record<string, unknown>) => Promise<void>
+  onAddressChanged?: (address: string) => void
 }
 
-export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings }: ChangeUsernameSheetProps) {
+export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings, onAddressChanged }: ChangeUsernameSheetProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
   const reduceMotion = useReducedMotion()
@@ -172,7 +173,7 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings }: ChangeU
           if (fromPress) setStep('input')
           return
         }
-        setStatus({ kind: 'available', price: result.value })
+        setStatus({ kind: 'available', username: value, price: result.value })
         if (fromPress) {
           setPrice(result.value)
           setRevealed(false)
@@ -193,6 +194,7 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings }: ChangeU
 
   const handleInputChange = useCallback(
     (value: string) => {
+      checkSeq.current += 1
       const lower = value.toLowerCase()
       setNewUsername(lower)
       if (debounceTimer.current !== null) window.clearTimeout(debounceTimer.current)
@@ -220,6 +222,9 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings }: ChangeU
 
   const handleCheckPrice = useCallback(() => {
     if (!isUsernameValid || !nostrPrivkey || step === 'checking') return
+    // A queued debounce must not supersede this explicit check while the
+    // input is disabled, leaving the sheet stuck on "checking".
+    if (debounceTimer.current !== null) window.clearTimeout(debounceTimer.current)
     setPayBlocked(false)
     // Only the untouched prefill reaches here: report it inline, on press,
     // not while the sheet just sits open.
@@ -229,7 +234,7 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings }: ChangeU
     }
     // Availability (and its price) already landed from the debounced check —
     // skip the round-trip and go straight to the price step.
-    if (status.kind === 'available') {
+    if (status.kind === 'available' && status.username === newUsername) {
       setPrice(status.price)
       setRevealed(false)
       setStep('confirm')
@@ -282,6 +287,7 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings }: ChangeU
 
       const fullAddress = `${result.value.alias}@${NPUBCASH_DOMAIN}`
       updateSettings({ lightningAddress: fullAddress })
+      onAddressChanged?.(fullAddress)
       // Display cache first (MyAddressScreen shows cache over settings), so a
       // just-changed alias must land here or the QR would snap back to the
       // old address until the next revalidation.
@@ -305,7 +311,7 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings }: ChangeU
       setRevealed(false)
       setStep('confirm')
     }
-  }, [nostrPrivkey, nostrPubkey, balance, price, newUsername, registry, addToast, updateSettings, onSaveSettings, settings, triggerTxRefresh, t, openFundingSheet, currentUsername])
+  }, [nostrPrivkey, nostrPubkey, balance, price, newUsername, registry, addToast, updateSettings, onSaveSettings, onAddressChanged, settings, triggerTxRefresh, t, openFundingSheet, currentUsername])
 
   // Swap-in confirmed: fund payment mint, then retry changeAlias.
   const handleFundingSwap = useCallback(async (sourceMint: string) => {
@@ -332,7 +338,9 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings }: ChangeU
         return
       }
 
-      updateSettings({ lightningAddress: `${result.value.alias}@${NPUBCASH_DOMAIN}` })
+      const fullAddress = `${result.value.alias}@${NPUBCASH_DOMAIN}`
+      updateSettings({ lightningAddress: fullAddress })
+      onAddressChanged?.(fullAddress)
       if (nostrPubkey) {
         writeMyAddressCache(nostrPubkey, {
           address: `${result.value.alias}@${NPUBCASH_DOMAIN}`,
@@ -352,7 +360,7 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings }: ChangeU
       addToast({ type: 'error', message })
       setStep('confirm')
     }
-  }, [nostrPrivkey, nostrPubkey, funding, newUsername, registry, addToast, updateSettings, onSaveSettings, settings, triggerTxRefresh, t, currentUsername])
+  }, [nostrPrivkey, nostrPubkey, funding, newUsername, registry, addToast, updateSettings, onSaveSettings, onAddressChanged, settings, triggerTxRefresh, t, currentUsername])
 
   // Best source pre-select; user still confirms.
   const bestSourceMint = useMemo(

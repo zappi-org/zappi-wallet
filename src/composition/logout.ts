@@ -25,8 +25,9 @@
  *    and don't open coco (coco init is post-unlock). ⑥ fires once more after erasure
  *    to catch tabs opened during it.
  * ① Stop this tab's writers — support.destroy() + registry.dispose() (keeps timers/
- *    sockets/watchers from reviving the DB during or after erasure). Erasure proceeds
- *    even with no registry (pre-bootstrap).
+ *    sockets/watchers from reviving the DB during or after erasure). Await in-flight
+ *    writes with a timeout; on failure retain account data for a safe retry. Erasure
+ *    proceeds even with no registry (pre-bootstrap).
  * ② Delete funds DB (coco) — awaited with timeout (no silent success when blocked).
  * ③ Erase zappi DB — clear-first, delete-best-effort. (a) clear every table on the
  *    live connection (no version bump — can't be blocked by open tabs, dynamic
@@ -64,7 +65,7 @@ export interface WipeAccountDeps {
   /** Delete the encrypted wallet record in zappi-secure */
   security: { deleteWallet(): Promise<void> }
   /** null = pre-bootstrap/locked — just means there are no writers to stop; erasure is unchanged */
-  registry: { support: { destroy(): Promise<void> }; dispose(): void } | null
+  registry: { support: { destroy(): Promise<void> }; dispose(): void | Promise<void> } | null
   /** Remove passkey credentials + encrypted PIN (incl. legacy keys) — injected by the
    *  caller so composition doesn't import ui/services/passkey directly */
   removePasskey: () => void
@@ -84,16 +85,13 @@ export async function wipeAccountData(deps: WipeAccountDeps): Promise<void> {
     // recreated, but ⑥'s re-send reloads that tab again.
     broadcastSync('logout')
 
-    // ① Stop this tab's writers — keep erasing even on failure (aborting leaves more data behind)
+    // ① Stop writers before erasure. A mint already in progress can still write
+    // funds; on timeout retain the wallet and data so logout can safely be retried.
     if (deps.registry) {
       await deps.registry.support.destroy().catch((e) => {
         console.warn('[Logout] support.destroy failed — continuing wipe:', e)
       })
-      try {
-        deps.registry.dispose()
-      } catch (e) {
-        console.warn('[Logout] registry.dispose failed — continuing wipe:', e)
-      }
+      await withTimeout(Promise.resolve(deps.registry.dispose()), 5_000, 'wallet writer shutdown')
     }
 
     // ② Funds DB (coco) — throw on failure; the wallet record still exists, so retry is possible

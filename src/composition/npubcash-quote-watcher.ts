@@ -65,8 +65,8 @@ export function createNpubcashQuoteWatcher(deps: {
   let closeSub: (() => void) | null = null
   let generation = 0
   let reconcileInFlight: Promise<void> | null = null
-  let syncing = false
-  let syncQueued = false
+  let stopped = false
+  let syncFlight: { generation: number; queued: boolean; promise: Promise<boolean> } | null = null
   let syncAttempts = 0
   let syncTimer: ReturnType<typeof setTimeout> | null = null
   let reconnectAttempts = 0
@@ -75,10 +75,48 @@ export function createNpubcashQuoteWatcher(deps: {
   const baseReconnectDelay = 2_000
   const emittedThisSession = new Set<string>()
 
-  const emitSettled = async (q: PaidQuote) => {
+  const cancelled = Symbol('cancelled watcher generation')
+  const retryWaits = new Set<() => void>()
+  const writes = new Set<Promise<unknown>>()
+  const assertCurrent = (gen: number) => {
+    if (gen !== generation || stopped) throw cancelled
+  }
+  // Reads may finish after stop, but must never schedule new work. Writes and SDK
+  // minting already started cannot be cancelled; logout waits for them to settle.
+  const step = async <T>(gen: number, work: () => Promise<T>, writesData = false): Promise<T> => {
+    assertCurrent(gen)
+    const promise = work()
+    if (writesData) writes.add(promise)
+    try {
+      const result = await promise
+      assertCurrent(gen)
+      return result
+    } finally {
+      writes.delete(promise)
+    }
+  }
+  const waitForIdle = async (): Promise<void> => {
+    while (writes.size) await Promise.allSettled([...writes])
+  }
+  const retryDelay = (ms: number) => new Promise<void>((resolve) => {
+    const finish = () => {
+      clearTimeout(timer)
+      retryWaits.delete(finish)
+      resolve()
+    }
+    const timer = setTimeout(finish, ms)
+    retryWaits.add(finish)
+  })
+  const invalidate = () => {
+    generation++
+    for (const finish of retryWaits) finish()
+  }
+
+  const emitSettled = async (q: PaidQuote, gen: number) => {
     if (emittedThisSession.has(q.quoteId)) return
-    const check = await processedQuotesRepo.isProcessed(q.quoteId)
+    const check = await step(gen, () => processedQuotesRepo.isProcessed(q.quoteId))
     if (check.ok && check.value) return
+    assertCurrent(gen)
     emittedThisSession.add(q.quoteId)
     const now = Date.now()
     eventBus.emit({
@@ -107,25 +145,26 @@ export function createNpubcashQuoteWatcher(deps: {
         },
       },
     })
-    await processedQuotesRepo.markProcessed(q.quoteId)
+    await step(gen, () => processedQuotesRepo.markProcessed(q.quoteId), true)
   }
 
   /**
    * Mint and settle one quote. Returns an explicit outcome so the caller can
    * decide the cursor and persistence — never swallows a failure as success.
    */
-  const handleQuote = async (q: PaidQuote): Promise<QuoteHandling> => {
+  const handleQuote = async (q: PaidQuote, gen: number): Promise<QuoteHandling> => {
     // Expired quotes can still be ISSUED (claimed earlier); try once, then retire.
     const maxRetries = isExpired(q) ? 1 : 5
     const baseDelay = 500
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
-        await mint.mintAndReceive(q.quoteId, q.mintUrl, q.amount)
-        await emitSettled(q)
+        await step(gen, () => mint.mintAndReceive(q.quoteId, q.mintUrl, q.amount), true)
+        await emitSettled(q, gen)
         return { outcome: 'claimed' }
       } catch (err) {
+        assertCurrent(gen)
         if (isAlreadySettled(err)) {
-          await emitSettled(q)
+          await emitSettled(q, gen)
           return { outcome: 'claimed' }
         }
         if (attempt === maxRetries - 1) {
@@ -136,7 +175,7 @@ export function createNpubcashQuoteWatcher(deps: {
           )
           return { outcome: isExpired(q) ? 'dead' : 'retry', error }
         }
-        await new Promise((r) => setTimeout(r, baseDelay * Math.pow(2, attempt)))
+        await retryDelay(baseDelay * Math.pow(2, attempt))
       }
     }
     return { outcome: 'retry', error: 'unreachable' }
@@ -146,10 +185,11 @@ export function createNpubcashQuoteWatcher(deps: {
   const savePending = async (
     q: PaidQuote,
     error: string,
+    gen: number,
   ): Promise<boolean> => {
-    const existing = await pendingQuotesRepo.get(q.quoteId)
+    const existing = await step(gen, () => pendingQuotesRepo.get(q.quoteId))
     const attemptCount = (existing.ok && existing.value ? existing.value.attemptCount : 0) + 1
-    const saved = await pendingQuotesRepo
+    const saved = await step(gen, () => pendingQuotesRepo
       .save({
         quoteId: q.quoteId,
         mintUrl: q.mintUrl,
@@ -162,7 +202,7 @@ export function createNpubcashQuoteWatcher(deps: {
         lastError: error,
         state: 'retry',
       })
-      .catch(() => null)
+      .catch(() => null), true)
     return saved != null && saved.ok
   }
 
@@ -171,8 +211,8 @@ export function createNpubcashQuoteWatcher(deps: {
    * Returns true while any quote is still owed (failed this round or waiting
    * out its backoff), so the caller can schedule an independent retry.
    */
-  const drainPending = async (): Promise<boolean> => {
-    const listed = await pendingQuotesRepo.getRetryable()
+  const drainPending = async (gen: number): Promise<boolean> => {
+    const listed = await step(gen, () => pendingQuotesRepo.getRetryable())
     if (!listed.ok) return false
     const now = Date.now()
     let remaining = false
@@ -197,60 +237,60 @@ export function createNpubcashQuoteWatcher(deps: {
         paidAt: item.paidAt,
         expiry: item.expiry,
       }
-      const result = await handleQuote(q)
+      const result = await handleQuote(q, gen)
 
       if (result.outcome === 'claimed' || result.outcome === 'dead') {
-        await pendingQuotesRepo.delete(item.quoteId).catch(() => {})
+        await step(gen, () => pendingQuotesRepo.delete(item.quoteId).catch(() => {}), true)
       } else {
         remaining = true
-        await pendingQuotesRepo
+        await step(gen, () => pendingQuotesRepo
           .update(item.quoteId, {
             lastError: result.error,
             attemptCount: item.attemptCount + 1,
             lastAttemptAt: Date.now(),
           })
-          .catch(() => {})
+          .catch(() => {}), true)
       }
     }
     return remaining
   }
 
   // Fetch paid quotes since the cursor and claim them oldest-first. False on auth/fetch failure.
-  const syncOnce = async (privkey: string): Promise<boolean> => {
+  const syncOnce = async (privkey: string, gen: number): Promise<boolean> => {
     const pubkey = getPubkey()
     const cursorKey = pubkey ? lightningReceiptCursorKey(pubkey) : null
 
     const signer = createSigner(privkey)
-    const session = await provider.authenticate(signer)
+    const session = await step(gen, () => provider.authenticate(signer))
     if (!session.ok) return false
 
-    const record = cursorKey ? await cursorStore.get(cursorKey) : null
+    const record = cursorKey ? await step(gen, () => cursorStore.get(cursorKey)) : null
     const since = lightningReceiptSince(record)
     const prevCursor = record?.lastSyncAtMs ?? 0
 
-    const quotes = await provider.getPaidQuotes(session.value, since)
+    const quotes = await step(gen, () => provider.getPaidQuotes(session.value, since))
     if (!quotes.ok) return false
 
     const ordered = [...quotes.value].sort((a, b) => a.paidAt - b.paidAt)
     let handledThrough = prevCursor
 
     for (const q of ordered) {
-      const check = await processedQuotesRepo.isProcessed(q.quoteId)
+      const check = await step(gen, () => processedQuotesRepo.isProcessed(q.quoteId))
       if (check.ok && check.value) {
         if (q.paidAt > handledThrough) handledThrough = q.paidAt
         continue
       }
 
-      const result = await handleQuote(q)
+      const result = await handleQuote(q, gen)
 
       let holdCursor = false
       switch (result.outcome) {
         case 'retry':
-          if (!(await savePending(q, result.error))) holdCursor = true;
+          if (!(await savePending(q, result.error, gen))) holdCursor = true;
           break
         case 'dead':
         case 'claimed':
-          await pendingQuotesRepo.delete(q.quoteId).catch(() => { })
+          await step(gen, () => pendingQuotesRepo.delete(q.quoteId).catch(() => {}), true)
           break
       }
       if (holdCursor) break
@@ -258,33 +298,34 @@ export function createNpubcashQuoteWatcher(deps: {
     }
 
     if (cursorKey && handledThrough > prevCursor) {
-      await cursorStore.upsert(cursorKey, handledThrough)
+      await step(gen, () => cursorStore.upsert(cursorKey, handledThrough), true)
     }
     return true
   }
 
   /** Serialized sync + drain — one in-flight run at a time; re-runs if one was queued. False if the last sync failed OR pending quotes remain to retry. */
-  const runSync = async (privkey: string): Promise<boolean> => {
-    if (syncing) {
-      syncQueued = true
-      return true
+  const runSync = (privkey: string, gen: number): Promise<boolean> => {
+    if (syncFlight?.generation === gen) {
+      syncFlight.queued = true
+      return syncFlight.promise
     }
-    syncing = true
-    let ok = true
-    try {
+    const flight = { generation: gen, queued: false, promise: Promise.resolve(true) }
+    flight.promise = (async () => {
+      // A restarted generation must not mint concurrently with its predecessor.
+      await waitForIdle()
+      assertCurrent(gen)
+      let ok = true
       do {
-        syncQueued = false
-        ok = (await syncOnce(privkey)) && ok
-        // drainPending returns true while quotes remain owed (bad) — invert it:
-        // pending remaining counts as not-ok so scheduleSyncRetry fires and the
-        // pending loop runs on its own backoff, not just on the next WS
-        // notification, reconnect, or manual sync.
-        ok = !(await drainPending()) && ok
-      } while (syncQueued)
-    } finally {
-      syncing = false
-    }
-    return ok
+        flight.queued = false
+        ok = (await syncOnce(privkey, gen)) && ok
+        ok = !(await drainPending(gen)) && ok
+      } while (flight.queued)
+      return ok
+    })().finally(() => {
+      if (syncFlight === flight) syncFlight = null
+    })
+    syncFlight = flight
+    return flight.promise
   }
 
   /** Backoff delay for both failure paths (connect failure & drop). A fresh subscribe resets it. */
@@ -339,11 +380,14 @@ export function createNpubcashQuoteWatcher(deps: {
     }, delay)
   }
 
-  const triggerSync = async (privkey: string): Promise<void> => {
-    const ok = await runSync(privkey).catch((err) => {
+  const triggerSync = async (privkey: string, gen = generation): Promise<void> => {
+    if (gen !== generation || stopped) return
+    const ok = await runSync(privkey, gen).catch((err) => {
+      if (err === cancelled) return false
       console.warn('[NpubcashQuoteWatcher] sync failed:', err)
       return false
     })
+    if (gen !== generation || stopped) return
     if (ok) {
       syncAttempts = 0
       clearSyncTimer()
@@ -380,7 +424,7 @@ export function createNpubcashQuoteWatcher(deps: {
         signer,
         // Notification is only a wake-up signal: re-poll the full window rather
         // than trusting the single quoteId, so un-notified quotes aren't skipped.
-        () => void triggerSync(privkey),
+        () => void triggerSync(privkey, gen),
         () => {
           // Ignore a drop from a superseded socket.
           if (gen !== generation || !desired) return
@@ -427,7 +471,8 @@ export function createNpubcashQuoteWatcher(deps: {
 
   const start = async (): Promise<void> => {
     desired = true
-    generation++
+    stopped = false
+    invalidate()
     reconnectAttempts = 0
     syncAttempts = 0
     clearReconnectTimer()
@@ -445,7 +490,8 @@ export function createNpubcashQuoteWatcher(deps: {
 
   const stop = (): void => {
     desired = false
-    generation++
+    stopped = true
+    invalidate()
     reconnectAttempts = 0
     clearReconnectTimer()
     clearSyncTimer()
@@ -469,5 +515,5 @@ export function createNpubcashQuoteWatcher(deps: {
     console.log('[NpubcashQuoteWatcher] syncNow() — done')
   }
 
-  return { start, stop, syncNow }
+  return { start, stop, syncNow, waitForIdle }
 }

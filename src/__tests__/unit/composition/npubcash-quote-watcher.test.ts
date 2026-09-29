@@ -582,4 +582,117 @@ describe('NpubcashQuoteWatcher', () => {
       expect(h.mint.mintAndReceive).toHaveBeenCalledTimes(5)
     })
   })
+  describe('stopped generations', () => {
+    const flush = async () => { for (let i = 0; i < 30; i++) await Promise.resolve() }
+
+    it('ignores a late HTTP response and does not block shutdown on a read', async () => {
+      const h = createHarness()
+      let reply!: (value: Result<PaidQuote[], BaseError>) => void
+      h.provider.getPaidQuotes.mockImplementationOnce(() => new Promise((resolve) => { reply = resolve }))
+      const sync = h.watcher.syncNow()
+      await flush()
+      h.watcher.stop()
+      await h.watcher.waitForIdle()
+      reply(Ok([quote({ paidAt: 1000 })]))
+      await sync
+      expect(h.mint.mintAndReceive).not.toHaveBeenCalled()
+      expect(h.eventBus.emit).not.toHaveBeenCalled()
+      expect(h.processedQuotesRepo.markProcessed).not.toHaveBeenCalled()
+      expect(h.cursorStore.upsert).not.toHaveBeenCalled()
+    })
+
+    it('cancels quote backoff without minting again or saving pending work', async () => {
+      vi.useFakeTimers()
+      const h = createHarness()
+      h.provider.getPaidQuotes.mockResolvedValue(Ok([quote({ paidAt: 1000 })]))
+      h.mint.mintAndReceive.mockRejectedValue(new Error('offline'))
+      const sync = h.watcher.syncNow()
+      await flush()
+      expect(h.mint.mintAndReceive).toHaveBeenCalledTimes(1)
+      h.watcher.stop()
+      await sync
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect(h.mint.mintAndReceive).toHaveBeenCalledTimes(1)
+      expect(h.pendingQuotesRepo.save).not.toHaveBeenCalled()
+      expect(vi.getTimerCount()).toBe(0)
+    })
+
+    it('waits for an already-started mint but suppresses its late settlement event', async () => {
+      const h = createHarness()
+      h.provider.getPaidQuotes.mockResolvedValue(Ok([quote({ paidAt: 1000 })]))
+      let finishMint!: () => void
+      h.mint.mintAndReceive.mockImplementationOnce(() => new Promise<void>((resolve) => { finishMint = resolve }))
+      const sync = h.watcher.syncNow()
+      await flush()
+      h.watcher.stop()
+      let idle = false
+      const shutdown = h.watcher.waitForIdle().then(() => { idle = true })
+      await flush()
+      expect(idle).toBe(false)
+      finishMint()
+      await Promise.all([sync, shutdown])
+      expect(h.eventBus.emit).not.toHaveBeenCalled()
+      expect(h.cursorStore.upsert).not.toHaveBeenCalled()
+    })
+
+    it('waits for an already-started repository write before erasure', async () => {
+      const h = createHarness()
+      h.provider.getPaidQuotes.mockResolvedValue(Ok([quote({ paidAt: 1000 })]))
+      let finishWrite!: () => void
+      h.processedQuotesRepo.markProcessed.mockImplementationOnce(() => new Promise((resolve) => {
+        finishWrite = () => resolve(Ok(undefined))
+      }))
+      const sync = h.watcher.syncNow()
+      await flush()
+      h.watcher.stop()
+      let idle = false
+      const shutdown = h.watcher.waitForIdle().then(() => { idle = true })
+      await flush()
+      expect(idle).toBe(false)
+      finishWrite()
+      await Promise.all([sync, shutdown])
+      expect(h.pendingQuotesRepo.delete).not.toHaveBeenCalled()
+      expect(h.cursorStore.upsert).not.toHaveBeenCalled()
+    })
+
+    it('restarts without waiting for obsolete HTTP reads and ignores old socket notifications', async () => {
+      const h = createHarness()
+      let reply!: (value: Result<PaidQuote[], BaseError>) => void
+      h.provider.getPaidQuotes.mockImplementationOnce(() => new Promise((resolve) => { reply = resolve }))
+      await h.watcher.start()
+      await flush()
+      const notify = h.provider.subscribePaidQuotes.mock.calls[0][1] as () => void
+      h.watcher.stop()
+      h.provider.getPaidQuotes.mockResolvedValue(Ok([quote({ quoteId: 'new', paidAt: 2000 })]))
+      await h.watcher.start()
+      await flush()
+      notify()
+      reply(Ok([quote({ quoteId: 'old', paidAt: 1000 })]))
+      await flush()
+      expect(h.mint.mintAndReceive).toHaveBeenCalledTimes(1)
+      expect(h.mint.mintAndReceive).toHaveBeenCalledWith('new', MINT_URL, 100)
+      expect(h.provider.getPaidQuotes).toHaveBeenCalledTimes(2)
+      h.watcher.stop()
+    })
+
+    it('serializes a restarted generation behind the previous mint', async () => {
+      const h = createHarness()
+      h.provider.getPaidQuotes.mockResolvedValue(Ok([quote({ paidAt: 1000 })]))
+      let finishMint!: () => void
+      h.mint.mintAndReceive.mockImplementationOnce(() => new Promise<void>((resolve) => { finishMint = resolve }))
+      const oldSync = h.watcher.syncNow()
+      await flush()
+      h.watcher.stop()
+      await h.watcher.start()
+      await flush()
+      expect(h.mint.mintAndReceive).toHaveBeenCalledTimes(1)
+      finishMint()
+      await oldSync
+      await flush()
+      expect(h.mint.mintAndReceive).toHaveBeenCalledTimes(2)
+      expect(h.eventBus.emit).toHaveBeenCalledTimes(1)
+      h.watcher.stop()
+    })
+  })
+
 })

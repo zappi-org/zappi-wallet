@@ -7,7 +7,7 @@
  * Presentation: ticket-style card (white ticket outlined in brand-200 over a
  * brand-600 underlay, perforated tear line between QR and address info).
  */
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useReducedMotion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
 import { Pencil, Copy, Check, Share2, Info, ArrowRightLeft } from 'lucide-react'
@@ -47,7 +47,11 @@ type DepositMintState =
 function useDepositMint(
   refreshKey: number,
   onSaveSettings?: (settings: Record<string, unknown>) => Promise<void>,
-): { deposit: DepositMintState; cache: MyAddressCache | null } {
+): {
+  deposit: DepositMintState
+  cache: MyAddressCache | null
+  updateAddress: (address: string) => void
+} {
   const registry = useServiceRegistry()
   const nostrPrivkey = useAppStore((s) => s.nostrPrivkey)
   const nostrPubkey = useAppStore((s) => s.nostrPubkey)
@@ -57,7 +61,15 @@ function useDepositMint(
   const [cache, setCache] = useState<MyAddressCache | null>(() =>
     nostrPubkey ? readMyAddressCache(nostrPubkey) : null,
   )
+  const addressRevision = useRef(0)
+  const updateAddress = useCallback((address: string) => {
+    // An older lookup must not overwrite a completed rename.
+    addressRevision.current += 1
+    const updatedAt = Date.now()
+    setCache((previous) => ({ ...previous, address, updatedAt }))
+  }, [])
   useEffect(() => {
+    const revision = addressRevision.current
     // registry is stable for the app's lifetime (bootstrap sets it once). On
     // revalidation (refreshKey) the last state/cache stay on screen — no flash
     // back to a loading placeholder.
@@ -67,7 +79,7 @@ function useDepositMint(
       : Promise.reject(new Error('no privkey'))
     fetchDeposit
       .then((result) => {
-        if (cancelled) return
+        if (cancelled || revision !== addressRevision.current) return
         if (result.ok) {
           const next: MyAddressCache = {
             address: result.value.alias ? `${result.value.alias}@${result.value.domain}` : undefined,
@@ -95,13 +107,13 @@ function useDepositMint(
         }
       })
       .catch(() => {
-        if (!cancelled) setDeposit({ status: 'error' })
+        if (!cancelled && revision === addressRevision.current) setDeposit({ status: 'error' })
       })
     return () => {
       cancelled = true
     }
   }, [registry, nostrPrivkey, nostrPubkey, refreshKey, onSaveSettings])
-  return { deposit, cache }
+  return { deposit, cache, updateAddress }
 }
 
 const TABS: AddressTab[] = ['lightning', 'nostr']
@@ -150,7 +162,7 @@ export function MyAddressScreen({ onBack, onSaveSettings }: MyAddressScreenProps
   // Revalidate every entry; the fresh server result wins over the persisted
   // settings address, so an alias changed elsewhere (another device) shows up
   // here instead of the settings copy lingering forever.
-  const { deposit, cache } = useDepositMint(mintRefreshKey, onSaveSettings)
+  const { deposit, cache, updateAddress } = useDepositMint(mintRefreshKey, onSaveSettings)
   const displayAddress = cache?.address ?? lightningAddress
   const mintUrl = cache?.mintUrl ?? (deposit.status === 'ready' ? deposit.mintUrl : null)
   const depositMintUrls = useMemo(() => (mintUrl ? [mintUrl] : []), [mintUrl])
@@ -174,6 +186,7 @@ export function MyAddressScreen({ onBack, onSaveSettings }: MyAddressScreenProps
       const result = await registry.paymentAlias.getCurrentAlias(nostrPrivkey)
       if (result.ok) {
         const registered = `${result.value.alias}@${NPUBCASH_DOMAIN}`
+        updateAddress(registered)
         // Keep the display cache in lockstep so the QR reflects the register
         // immediately rather than waiting for the next revalidation.
         const nostrPubkey = useAppStore.getState().nostrPubkey
@@ -192,7 +205,7 @@ export function MyAddressScreen({ onBack, onSaveSettings }: MyAddressScreenProps
     } finally {
       setIsRegistering(false)
     }
-  }, [nostrPrivkey, registry, onSaveSettings, addToast, t])
+  }, [nostrPrivkey, registry, onSaveSettings, addToast, t, updateAddress])
 
   const handleCopy = useCallback(() => copy(value ?? ''), [value, copy])
   const handleShare = useCallback(() => share(value ?? ''), [value, share])
@@ -413,6 +426,7 @@ export function MyAddressScreen({ onBack, onSaveSettings }: MyAddressScreenProps
           isOpen={usernameSheetOpen}
           onClose={() => setUsernameSheetOpen(false)}
           onSaveSettings={onSaveSettings}
+          onAddressChanged={updateAddress}
         />
       )}
     </div>
