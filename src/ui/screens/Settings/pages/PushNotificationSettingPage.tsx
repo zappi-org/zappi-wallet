@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore, type Toast } from '@/store'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
+import { DEFAULT_RELAYS } from '@/core/constants'
 import { Switch } from '@/ui/components/common/Switch'
 import { Button } from '@/ui/components/common/Button'
 import { SettingsDetailPage } from '../components/SettingsDetailPage'
@@ -36,7 +37,10 @@ export function PushNotificationSettingPage({
       setBusy(true)
       try {
         if (next) {
-          const granted = await gateway.enable(relays)
+          // Watch the same relay set the gateway receives on, not just settings
+          const granted = await gateway.enable([
+            ...new Set([...DEFAULT_RELAYS, ...relays]),
+          ])
           setPermission(gateway.permission())
           if (!granted) {
             addToast({
@@ -159,6 +163,8 @@ function PushDevToolsSection({
   const [title, setTitle] = useState(PUSH_LABEL_TITLE)
   const [modeIndex, setModeIndex] = useState(0)
   const [subscription, setSubscription] = useState('')
+  // Dev tools must register/publish on the same relay set the gateway receives on
+  const watchRelays = [...new Set([...DEFAULT_RELAYS, ...relays])]
 
   const modes: { name: string; opts: PushDevOptions }[] = [
     { name: '난독화 + 해제 (토큰 → 타이틀)', opts: {} },
@@ -198,7 +204,7 @@ function PushDevToolsSection({
         DEV — push wake-up chain
       </p>
       <p className="text-caption text-foreground-muted break-all mb-1">
-        relays: {relays.length > 0 ? relays.join(', ') : '(none — server default)'}
+        relays: {watchRelays.length > 0 ? watchRelays.join(', ') : '(none — server default)'}
       </p>
       <p className="text-caption text-foreground-muted break-all mb-3">
         audit: <code>{tools.inboxPub()}</code>
@@ -242,7 +248,7 @@ function PushDevToolsSection({
           onClick={() =>
             run('register', () => {
               if (!label.trim()) throw new Error('label is empty')
-              return tools.register(relays, devOpts)
+              return tools.register(watchRelays, devOpts)
             })
           }
         >
@@ -286,7 +292,7 @@ function PushDevToolsSection({
           variant="secondary"
           size="sm"
           disabled={busy}
-          onClick={() => run('publish 1059', () => tools.publishSelfGiftWrap(relays))}
+          onClick={() => run('publish 1059', () => tools.publishSelfGiftWrap(watchRelays))}
         >
           self 1059 발행
         </Button>

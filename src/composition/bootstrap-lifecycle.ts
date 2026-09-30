@@ -258,8 +258,15 @@ export function createLifecycle(deps: {
     // every unlock. Subscription relays follow the wallet's relay settings.
     // Non-authoritative: failure never blocks activate().
     if (useAppStore.getState().settings.pushNotificationsEnabled) {
+      // Watch the same relay set the gateway receives on — otherwise an event
+      // arriving on a DEFAULT_RELAYS relay the user's settings omit never pushes.
       getPushNotifications()
-        .sync(useAppStore.getState().settings.relays)
+        .sync([
+          ...new Set([
+            ...DEFAULT_RELAYS,
+            ...useAppStore.getState().settings.relays,
+          ]),
+        ])
         .catch((e) => console.warn("[Bootstrap] push sync failed:", e));
     }
 
