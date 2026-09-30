@@ -56,6 +56,7 @@ import { NOSTR_KINDS } from "@/core/constants";
 
 // ─── Composition Roots ───
 import { createSupportService } from "./support";
+import { createMostroService } from "./mostro";
 import { PaymentDelivery } from "./payment-delivery";
 import { PaymentRecoveredTokenReceiver } from "./recovered-token-receiver";
 
@@ -242,6 +243,7 @@ export function assembleFacadeServices(deps: {
     eventBus
   );
   const support = createSupportService({ bip39Seed });
+  const mostro = createMostroService({ seed: bip39Seed });
 
   return {
     crypto,
@@ -259,5 +261,6 @@ export function assembleFacadeServices(deps: {
     nostrDirectPayment,
     externalWalletRecovery,
     support,
+    mostro,
   };
 }

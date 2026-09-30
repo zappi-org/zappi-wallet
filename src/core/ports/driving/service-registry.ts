@@ -34,6 +34,7 @@ import type { RoutingUseCase } from '@/core/ports/driving/routing.usecase'
 import type { UsernameUseCase } from '@/core/ports/driving/username.usecase'
 import type { TrustRegistry } from '@/core/ports/driving/trust-registry.usecase'
 import type { SupportUseCase } from '@/core/ports/driving/support.usecase'
+import type { MostroUseCase } from '@/core/ports/driving/mostro.usecase'
 import type { NostrDirectPaymentUseCase } from '@/core/ports/driving/nostr-direct-payment.usecase'
 import type { ExternalWalletRecoveryUseCase } from '@/core/ports/driving/external-wallet-recovery.usecase'
 import type { DiagnosticsUseCase } from '@/core/ports/driving/diagnostics.usecase'
@@ -71,6 +72,7 @@ export interface ServiceRegistry {
   readonly username: UsernameUseCase
   readonly trustRegistry: TrustRegistry
   readonly support: SupportUseCase
+  readonly mostro: MostroUseCase
   readonly nostrDirectPayment: NostrDirectPaymentUseCase
   readonly externalWalletRecovery: ExternalWalletRecoveryUseCase
   /** Diagnostics counter reads — DiagnosticsPage only */
