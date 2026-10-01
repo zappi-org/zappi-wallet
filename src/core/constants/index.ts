@@ -9,9 +9,9 @@ export const DEFAULT_MINTS = [
  * Default relays
  */
 export const DEFAULT_RELAYS = [
-  'wss://relay.damus.io',
-  'wss://nostr.vulpem.com',
   'wss://nos.lol',
+  'wss://bitcoiner.social',
+  'wss://inbox.azzamo.net',
 ] as const
 
 /**
