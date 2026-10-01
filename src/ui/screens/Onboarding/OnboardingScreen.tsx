@@ -291,10 +291,9 @@ export function OnboardingScreen({
 
             {/* Word grid */}
             <div className="bg-background-card rounded-2xl p-4 mb-4">
-              <div className="grid grid-flow-col grid-cols-2 grid-rows-6 gap-x-3 gap-y-1">
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1">
                 {words.map((word, i) => {
-                  const rows = 6
-                  const isLastRow = (i + 1) % rows === 0
+                  const isLastRow = i >= words.length - 2
                   return (
                   <div
                     key={i}
