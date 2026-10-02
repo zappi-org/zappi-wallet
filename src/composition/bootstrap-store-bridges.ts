@@ -64,11 +64,11 @@ export function connectStoreBridges(deps: {
   });
 
   // Transfer → Transaction bridge (persists tx history for the TLS path)
-  connectTransferTxBridge({
+  const disconnectTransferBridge = connectTransferTxBridge({
     eventBus,
     txRepo,
     triggerTxRefresh: () => useAppStore.getState().triggerTxRefresh(),
   });
 
-  return { balanceRefresh, disconnectBridge };
+  return { balanceRefresh, disconnectBridge, disconnectTransferBridge };
 }

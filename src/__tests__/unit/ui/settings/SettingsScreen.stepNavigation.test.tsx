@@ -57,24 +57,27 @@ vi.mock('@/ui/components/common/PageTransition', () => ({
 vi.mock('@/ui/screens/Settings/SettingsMainList', () => ({
   SettingsMainList: ({ onNavigate }: { onNavigate: (p: string) => void }) => (
     <div>
-      <button onClick={() => onNavigate('category-profile')}>open-category</button>
+      <button onClick={() => onNavigate('category-preferences')}>open-category</button>
       <button onClick={() => onNavigate('support')}>open-detail-direct</button>
     </div>
   ),
 }))
 
-vi.mock('@/ui/screens/Settings/pages/ProfileCategoryPage', () => ({
-  ProfileCategoryPage: ({ onBack, onNavigate }: { onBack: () => void; onNavigate: (p: string) => void }) => (
+vi.mock('@/ui/screens/Settings/pages/ProfileCategoryPage', () => ({ ProfileCategoryPage: () => null }))
+
+// category-preferences is the category that still opens sub-page details.
+vi.mock('@/ui/screens/Settings/pages/PreferencesCategoryPage', () => ({
+  PreferencesCategoryPage: ({ onBack, onNavigate }: { onBack: () => void; onNavigate: (p: string) => void }) => (
     <div>
       <span>category-page</span>
       <button onClick={onBack}>category-back</button>
-      <button onClick={() => onNavigate('npubDetail')}>open-detail</button>
+      <button onClick={() => onNavigate('language')}>open-detail</button>
     </div>
   ),
 }))
 
-vi.mock('@/ui/screens/Settings/pages/NpubDetailPage', () => ({
-  NpubDetailPage: ({ onBack }: { onBack: () => void }) => (
+vi.mock('@/ui/screens/Settings/pages/LanguageSettingPage', () => ({
+  LanguageSettingPage: ({ onBack }: { onBack: () => void }) => (
     <div>
       <span>detail-page</span>
       <button onClick={onBack}>detail-back</button>
@@ -92,15 +95,12 @@ vi.mock('@/ui/screens/Settings/pages/SupportPage', () => ({
 }))
 
 // Remaining leaf pages are never mounted in these flows but must resolve.
-vi.mock('@/ui/screens/Settings/pages/PreferencesCategoryPage', () => ({ PreferencesCategoryPage: () => null }))
 vi.mock('@/ui/screens/Settings/pages/SecurityCategoryPage', () => ({ SecurityCategoryPage: () => null }))
 vi.mock('@/ui/screens/Settings/pages/WalletCategoryPage', () => ({ WalletCategoryPage: () => null }))
-vi.mock('@/ui/screens/Settings/pages/LanguageSettingPage', () => ({ LanguageSettingPage: () => null }))
 vi.mock('@/ui/screens/Settings/pages/UnitDisplaySettingPage', () => ({ UnitDisplaySettingPage: () => null }))
 vi.mock('@/ui/screens/Settings/pages/FiatSettingPage', () => ({ FiatSettingPage: () => null }))
 vi.mock('@/ui/screens/Settings/pages/POSSettingPage', () => ({ POSSettingPage: () => null }))
 vi.mock('@/ui/screens/Settings/pages/PrivacySettingPage', () => ({ PrivacySettingPage: () => null }))
-vi.mock('@/ui/screens/Settings/pages/LightningDetailPage', () => ({ LightningDetailPage: () => null }))
 vi.mock('@/ui/screens/Settings/pages/DiagnosticsPage', () => ({ DiagnosticsPage: () => null }))
 vi.mock('@/ui/screens/Settings/pages/PinChangePage', () => ({ PinChangePage: () => null }))
 
@@ -184,7 +184,7 @@ describe('SettingsScreen step navigation', () => {
 
     // The category layer MUST remain — this is the regression the fix targets.
     expect(screen.getByText('category-page')).toBeInTheDocument()
-    expect(screen.queryByText('detail-page')).not.toBeInTheDocument()
+    expect(screen.queryByText('support-page')).not.toBeInTheDocument()
     expect(popStep).toHaveBeenCalledTimes(1)
     expect(stepDepth).toBe(1)
   })
@@ -198,7 +198,7 @@ describe('SettingsScreen step navigation', () => {
     browserBack()
 
     expect(screen.getByText('category-page')).toBeInTheDocument()
-    expect(screen.queryByText('detail-page')).not.toBeInTheDocument()
+    expect(screen.queryByText('support-page')).not.toBeInTheDocument()
     // No extra popStep — the browser already popped the history entry.
     expect(popStep).not.toHaveBeenCalled()
     expect(stepDepth).toBe(1)
@@ -240,7 +240,7 @@ describe('SettingsScreen step navigation', () => {
     fireEvent.click(screen.getByText('category-back'))
 
     // Both layers closed cleanly, depth balanced at root.
-    expect(screen.queryByText('detail-page')).not.toBeInTheDocument()
+    expect(screen.queryByText('support-page')).not.toBeInTheDocument()
     expect(screen.queryByText('category-page')).not.toBeInTheDocument()
     expect(screen.getByText('open-category')).toBeInTheDocument()
     expect(popStep).toHaveBeenCalledTimes(2)

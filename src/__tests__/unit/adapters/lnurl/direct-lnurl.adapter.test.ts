@@ -225,6 +225,21 @@ describe('DirectLnurlAdapter', () => {
     expect(fetchMock.mock.calls[0][0]).toBe('http://abc.onion/.well-known/lnurlp/user')
   })
 
+  it('resolvePay: falls back to http when https fails (dev local server)', async () => {
+    fetchMock
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValueOnce(jsonResponse({
+        tag: 'payRequest',
+        callback: 'http://127.0.0.1:8000/cb',
+        minSendable: 1000,
+        maxSendable: 2000,
+        metadata: '[]',
+      }))
+    await adapter.resolvePay('jin22@127.0.0.1:8000')
+    expect(fetchMock.mock.calls[0][0]).toBe('https://127.0.0.1:8000/.well-known/lnurlp/jin22')
+    expect(fetchMock.mock.calls[1][0]).toBe('http://127.0.0.1:8000/.well-known/lnurlp/jin22')
+  })
+
   it.each(['no-at-sign', 'a@b@c.com'])('resolvePay: invalid address (%s) throws', async (address) => {
     await expect(adapter.resolvePay(address)).rejects.toThrow('Invalid Lightning Address')
     expect(fetchMock).not.toHaveBeenCalled()

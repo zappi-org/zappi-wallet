@@ -632,3 +632,35 @@ describe("TransferTxBridge - refresh emission contract", () => {
     );
   });
 });
+
+describe("TransferTxBridge disposal", () => {
+  it("drains an already dispatched save after disconnect and ignores later events", async () => {
+    const { createEventBus } = await import("@/core/events/event-bus");
+    const eventBus = createEventBus();
+    let finishSave!: () => void;
+    const save = vi.fn(() => new Promise<void>((resolve) => { finishSave = resolve; }));
+    const txRepo = { getById: vi.fn().mockResolvedValue(null), save };
+    const disconnect = connectTransferTxBridge({ eventBus, txRepo: txRepo as unknown as TransactionRepository });
+    const event = {
+      type: "transfer:settled" as const,
+      payload: { transfer: {
+        id: "receipt", txId: "tx-receipt", direction: "incoming" as const,
+        phase: "settled" as const, finality: "immediate" as const, onExpiry: "expire" as const,
+        amount: 10, createdAt: 1, updatedAt: 1,
+        transportRef: { type: "lightning-address", protocol: "bolt11", mintUrl: "https://mint.example" },
+      } },
+    };
+    eventBus.emit(event);
+    await vi.waitFor(() => expect(save).toHaveBeenCalledOnce());
+    disconnect();
+    let drained = false;
+    const idle = disconnect.waitForIdle().then(() => { drained = true; });
+    await Promise.resolve();
+    expect(drained).toBe(false);
+    eventBus.emit(event);
+    expect(save).toHaveBeenCalledOnce();
+    finishSave();
+    await idle;
+    expect(drained).toBe(true);
+  });
+});
