@@ -3,6 +3,7 @@ import { renderHook } from '@testing-library/react'
 import { ServiceProvider } from '@/ui/hooks/service-context'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import type { ServiceRegistry } from '@/core/ports/driving/service-registry'
+import { createUnsupportedPushGateway } from '@/__tests__/helpers/push.mock'
 import type { ReactNode } from 'react'
 
 function createMockRegistry(): ServiceRegistry {
@@ -131,6 +132,7 @@ function createMockRegistry(): ServiceRegistry {
       claimIncomingTransfer: vi.fn(),
       recoverTransfers: vi.fn(),
     } as unknown as ServiceRegistry['transferLifecycle'],
+    pushNotifications: createUnsupportedPushGateway(),
   }
 }
 

@@ -1,0 +1,83 @@
+/**
+ * PushDevToolsAdapter — dev-only diagnostics for the wake-up chain.
+ *
+ * - `inboxPub()`: the `#p` value senders must target (the real npub).
+ * - `register()/unregister()`: delegate to the real gateway (so permission,
+ *   NIP-98 and the server contract are exercised exactly as production).
+ * - `publishSelfGiftWrap()`: signs a bare kind:1059 event with a throwaway key
+ *   and tags it to this inbox — enough for the server to trigger a real push.
+ *
+ * Dev-gated at the composition root; never constructed in production.
+ */
+
+import { finalizeEvent, generateSecretKey, getPublicKey, SimplePool } from 'nostr-tools'
+import type { Event } from 'nostr-tools'
+import type { PushDevOptions, WebPushAdapter } from '@/adapters/runtime/web-push.adapter'
+
+export interface PushDevToolsDeps {
+  /** Wallet nostr secret key — the audit value is its real npub. */
+  identitySecretKey: Uint8Array
+  /** Only register/unregister/read-backs are needed — permission + NIP-98 live in the real adapter. */
+  gateway: Pick<WebPushAdapter, 'enable' | 'disable' | 'serverSubscription' | 'localLabelMap'>
+  /** Injectable seam (tests). */
+  publish?: (relayUrls: string[], event: Event) => Promise<void>
+}
+
+async function publishToRelays(relayUrls: string[], event: Event): Promise<void> {
+  const pool = new SimplePool()
+  try {
+    await Promise.all(pool.publish(relayUrls, event))
+  } finally {
+    pool.close(relayUrls)
+    pool.destroy()
+  }
+}
+
+export class PushDevToolsAdapter {
+  private readonly identitySecretKey: Uint8Array
+  private readonly gateway: Pick<WebPushAdapter, 'enable' | 'disable' | 'serverSubscription' | 'localLabelMap'>
+  private readonly publish: (relayUrls: string[], event: Event) => Promise<void>
+
+  constructor(deps: PushDevToolsDeps) {
+    this.identitySecretKey = deps.identitySecretKey
+    this.gateway = deps.gateway
+    this.publish = deps.publish ?? publishToRelays
+  }
+
+  inboxPub(): string {
+    return getPublicKey(this.identitySecretKey)
+  }
+
+  register(relayUrls: string[], opts?: PushDevOptions): Promise<boolean> {
+    return opts === undefined
+      ? this.gateway.enable(relayUrls)
+      : this.gateway.enable(relayUrls, opts)
+  }
+
+  unregister(): Promise<void> {
+    return this.gateway.disable()
+  }
+
+  /** Server-side subscription read-back — what message/kinds/relays are stored. */
+  serverSubscription(): Promise<unknown> {
+    return this.gateway.serverSubscription()
+  }
+
+  /** Shared-IDB token→title map (page side of what the SW resolves). */
+  localLabelMap(): Promise<unknown> {
+    return this.gateway.localLabelMap()
+  }
+
+  async publishSelfGiftWrap(relayUrls: string[]): Promise<void> {
+    const event = finalizeEvent(
+      {
+        kind: 1059,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [['p', this.inboxPub()]],
+        content: '',
+      },
+      generateSecretKey(),
+    )
+    await this.publish(relayUrls, event)
+  }
+}

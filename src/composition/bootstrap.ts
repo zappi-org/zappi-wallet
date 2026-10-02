@@ -24,6 +24,10 @@ import { connectStoreBridges } from "./bootstrap-store-bridges";
 import { createLifecycle } from "./bootstrap-lifecycle";
 import { assembleIncomingPipeline } from "./bootstrap-incoming";
 import { assembleFacadeServices } from "./bootstrap-facades";
+import {
+  connectServiceWorkerMessages,
+  shouldNotifyWithWalletSetting,
+} from "./notification.observer";
 
 // ─── Remaining inline wiring (P2PK, cleanup, exchange rate, diagnostics) ───
 import { CocoP2PKKeyManager } from "@/adapters/crypto/p2pk-key-manager.adapter";
@@ -241,6 +245,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     getMintHealth: () => mintHealth,
     getReclaim: () => reclaim,
     getNostrIncomingWatcher: () => nostrIncomingWatcher,
+    getPushNotifications: () => pushNotifications,
   });
 
   // 9~11. Shared dedup store + Nostr incoming watcher + receive services
@@ -279,6 +284,8 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     nostrDirectPayment,
     externalWalletRecovery,
     support,
+    pushNotifications,
+    pushDevTools,
   } = assembleFacadeServices({
     killSwitches,
     eventBus,
@@ -296,7 +303,19 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     externalMnemonicMintDiscovery,
     externalMnemonicRecovery,
     bip39Seed: deps.bip39Seed,
+    nostrPrivateKeyHex: deps.nostrPrivateKeyHex,
   });
+
+  // Foreground pushes handed over by the service worker go through the wallet
+  // setting gate ("hide while using the app", default on). The listener lives on
+  // the per-bootstrap service worker container; no explicit teardown needed.
+  connectServiceWorkerMessages(
+    typeof navigator !== "undefined" && "serviceWorker" in navigator
+      ? navigator.serviceWorker
+      : null,
+    pushNotifications,
+    { shouldNotify: shouldNotifyWithWalletSetting },
+  );
 
   return {
     // ─── ServiceRegistry (driving ports only) ───
@@ -334,6 +353,8 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     // net-counters adapter directly.
     diagnostics: { readNetCounters },
     transferLifecycle,
+    pushNotifications,
+    pushDevTools,
 
     // ─── BootstrapResult extensions (MainApp only) ───
     cashuModule,
