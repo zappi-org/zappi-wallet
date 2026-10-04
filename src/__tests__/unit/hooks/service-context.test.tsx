@@ -114,6 +114,7 @@ function createMockRegistry(): ServiceRegistry {
       getTrustedAccounts: vi.fn(),
     } as unknown as ServiceRegistry['trustRegistry'],
     support: {} as unknown as ServiceRegistry['support'],
+    mostro: {} as unknown as ServiceRegistry['mostro'],
     nostrDirectPayment: {
       resolve: vi.fn(),
     } as unknown as ServiceRegistry['nostrDirectPayment'],

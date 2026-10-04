@@ -241,6 +241,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     getMintHealth: () => mintHealth,
     getReclaim: () => reclaim,
     getNostrIncomingWatcher: () => nostrIncomingWatcher,
+    getMostro: () => mostro,
   });
 
   // 9~11. Shared dedup store + Nostr incoming watcher + receive services
@@ -279,6 +280,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     nostrDirectPayment,
     externalWalletRecovery,
     support,
+    mostro,
   } = assembleFacadeServices({
     killSwitches,
     eventBus,
@@ -328,6 +330,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     username,
     trustRegistry,
     support,
+    mostro,
     nostrDirectPayment,
     externalWalletRecovery,
     // Diagnostic counter read surface — injected here so the UI never imports the

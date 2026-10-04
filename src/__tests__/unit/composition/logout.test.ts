@@ -55,6 +55,7 @@ function makeDeps() {
     security: { deleteWallet: vi.fn<() => Promise<void>>().mockResolvedValue(undefined) },
     registry: {
       support: { destroy: vi.fn<() => Promise<void>>().mockResolvedValue(undefined) },
+      mostro: { destroy: vi.fn<() => Promise<void>>().mockResolvedValue(undefined) },
       dispose: vi.fn<() => void>(),
     },
     removePasskey: vi.fn<() => void>(),
