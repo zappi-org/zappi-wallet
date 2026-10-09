@@ -7,6 +7,7 @@
  * - Session lease: refcount + TTL; a lease never closes a persistent∩session relay.
  * - publishScoped never pollutes the persistent set (the root DM-bug fix).
  * - collectUntilEose: per-relay since, id dedup, records only true EOSE in eosed.
+ * - Scoped subscription: own relays only, no persistent leak, released on unsubscribe.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { NostrSessionController } from '@/adapters/nostr/internal/session-controller'
@@ -313,6 +314,106 @@ describe('NostrSessionController', () => {
       expect(events.map((e) => e.id)).toEqual(['partial'])
       expect(eosed).toEqual([]) // a timeout is not an EOSE
       expect(mock.ensure('wss://silent').subs[0].closed).toBe(true)
+    })
+  })
+
+  describe('scoped subscription (NIP-46 signer sessions)', () => {
+    it('connects/attaches only to its targets, never enters the persistent set, and closes on unsubscribe', async () => {
+      await controller.connectPersistent(['wss://mine'])
+      const onEvent = vi.fn()
+      const stop = controller.subscribeScoped(
+        [{ kinds: [24133] } as NostrFilter],
+        onEvent,
+        ['wss://client-relay'],
+      )
+      await flush()
+
+      // Attached to scoped relay; wallet's persistent relay untouched.
+      expect(mock.ensure('wss://client-relay').subs).toHaveLength(1)
+      expect(mock.ensure('wss://mine').subs).toHaveLength(0)
+      // Wallet publish/query scope untouched.
+      expect(controller.getConnectedPersistent()).toEqual(['wss://mine'])
+      expect(controller.getRelayStatus().map((s) => s.url)).toEqual(['wss://mine'])
+
+      mock.ensure('wss://client-relay').subs[0].opts.onevent({ id: 'req1' })
+      expect(onEvent).toHaveBeenCalledWith({ id: 'req1' })
+
+      stop()
+      expect(mock.ensure('wss://client-relay').subs[0].closed).toBe(true)
+      expect(mock.closedUrls).toContain('wss://client-relay')
+    })
+
+    it('a persistent subscription never attaches to a scoped relay', async () => {
+      await controller.connectPersistent(['wss://mine'])
+      controller.subscribe([{ kinds: [1] } as NostrFilter], vi.fn())
+      controller.subscribeScoped([{ kinds: [24133] } as NostrFilter], vi.fn(), ['wss://client-relay'])
+      await flush()
+
+      expect(mock.ensure('wss://mine').subs).toHaveLength(1)
+      expect(mock.ensure('wss://client-relay').subs).toHaveLength(1)
+    })
+
+    it('a session lease on a scoped relay does not tear it down after TTL', async () => {
+      vi.useFakeTimers()
+      const stop = controller.subscribeScoped(
+        [{ kinds: [24133] } as NostrFilter],
+        vi.fn(),
+        ['wss://client-relay'],
+      )
+      await flushWithTimers()
+
+      // Response publishes lease the session relay.
+      const lease = await controller.acquireSession(['wss://client-relay'], 1_000)
+      lease.release()
+      await vi.advanceTimersByTimeAsync(1_001)
+
+      expect(mock.closedUrls).not.toContain('wss://client-relay')
+      stop()
+    })
+
+    it('opens the scoped relay on subscribe and closes it on unsubscribe', async () => {
+      const onEvent = vi.fn()
+      const stop = controller.subscribeScoped(
+        [{ kinds: [24133] } as NostrFilter],
+        onEvent,
+        ['wss://nip46-relay'],
+      )
+      await flush()
+
+      // Open: connected + sub attached.
+      expect(mock.pool.ensureRelay).toHaveBeenCalledWith('wss://nip46-relay')
+      expect(mock.ensure('wss://nip46-relay').subs).toHaveLength(1)
+      expect(mock.closedUrls).not.toContain('wss://nip46-relay')
+
+      // Close: unsubscribe closes sub handle + socket.
+      stop()
+      expect(mock.ensure('wss://nip46-relay').subs[0].closed).toBe(true)
+      expect(mock.closedUrls).toEqual(['wss://nip46-relay'])
+    })
+
+    it('reattaches a dropped scoped relay on the next health check without closing it', async () => {
+      vi.useFakeTimers()
+      controller = new NostrSessionController({ pool: mock.pool, reconnectIntervalMs: 1_000 })
+      controller.subscribeScoped([{ kinds: [24133] } as NostrFilter], vi.fn(), ['wss://nip46-relay'])
+      await flushWithTimers()
+      expect(mock.ensure('wss://nip46-relay').subs).toHaveLength(1)
+
+      // Relay-side close (socket death) — the only reliable drop signal.
+      mock.ensure('wss://nip46-relay').subs[0].opts.onclose?.('socket died')
+      await vi.advanceTimersByTimeAsync(1_000)
+      await flushWithTimers()
+
+      // Health check reattaches; socket never torn down.
+      expect(mock.ensure('wss://nip46-relay').subs).toHaveLength(2)
+      expect(mock.closedUrls).not.toContain('wss://nip46-relay')
+    })
+
+    it('disconnect closes scoped relays', async () => {
+      controller.subscribeScoped([{ kinds: [24133] } as NostrFilter], vi.fn(), ['wss://nip46-relay'])
+      await flush()
+
+      controller.disconnect()
+      expect(mock.closedUrls).toContain('wss://nip46-relay')
     })
   })
 

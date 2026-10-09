@@ -2,8 +2,8 @@
  * NostrSessionController — single owner of relay connection lifecycle,
  * subscriptions, and query/publish scope.
  *
- * Owns: persistent/session connection registries, subscription attach guarantee,
- * reconnection, EOSE collection engine (catch-up), onWake reaction.
+ * Owns: persistent/session/scoped registries, sub attach guarantee, reconnect,
+ * EOSE catch-up, onWake.
  * Does not own: gift wrap interpretation (watcher), cursor semantics (gateway
  * computes via domain functions), anchor/transaction creation.
  *
@@ -39,6 +39,11 @@ interface RegisteredSubscription {
   onEvent: (event: NostrEvent) => void
   onEose?: (relayUrl: string) => void
   eoseTimeoutMs?: number
+  /**
+   * Explicit targets (identity → original URL) for a scoped sub.
+   * null = follow persistent set; non-null = these relays only, held for sub life.
+   */
+  targets: Map<string, string> | null
   /** relay identity (normalized key) → live sub handle; the attach-guarantee ledger */
   attached: Map<string, { close: () => void }>
 }
@@ -96,8 +101,10 @@ export class NostrSessionController {
 
     for (const url of removed) {
       const id = relayIdentity(url)
-      this.detachSubsFrom(id)
-      if (!this.sessionLeases.has(id)) {
+      // Detach only persistent subs; scoped subs targeting it stay attached.
+      this.detachSubsFrom(id, (sub) => sub.targets === null)
+      // Keep socket if a lease or scoped sub still holds it.
+      if (!this.sessionLeases.has(id) && !this.isTargetedByScopedSub(id)) {
         this.closeRelay(url)
       }
     }
@@ -148,8 +155,9 @@ export class NostrSessionController {
               const current = this.sessionLeases.get(id)
               if (!current || current.refs > 0) return
               this.sessionLeases.delete(id)
-              // Don't close if it was promoted to persistent in the meantime
-              if (!this.persistentIds.has(id)) {
+              // Keep if promoted to persistent or held by a scoped sub
+              // (a response publish must not kill the signer's request sub).
+              if (!this.persistentIds.has(id) && !this.isTargetedByScopedSub(id)) {
                 this.closeRelay(current.url)
               }
             }, ttlMs)
@@ -161,6 +169,17 @@ export class NostrSessionController {
 
   disconnect(): void {
     this.stopLifecycle()
+    // Scoped relays are held by subs, not a registry — collect before clearing.
+    const scopedUrls: string[] = []
+    const scopedSeen = new Set<string>()
+    for (const sub of this.subs.values()) {
+      if (!sub.targets) continue
+      for (const [id, url] of sub.targets) {
+        if (scopedSeen.has(id) || this.persistentIds.has(id)) continue
+        scopedSeen.add(id)
+        scopedUrls.push(url)
+      }
+    }
     for (const sub of this.subs.values()) {
       for (const handle of sub.attached.values()) {
         try { handle.close() } catch { /* ignore */ }
@@ -173,7 +192,7 @@ export class NostrSessionController {
       if (lease.closeTimer) clearTimeout(lease.closeTimer)
     }
     this.sessionLeases.clear()
-    this.pool.close([...this.persistentTargets, ...sessionUrls])
+    this.pool.close([...this.persistentTargets, ...sessionUrls, ...scopedUrls])
     this.connected.clear()
     this.persistentTargets = []
     this.persistentIds = new Set()
@@ -205,18 +224,58 @@ export class NostrSessionController {
     onEvent: (event: NostrEvent) => void,
     opts?: { onEose?: (relayUrl: string) => void; eoseTimeoutMs?: number },
   ): () => void {
+    return this.registerSubscription(filters, onEvent, null, opts)
+  }
+
+  /**
+   * Subscribe to an explicit relay set for the sub's lifetime (NIP-46 sessions).
+   * Connected + health-checked while the sub lives (no TTL); released on
+   * unsubscribe. Never enters the persistent set.
+   */
+  subscribeScoped(
+    filters: NostrFilter[],
+    onEvent: (event: NostrEvent) => void,
+    relays: string[],
+    opts?: { onEose?: (relayUrl: string) => void; eoseTimeoutMs?: number },
+  ): () => void {
+    const targets = new Map<string, string>()
+    for (const url of relays) {
+      const id = relayIdentity(url)
+      if (!targets.has(id)) targets.set(id, url)
+    }
+    return this.registerSubscription(filters, onEvent, targets, opts)
+  }
+
+  private registerSubscription(
+    filters: NostrFilter[],
+    onEvent: (event: NostrEvent) => void,
+    targets: Map<string, string> | null,
+    opts?: { onEose?: (relayUrl: string) => void; eoseTimeoutMs?: number },
+  ): () => void {
     const id = this.nextSubId++
     const sub: RegisteredSubscription = {
       filters,
       onEvent,
       onEose: opts?.onEose,
       eoseTimeoutMs: opts?.eoseTimeoutMs,
+      targets,
       attached: new Map(),
     }
     this.subs.set(id, sub)
 
-    for (const url of this.getConnectedPersistent()) {
-      this.attachSubTo(sub, url)
+    if (targets) {
+      // Scoped: connect + attach each (self-filtered).
+      for (const url of targets.values()) {
+        this.connectAndAttach(url).catch((e) =>
+          console.warn(`[SessionController] scoped subscribe connect failed for ${url}:`, e),
+        )
+      }
+      // Scoped sub may be first to run (no persistent set) — start reconnect/wake.
+      this.startLifecycle()
+    } else {
+      for (const url of this.getConnectedPersistent()) {
+        this.attachSubTo(sub, url)
+      }
     }
 
     return () => {
@@ -227,6 +286,12 @@ export class NostrSessionController {
       }
       registered.attached.clear()
       this.subs.delete(id)
+      // Release scoped relays no sub holds anymore.
+      if (registered.targets) {
+        for (const [targetId, url] of registered.targets) {
+          this.closeScopedRelayIfUnused(targetId, url)
+        }
+      }
     }
   }
 
@@ -380,6 +445,10 @@ export class NostrSessionController {
 
   private attachSubTo(sub: RegisteredSubscription, url: string): void {
     const id = relayIdentity(url)
+    // Persistent subs follow the persistent set; scoped subs only their targets.
+    // Keeps wallet subs off scoped relays and vice versa.
+    const targeted = sub.targets === null ? this.persistentIds.has(id) : sub.targets.has(id)
+    if (!targeted) return
     if (sub.attached.has(id)) return
     // Reserve the slot — prevents a duplicate attach before ensureRelay resolves
     sub.attached.set(id, { close: () => {} })
@@ -448,14 +517,42 @@ export class NostrSessionController {
       })
   }
 
-  private detachSubsFrom(relayId: string): void {
+  private detachSubsFrom(relayId: string, match?: (sub: RegisteredSubscription) => boolean): void {
     for (const sub of this.subs.values()) {
+      if (match && !match(sub)) continue
       const handle = sub.attached.get(relayId)
       if (handle) {
         try { handle.close() } catch { /* ignore */ }
         sub.attached.delete(relayId)
       }
     }
+  }
+
+  private isTargetedByScopedSub(relayId: string): boolean {
+    for (const sub of this.subs.values()) {
+      if (sub.targets?.has(relayId)) return true
+    }
+    return false
+  }
+
+  /** Close a scoped relay once nothing holds it (persistent / lease / other sub). */
+  private closeScopedRelayIfUnused(relayId: string, url: string): void {
+    if (this.persistentIds.has(relayId) || this.sessionLeases.has(relayId)) return
+    if (this.isTargetedByScopedSub(relayId)) return
+    this.closeRelay(url)
+  }
+
+  /** Relays the health check keeps alive: persistent ∪ scoped. */
+  private healthTargets(): string[] {
+    const byId = new Map<string, string>()
+    for (const url of this.persistentTargets) byId.set(relayIdentity(url), url)
+    for (const sub of this.subs.values()) {
+      if (!sub.targets) continue
+      for (const [id, url] of sub.targets) {
+        if (!byId.has(id)) byId.set(id, url)
+      }
+    }
+    return [...byId.values()]
   }
 
   private startLifecycle(): void {
@@ -486,7 +583,9 @@ export class NostrSessionController {
   private async runHealthCheck(): Promise<void> {
     if (typeof navigator !== 'undefined' && !navigator.onLine) return
 
-    for (const url of this.persistentTargets) {
+    const targets = this.healthTargets()
+
+    for (const url of targets) {
       const id = relayIdentity(url)
       if (!this.connected.has(id)) continue
       try {
@@ -501,7 +600,7 @@ export class NostrSessionController {
       }
     }
 
-    for (const url of this.persistentTargets) {
+    for (const url of targets) {
       if (!this.connected.has(relayIdentity(url))) {
         try {
           await this.connectAndAttach(url)
@@ -515,7 +614,7 @@ export class NostrSessionController {
     // Backfill subscriptions that dropped from the ledger via a relay-side close
     // while the connection is still alive (including when ensureRelay silently
     // revived it) — this pairs with the onclose signal.
-    for (const url of this.persistentTargets) {
+    for (const url of targets) {
       if (this.connected.has(relayIdentity(url))) {
         this.attachSubscriptionsTo(url)
       }
