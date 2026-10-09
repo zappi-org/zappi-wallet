@@ -32,6 +32,7 @@ import { ProfileCategoryPage } from './pages/ProfileCategoryPage'
 import { PreferencesCategoryPage } from './pages/PreferencesCategoryPage'
 import { SecurityCategoryPage } from './pages/SecurityCategoryPage'
 import { WalletCategoryPage } from './pages/WalletCategoryPage'
+import { LoginAuthCategoryPage } from './pages/LoginAuthCategoryPage'
 import { SupportPage } from './pages/SupportPage'
 import { DiagnosticsPage } from './pages/DiagnosticsPage'
 
@@ -42,7 +43,7 @@ function normalizeRecoveryPhraseWords(value: string): string[] {
 }
 
 export type SettingsPage =
-  | 'category-profile' | 'category-preferences' | 'category-security' | 'category-wallet'
+  | 'category-profile' | 'category-preferences' | 'category-security' | 'category-wallet' | 'category-login-auth'
   | 'language' | 'unitDisplay' | 'fiat' | 'pos' | 'privacy' | 'npubDetail' | 'lightningDetail' | 'support'
   | 'diagnostics'
 
@@ -58,6 +59,7 @@ export interface SettingsScreenProps {
   onChangeUsername?: () => void
   onTransfer?: () => void
   onAnalytics?: () => void
+  onSigner?: () => void
   onSubPageChange?: (hasSubPage: boolean) => void
 }
 
@@ -72,6 +74,7 @@ export function SettingsScreen({
   onRelayManagement,
   onChangeUsername,
   onAnalytics,
+  onSigner,
   onSubPageChange,
 }: SettingsScreenProps) {
   const { t } = useTranslation()
@@ -89,7 +92,7 @@ export function SettingsScreen({
   // Single source of truth: `pages` is the ordered sub-page stack whose length
   // always equals the Stackflow step depth. Steps flow one way — UI actions push/
   // pop imperatively; a browser/iOS back is reconciled by the one effect below.
-  type CategoryPage = 'category-profile' | 'category-preferences' | 'category-security' | 'category-wallet'
+  type CategoryPage = 'category-profile' | 'category-preferences' | 'category-security' | 'category-wallet' | 'category-login-auth'
   const isCategoryPage = (page: SettingsPage): page is CategoryPage => page.startsWith('category-')
   const [pages, setPages] = useState<SettingsPage[]>([])
 
@@ -511,6 +514,13 @@ export function SettingsScreen({
             onFaceIdToggle={handleFaceIdToggle}
             onOpenPinChange={pinChange.open}
             saveSettings={saveSettings}
+          />
+        )
+      case 'category-login-auth':
+        return (
+          <LoginAuthCategoryPage
+            onBack={closeTopPage}
+            onSigner={onSigner}
           />
         )
       case 'category-wallet':

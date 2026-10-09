@@ -51,6 +51,7 @@ declare module '@stackflow/config' {
     MintDetail: EmptyParams
     TokenDetail: EmptyParams
     TokenEasterEgg: EmptyParams
+    Signer: EmptyParams
   }
 }
 
@@ -75,6 +76,7 @@ const ACTIVITY_ROUTES: Record<StackActivityName, string> = {
   MintDetail: '/mints/detail',
   TokenDetail: '/token/detail',
   TokenEasterEgg: '/token/easter-egg',
+  Signer: '/settings/signer',
 }
 
 const config = defineConfig({
@@ -229,6 +231,7 @@ const components = {
   MintDetail: makeScreenActivity('MintDetail', 'mint-detail'),
   TokenDetail: makeScreenActivity('TokenDetail', 'token-detail'),
   TokenEasterEgg: makeScreenActivity('TokenEasterEgg', 'token-easter-egg'),
+  Signer: makeScreenActivity('Signer', 'signer'),
 }
 
 const { Stack, actions } = stackflow({

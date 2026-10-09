@@ -261,6 +261,11 @@ export default {
     faceIdTouchId: 'Face ID / Touch ID',
     changePin: 'Change PIN',
 
+    // Login & Auth
+    loginAuth: 'Login & Auth',
+    loginAuthDesc: 'Connected apps, login history',
+    connectedApps: 'Connected Apps',
+
     // Wallet Management
     walletManagement: 'Wallet Management',
     walletManagementDesc: 'Mints, Relays, Balance, Recovery Phrase',

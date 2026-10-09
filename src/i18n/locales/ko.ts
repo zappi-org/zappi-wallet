@@ -261,6 +261,11 @@ export default {
     faceIdTouchId: 'Face ID / Touch ID',
     changePin: 'PIN 변경',
 
+    // Login & Auth
+    loginAuth: '로그인 & 인증',
+    loginAuthDesc: '연결된 앱, 로그인 내역',
+    connectedApps: '연결된 앱',
+
     // Wallet Management
     walletManagement: '지갑 관리',
     walletManagementDesc: '민트, 릴레이, 잔액 확인, 복구문구',

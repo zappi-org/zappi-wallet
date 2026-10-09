@@ -257,6 +257,11 @@ export default {
     faceIdTouchId: 'Face ID / Touch ID',
     changePin: 'PINを変更',
 
+    // Login & Auth
+    loginAuth: 'ログイン & 認証',
+    loginAuthDesc: '連携アプリ、ログイン履歴',
+    connectedApps: '連携アプリ',
+
     // Wallet Management
     walletManagement: 'ウォレット管理',
     walletManagementDesc: 'ミント、リレー、残高確認、バックアップ',

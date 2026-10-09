@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="100%" height="100%">
+  <!--
+    ZAPPI CHARACTER — STYLE REFERENCE v2
+    creating-wallet.svg 의 캐릭터를 그대로 추출한 것. 좌표/색/선굵기 변경 없음.
+    (용접 장면 요소인 torch, welding-fx, sparkle, workbench 는 제거)
+
+    ANATOMY — 고정 6개 성형 + 장면별 props 1개:
+      1. leg L   stroke path #1867ff w14
+      2. leg R   stroke path #1867ff w14
+      3. body    polygon #1867ff fill + w22 stroke (14 verts)
+      4. arm L   stroke path #0f4bbf w14 + hand circle r7
+      5. arm R   stroke path #1867ff w14 + hand circle r7
+      6. helmet  blob #2c3e50 + 2 brow lines + hinge circle + visor rects
+      7. props   장면마다: welding→torch, vending→coin slot, atm→cash, ...
+                 props 는 손 위치 (320,190) 에 transform="translate(320,190) rotate(...)" 로 부착
+
+    RULES:
+      - viewBox 0 0 800 600 고정, flat fill, 아웃라인 8~22px, stroke-linejoin="round"
+      - 새 장면 = 이 6개 성형 + props 만 바꾼다. 좌표는 건드리지 말 것.
+      - id 유지: character > upper-body, helmet, props-*
+  -->
+
+  <!-- 순서 = 원본과 동일: 다리는 뒤, 상체는 앞 -->
+  <g transform="translate(190, 0)">
+    <g id="character">
+      <path d="M 252,365 Q 230,410 200,450 Q 190,455 210,455" fill="none" stroke="#1867ff" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" />
+      <path d="M 320,340 Q 300,410 270,450 Q 260,455 285,455" fill="none" stroke="#1867ff" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" />
+
+      <g id="upper-body">
+        <!-- 원본 상체 폴리곤 (rev: 좌표 그대로, idle/에펙트 애니메이션만 제거) -->
+        <polygon points="190,90 210,150 268,127 230,170 287,190 225,205 250,268 190,235 162,285 160,225 92,212 145,185 100,137 165,150"
+                 fill="#1867ff" stroke="#1867ff" stroke-width="22" stroke-linejoin="round" />
+
+        <!-- arm L + hand -->
+        <path d="M 170,220 Q 240,230 300,195" fill="none" stroke="#0f4bbf" stroke-width="14" stroke-linecap="round" />
+        <circle cx="300" cy="195" r="7" fill="#0f4bbf" />
+
+        <g id="helmet">
+          <path d="M 230,160 L 140,170" stroke="#1a252f" stroke-width="12" stroke-linecap="round" />
+          <path d="M 230,160 L 160,120" stroke="#1a252f" stroke-width="10" stroke-linecap="round" />
+          <path d="M 230,105 C 270,95 310,115 320,165 C 330,215 300,265 240,275 C 210,280 190,245 205,215 C 215,195 220,145 230,105 Z"
+                fill="#2c3e50" stroke="#1a252f" stroke-width="6" stroke-linejoin="round" />
+          <circle cx="230" cy="160" r="10" fill="#7f8c8d" stroke="#1a252f" stroke-width="3" />
+          <rect x="270" y="140" width="28" height="55" fill="#111111" stroke="#000000" stroke-width="4" transform="rotate(12 284 167)" rx="2"/>
+          <rect x="272" y="142" width="24" height="51" fill="#00ffff" transform="rotate(12 284 167)" rx="1"/>
+        </g>
+
+        <!-- arm R + hand (props 부착 지점) -->
+        <path d="M 220,230 Q 270,250 320,190" fill="none" stroke="#1867ff" stroke-width="14" stroke-linecap="round" />
+        <circle cx="320" cy="190" r="7" fill="#1867ff" />
+      </g>
+    </g>
+  </g>
+</svg>

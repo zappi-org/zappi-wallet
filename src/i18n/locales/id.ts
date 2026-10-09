@@ -257,6 +257,11 @@ export default {
     faceIdTouchId: 'Face ID / Touch ID',
     changePin: 'Ubah PIN',
 
+    // Login & Auth
+    loginAuth: 'Login & Autentikasi',
+    loginAuthDesc: 'Aplikasi terhubung, riwayat login',
+    connectedApps: 'Aplikasi Terhubung',
+
     // Wallet Management
     walletManagement: 'Manajemen Dompet',
     walletManagementDesc: 'Mint, Relay, Saldo, Cadangan',

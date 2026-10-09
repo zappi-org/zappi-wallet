@@ -11,7 +11,8 @@
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "check:phantom": "node scripts/check-phantom-deps.mjs"
+    "check:phantom": "node scripts/check-phantom-deps.mjs",
+    "nip46:test": "node scripts/nip46-test-client.mjs"
   },
   "dependencies": {
     "@agicash/qr-scanner": "0.1.2",

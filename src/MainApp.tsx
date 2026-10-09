@@ -69,6 +69,8 @@ const PendingItemDetailScreen = lazy(() =>
   import('@/ui/screens/MintDetail/PendingItemDetailScreen').then((m) => ({ default: m.PendingItemDetailScreen })),
 )
 const RelayManagementScreen = lazy(() => import('@/ui/screens/Settings/RelayManagementScreen'))
+const SignerScreen = lazy(() => import('@/ui/screens/Signer/SignerScreen').then((m) => ({ default: m.SignerScreen })))
+import { SignerApprovalModal } from '@/ui/screens/Signer/SignerApprovalModal'
 
 import type { ValidatedData } from '@/core/domain/input-types'
 import type { MintInfo } from '@/core/types'
@@ -1032,6 +1034,10 @@ export default function MainApp() {
           setPreviousScreen('settings')
           setCurrentScreen('analytics')
         }}
+        onSigner={() => {
+          setPreviousScreen('settings')
+          setCurrentScreen('signer')
+        }}
         onSubPageChange={setHasSettingsSubPage}
       />
     ),
@@ -1133,6 +1139,8 @@ export default function MainApp() {
         onSaveSettings={handleSaveSettings}
       />
     ),
+
+    signer: () => <SignerScreen onBack={handleBack} />,
 
     'amount-action': () => (
       <AmountActionScreen
@@ -1415,6 +1423,9 @@ export default function MainApp() {
             )
           : undefined}
       />
+
+      {/* NIP-46 remote signing — global approval prompt (UC3); registry-gated (pre-bootstrap/lock has no ServiceProvider) */}
+      {serviceRegistry && <SignerApprovalModal />}
 
       {/* Toast notifications */}
       <ToastContainer toasts={toasts} onDismiss={removeToast} />

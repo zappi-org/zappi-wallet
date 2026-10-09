@@ -23,6 +23,7 @@ export type Screen =
   | 'mint-detail'
   | 'token-detail'
   | 'token-easter-egg'
+  | 'signer'
 
 export type TabId = 'wallet' | 'contacts' | 'settings'
 
@@ -74,6 +75,7 @@ export type StackActivityName =
   | 'MintDetail'
   | 'TokenDetail'
   | 'TokenEasterEgg'
+  | 'Signer'
 
 export const SCREEN_TO_ACTIVITY: Record<Screen, StackActivityName> = {
   home: 'Home',
@@ -96,4 +98,5 @@ export const SCREEN_TO_ACTIVITY: Record<Screen, StackActivityName> = {
   'mint-detail': 'MintDetail',
   'token-detail': 'TokenDetail',
   'token-easter-egg': 'TokenEasterEgg',
+  signer: 'Signer',
 }
