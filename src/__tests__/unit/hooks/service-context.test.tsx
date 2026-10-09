@@ -123,6 +123,7 @@ function createMockRegistry(): ServiceRegistry {
     diagnostics: {
       readNetCounters: vi.fn().mockResolvedValue({}),
     },
+    remoteSigning: {} as ServiceRegistry['remoteSigning'],
     transferLifecycle: {
       initiateTransfer: vi.fn(),
       pollPendingTransfers: vi.fn(),

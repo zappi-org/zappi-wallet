@@ -122,7 +122,9 @@ export const DATABASE = {
   // v23: dropped legacy proofs table (leftover after coco migration. Real-fund proofs
   //      live in the coco DB, and this table had no read/write code, so the data itself
   //      was removable. Surviving tables pass the schema diff losslessly)
-  VERSION: 23,
+  // v24: added signerSessions/signerProcessed/signerSecrets (NIP-46 remote signer:
+  //      connected clients + durable anti-replay ledgers)
+  VERSION: 24,
 } as const
 
 /**

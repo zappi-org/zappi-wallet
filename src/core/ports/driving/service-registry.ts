@@ -38,6 +38,7 @@ import type { NostrDirectPaymentUseCase } from '@/core/ports/driving/nostr-direc
 import type { ExternalWalletRecoveryUseCase } from '@/core/ports/driving/external-wallet-recovery.usecase'
 import type { DiagnosticsUseCase } from '@/core/ports/driving/diagnostics.usecase'
 import type { TransferLifecycleService } from '@/core/services/transfer-lifecycle.service'
+import type { RemoteSigningUseCase } from '@/core/ports/driving/remote-signing.usecase'
 
 export interface ServiceRegistry {
   readonly eventBus: EventBus
@@ -76,4 +77,6 @@ export interface ServiceRegistry {
   /** Diagnostics counter reads — DiagnosticsPage only */
   readonly diagnostics: DiagnosticsUseCase
   readonly transferLifecycle: TransferLifecycleService
+  /** NIP-46 remote-signer — start() after unlock; drives relay subscriptions. */
+  readonly remoteSigning: RemoteSigningUseCase
 }

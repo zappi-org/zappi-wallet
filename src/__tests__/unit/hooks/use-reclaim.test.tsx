@@ -58,6 +58,7 @@ function createMockRegistry(reclaimService: ReturnType<typeof vi.fn>, txMgmt?: {
     nostrDirectPayment: { resolve: vi.fn() } as unknown as ServiceRegistry['nostrDirectPayment'],
     externalWalletRecovery: { recoverFromMnemonic: vi.fn() } as unknown as ServiceRegistry['externalWalletRecovery'],
     diagnostics: { readNetCounters: vi.fn().mockResolvedValue({}) },
+    remoteSigning: {} as ServiceRegistry['remoteSigning'],
     transferLifecycle: {
       initiateTransfer: vi.fn(),
       pollPendingTransfers: vi.fn(),

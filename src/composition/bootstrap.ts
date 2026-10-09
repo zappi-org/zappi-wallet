@@ -16,6 +16,7 @@ import { readKillSwitches } from "@/core/utils/kill-switch";
 // ─── Assembly pieces (bootstrap-*.ts — original section order) ───
 import { assembleStorage } from "./bootstrap-storage";
 import { assembleNostrGateway } from "./bootstrap-nostr";
+import { assembleRemoteSigning } from "./bootstrap-nip46";
 import { assembleCashuModule } from "./bootstrap-cashu";
 import { assembleEdgeAdapters } from "./bootstrap-adapters";
 import { assembleTransferLifecycle } from "./bootstrap-transfer";
@@ -152,6 +153,12 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     killSwitches,
   });
 
+  // 2b. NIP-46 remote signer (bunker) — constructed only; start() after unlock.
+  const remoteSigning = assembleRemoteSigning({
+    nostrPrivateKeyHex: deps.nostrPrivateKeyHex,
+    eventBus,
+  });
+
   // 3. Cashu Module (caller invokes initialize() with the seed)
   const { cashuBackend, cashuModule, modules } = assembleCashuModule({
     pendingOpRepo,
@@ -238,6 +245,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     incomingReviewQueue,
     nostrGateway,
     transferLifecycle,
+    remoteSigning,
     getMintHealth: () => mintHealth,
     getReclaim: () => reclaim,
     getNostrIncomingWatcher: () => nostrIncomingWatcher,
@@ -334,6 +342,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     // net-counters adapter directly.
     diagnostics: { readNetCounters },
     transferLifecycle,
+    remoteSigning,
 
     // ─── BootstrapResult extensions (MainApp only) ───
     cashuModule,

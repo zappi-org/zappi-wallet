@@ -41,6 +41,7 @@ import type { DexieIncomingReviewQueue } from "@/adapters/storage/dexie/dexie-in
 import type { TransferLifecycleService } from "@/core/services/transfer-lifecycle.service";
 import type { MintHealthFacadeService } from "@/core/services/mint-health-facade.service";
 import type { ReclaimService } from "@/core/services/reclaim.service";
+import type { RemoteSigningUseCase } from "@/core/ports/driving/remote-signing.usecase";
 
 export function createLifecycle(deps: {
   nostrPrivateKeyHex: string;
@@ -51,6 +52,7 @@ export function createLifecycle(deps: {
   incomingReviewQueue: DexieIncomingReviewQueue;
   nostrGateway: NostrGatewayAdapter;
   transferLifecycle: TransferLifecycleService;
+  remoteSigning: RemoteSigningUseCase;
   /** Forward reference — dereferenced at call time */
   getMintHealth: () => MintHealthFacadeService;
   getReclaim: () => ReclaimService;
@@ -65,6 +67,7 @@ export function createLifecycle(deps: {
     incomingReviewQueue,
     nostrGateway,
     transferLifecycle,
+    remoteSigning,
     getMintHealth,
     getReclaim,
     getNostrIncomingWatcher,
@@ -250,6 +253,9 @@ export function createLifecycle(deps: {
     // Start the Nostr incoming watcher (once, after app unlock)
     getNostrIncomingWatcher().start(derivePublicKey(nostrPrivateKeyHex));
 
+    // Start the NIP-46 remote-signer subscriptions (once, after app unlock)
+    await remoteSigning.start();
+
     // TLS: on app start, recover active transfers and start monitoring
     transferLifecycle.recoverTransfers().catch(console.error);
     wireTransferSweepSignals();
@@ -342,6 +348,7 @@ export function createLifecycle(deps: {
       transferSweepWiringStop();
     }
     getNostrIncomingWatcher().stop();
+    remoteSigning.stop();
     void nostrGateway.disconnect();
   };
 

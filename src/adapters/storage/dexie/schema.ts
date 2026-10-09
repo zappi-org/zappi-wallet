@@ -2,6 +2,7 @@ import Dexie, { type Table } from 'dexie'
 import type { Transaction, WalletSettings, MintMetadata, ExchangeRateCache, Contact } from '@/core/types'
 import type { ProcessedRecord, SyncAnchor } from '@/core/types'
 import type { GiftwrapCursorRecord } from '@/core/domain/giftwrap-cursor'
+import type { SignerSession } from '@/core/domain/remote-signing'
 import type {
   SupportAttachment,
   SupportCategory,
@@ -264,6 +265,18 @@ export interface IncomingReviewRecord {
   source: 'gift-wrap' | 'recovery'
 }
 
+/** NIP-46 processed-request dedupe entry (id = event id or `req:<pubkey>:<id>`). */
+export interface SignerProcessedRecord {
+  id: string
+  expiresAt: number
+}
+
+/** NIP-46 single-use connect secret. */
+export interface SignerSecretRecord {
+  secret: string
+  expiresAt: number
+}
+
 export class ZappiDatabase extends Dexie {
   transactions!: Table<TransactionRecord, string>
   failedIncomings!: Table<FailedIncomingRecord, string>
@@ -285,6 +298,9 @@ export class ZappiDatabase extends Dexie {
   netCounters!: Table<NetCounterRecord, string>
   giftwrapCursors!: Table<GiftwrapCursorRecord, string>
   incomingReviews!: Table<IncomingReviewRecord, string>
+  signerSessions!: Table<SignerSession, string>
+  signerProcessed!: Table<SignerProcessedRecord, string>
+  signerSecrets!: Table<SignerSecretRecord, string>
 
   constructor() {
     super(DATABASE.NAME)
@@ -357,6 +373,12 @@ export class ZappiDatabase extends Dexie {
 
       // v22: durable queue for review of tokens from untrusted mints (source for drainReviewQueue)
       incomingReviews: 'externalId, mintUrl, queuedAt',
+
+      // v24: NIP-46 remote-signer state — sessions + durable anti-replay ledgers
+      // (processed request ids, single-use connect secrets)
+      signerSessions: 'clientPubkey, lastUsedAt',
+      signerProcessed: 'id, expiresAt',
+      signerSecrets: 'secret, expiresAt',
     })
   }
 }

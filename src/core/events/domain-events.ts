@@ -1,5 +1,6 @@
 import type { Amount } from '@/core/domain/amount'
 import type { PendingTransfer } from '@/core/domain/pending-transfer'
+import type { SignerApprovalRequest, SignerSession } from '@/core/domain/remote-signing'
 
 export type DomainEvent =
   | PaymentCompletedEvent
@@ -24,6 +25,10 @@ export type DomainEvent =
   | IncomingTransferProcessedEvent
   | IncomingTransferReceivedEvent
   | TransferNeedsPollingEvent
+  // Remote signing (NIP-46)
+  | SignerSessionOpenedEvent
+  | SignerSessionRevokedEvent
+  | SignerApprovalRequestedEvent
 
 export interface PaymentCompletedEvent {
   type: 'payment:completed'
@@ -210,4 +215,21 @@ export interface IncomingTransferReceivedEvent {
 export interface TransferNeedsPollingEvent {
   type: 'transfer:needs-polling'
   payload: { transfer: PendingTransfer }
+}
+
+// ─── Remote signing (NIP-46) ───
+
+export interface SignerSessionOpenedEvent {
+  type: 'signer:session-opened'
+  payload: { session: SignerSession }
+}
+
+export interface SignerSessionRevokedEvent {
+  type: 'signer:session-revoked'
+  payload: { clientPubkey: string }
+}
+
+export interface SignerApprovalRequestedEvent {
+  type: 'signer:approval-requested'
+  payload: { request: SignerApprovalRequest }
 }
