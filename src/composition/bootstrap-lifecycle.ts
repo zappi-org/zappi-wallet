@@ -35,12 +35,15 @@ import type { EventBus } from "@/core/events/event-bus";
 import type { KillSwitches } from "@/core/utils/kill-switch";
 import type { NostrGatewayAdapter } from "@/adapters/nostr/nostr-gateway";
 import type { NostrIncomingWatcher } from "@/adapters/nostr/nostr-incoming-watcher";
+import type { createNpubcashQuoteWatcher } from "./npubcash-quote-watcher";
 import type { DexieOperationMap } from "@/adapters/storage/dexie/dexie-operation-map";
 import type { DexieTransactionRepository } from "@/adapters/storage/dexie/dexie-transaction.repository";
 import type { DexieIncomingReviewQueue } from "@/adapters/storage/dexie/dexie-incoming-review-queue.store";
 import type { TransferLifecycleService } from "@/core/services/transfer-lifecycle.service";
 import type { MintHealthFacadeService } from "@/core/services/mint-health-facade.service";
 import type { ReclaimService } from "@/core/services/reclaim.service";
+
+type NpubcashQuoteWatcher = ReturnType<typeof createNpubcashQuoteWatcher>;
 
 export function createLifecycle(deps: {
   nostrPrivateKeyHex: string;
@@ -55,6 +58,7 @@ export function createLifecycle(deps: {
   getMintHealth: () => MintHealthFacadeService;
   getReclaim: () => ReclaimService;
   getNostrIncomingWatcher: () => NostrIncomingWatcher;
+  getNpubcashWatcher: () => NpubcashQuoteWatcher;
 }) {
   const {
     nostrPrivateKeyHex,
@@ -68,6 +72,7 @@ export function createLifecycle(deps: {
     getMintHealth,
     getReclaim,
     getNostrIncomingWatcher,
+    getNpubcashWatcher,
   } = deps;
 
   let netCounterFlusherStop: (() => void) | null = null;
@@ -116,6 +121,7 @@ export function createLifecycle(deps: {
   // pause-during-activate race guard: prevents activate's startPolling from
   // starting a timer after the app has already gone to the background.
   let paused = false;
+  let disposed = false;
 
   // TLS monitor mode: with ks.tls-sweep ON, the legacy path bulk-polls every 30s
   // (a remote round-trip per transfer); OFF runs a 120s stuck-sweep (local first
@@ -167,7 +173,9 @@ export function createLifecycle(deps: {
     };
   };
   const activate = async () => {
+    if (disposed) return;
     const manager = await getCashuRuntimeManager();
+    if (disposed) return;
 
     // Start the aggregate-counter flush interval — once only, even on re-invocation
     if (!netCounterFlusherStop) {
@@ -195,6 +203,7 @@ export function createLifecycle(deps: {
     incomingReviewQueue
       .listAll()
       .then((reviews) => {
+        if (disposed) return;
         const { enqueueIncomingReview } = useAppStore.getState();
         reviews.forEach(enqueueIncomingReview);
       })
@@ -220,18 +229,21 @@ export function createLifecycle(deps: {
     const { injectDependencies } = await import(
       "@/composition/mint-quote-observer"
     );
+    if (disposed) return;
     injectDependencies(operationMap, txRepo);
 
     // Mint quote observer (mint-op:finalized → Transaction DB record)
     const { connectMintQuoteObserver } = await import(
       "@/composition/mint-quote-observer"
     );
+    if (disposed) return;
     connectMintQuoteObserver(manager);
 
     // Connect the send token observer (shares bootstrap's manager instance)
     const { connectSendTokenObserver } = await import(
       "@/composition/send-token-observer"
     );
+    if (disposed) return;
     connectSendTokenObserver(manager, {
       operationMap,
       lifecycle: getReclaim(),
@@ -241,14 +253,23 @@ export function createLifecycle(deps: {
     const { connectTransferSdkBridge } = await import(
       "@/composition/transfer-sdk-bridge"
     );
+    if (disposed) return;
     connectTransferSdkBridge(manager, transferLifecycle);
 
     connectCocoEventBridge(manager, eventBus);
 
     await enableCashuWatchers();
+    if (disposed) return;
 
     // Start the Nostr incoming watcher (once, after app unlock)
     getNostrIncomingWatcher().start(derivePublicKey(nostrPrivateKeyHex));
+
+    // Guard on paused: activate awaits above, so it may already be backgrounded.
+    if (!paused) {
+      getNpubcashWatcher().start().catch((e) =>
+        console.error("[Bootstrap] npubcash watcher start failed:", e)
+      );
+    }
 
     // TLS: on app start, recover active transfers and start monitoring
     transferLifecycle.recoverTransfers().catch(console.error);
@@ -262,6 +283,7 @@ export function createLifecycle(deps: {
     // reservations would otherwise depress the spendable balance forever.
     import('@/modules/cashu/internal/cashu-recovery')
       .then(({ cleanAndRecoverStaleMintOps, sweepStalePreparedOps }) => {
+        if (disposed) return;
         cleanAndRecoverStaleMintOps().catch(console.error);
         sweepStalePreparedOps().catch(console.error);
       })
@@ -269,12 +291,19 @@ export function createLifecycle(deps: {
   };
 
   const onResume = async () => {
+    if (disposed) return;
     paused = false;
+    // Restart before any await — start/stop must follow visibility order, or a late onPause clobbers this start.
+    getNpubcashWatcher().stop();
+    getNpubcashWatcher().start().catch((e) =>
+      console.error("[Bootstrap] npubcash watcher start failed:", e)
+    );
     // Decide before startAliveHeartbeat refreshes lastAliveAt — the criterion is whether this absence exceeded 5 min
     const shouldRecheck = awayLongEnough();
     startAliveHeartbeat();
     try {
       await resumeCashuSubscriptions();
+      if (disposed || paused) return;
       // An online transition during mobile freeze emits no 'online' event, so we
       // must retry watcher enable on resume to actually close the gap (idempotent
       // via the watchersEnabled guard; re-schedules a retry if still offline).
@@ -296,6 +325,7 @@ export function createLifecycle(deps: {
     } catch {
       /* ignore if not initialized */
     }
+    if (disposed || paused) return;
     exchangeRateService.refreshIfStale().catch(() => {});
 
     // Resume TLS monitoring — the timer stopped in onPause. The sweep path does one
@@ -308,7 +338,10 @@ export function createLifecycle(deps: {
   };
 
   const onPause = async () => {
+    if (disposed) return;
     paused = true;
+    // Stop before the cashu await — a later-resolving pause must not run after a resume's start.
+    getNpubcashWatcher().stop();
     // Record the background-entry time as the final mark, then stop the heartbeat —
     // the ensuing absence becomes exactly the gap from lastAliveAt.
     markAlive();
@@ -318,6 +351,7 @@ export function createLifecycle(deps: {
     } catch {
       /* ignore if not initialized */
     }
+    if (disposed || !paused) return;
     // Stop TLS monitoring — previously the 30s polling kept running in the background.
     stopTransferMonitor();
     // Flush counters — persist at pause too, not just on pagehide
@@ -328,6 +362,8 @@ export function createLifecycle(deps: {
   // previous bootstrap's flusher/polling/subscription/health-check timers from
   // leaking across generations.
   const dispose = () => {
+    disposed = true;
+    paused = true;
     if (netCounterFlusherStop) {
       netCounterFlusherStop();
       netCounterFlusherStop = null;
@@ -342,7 +378,9 @@ export function createLifecycle(deps: {
       transferSweepWiringStop();
     }
     getNostrIncomingWatcher().stop();
+    getNpubcashWatcher().stop();
     void nostrGateway.disconnect();
+    return getNpubcashWatcher().waitForIdle();
   };
 
   return { activate, onResume, onPause, dispose };

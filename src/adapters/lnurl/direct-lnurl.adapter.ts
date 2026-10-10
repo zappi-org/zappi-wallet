@@ -80,15 +80,28 @@ export class DirectLnurlAdapter implements LnurlGateway {
     if (parts.length !== 2) throw new Error('Invalid Lightning Address')
     const [user, domain] = parts
 
-    const protocol = domain.endsWith('.onion') ? 'http' : 'https'
-    const url = `${protocol}://${domain}/.well-known/lnurlp/${user}`
+    // Dev: local npubcash/LNURL servers run over plain http, so fall back
+    // https → http. Prod stays https-only (.onion excluded) — no silent
+    // downgrade of real endpoints.
+    const protocols = domain.endsWith('.onion')
+      ? ['http']
+      : import.meta.env.DEV
+        ? ['https', 'http']
+        : ['https']
 
-    const res = await fetch(url, {
-      signal: AbortSignal.timeout(this.timeout),
-    })
-    if (!res.ok) {
-      throw new Error(`Failed to resolve Lightning Address: ${res.status}`)
+    let res: Response | undefined
+    for (const protocol of protocols) {
+      const url = `${protocol}://${domain}/.well-known/lnurlp/${user}`
+      try {
+        res = await fetch(url, {
+          signal: AbortSignal.timeout(this.timeout),
+        })
+        if (res.ok) break
+      } catch {
+        // protocol failed — try the next one
+      }
     }
+    if (!res || !res.ok) throw new Error('Failed to resolve Lightning Address')
 
     const data = await res.json()
 

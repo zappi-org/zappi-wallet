@@ -11,6 +11,7 @@ import { useCarouselScroll } from '@/ui/hooks/use-carousel-scroll'
 import { useKeyboardInset } from '@/ui/hooks/use-keyboard-inset'
 import { MintCard, resolveMintColor } from '@/ui/components/wallet/MintCard'
 import { Button } from '@/ui/components/common/Button'
+import { useFormatSats } from '@/utils/format'
 import type { MintInfo } from '@/core/types'
 
 const TITLE_ID = 'mint-select-title'
@@ -28,6 +29,11 @@ export interface MintSelectBottomSheetProps {
   infoText?: string
   /** Allow selecting mints with zero balance (e.g. for receive flows) */
   allowEmpty?: boolean
+  /**
+   * Returns the shortage (>0) for a mint that cannot cover the required amount.
+   * Such mints render dimmed with a badge, block confirm, and show a reason line.
+   */
+  getShortage?: (mint: MintInfo) => number
 }
 
 /**
@@ -50,8 +56,10 @@ function MintSelectBottomSheetInner({
   buttonLabel,
   infoText,
   allowEmpty,
+  getShortage,
 }: Omit<MintSelectBottomSheetProps, 'isOpen'>) {
   const { t } = useTranslation()
+  const formatSats = useFormatSats()
   const { balance } = useWallet()
   const settings = useAppStore((state) => state.settings)
   const { getCachedStatus } = useMintHealth()
@@ -105,14 +113,15 @@ function MintSelectBottomSheetInner({
 
   const selectedMint = filteredMints.find((m) => m.url === localSelected)
   const selectedHasBalance = (selectedMint?.balance ?? 0) > 0
+  const selectedShortage = selectedMint && getShortage ? Math.max(0, getShortage(selectedMint)) : 0
 
   const handleConfirm = useCallback(() => {
-    if (localSelected && (allowEmpty || selectedHasBalance)) {
+    if (localSelected && (allowEmpty || (selectedHasBalance && selectedShortage <= 0))) {
       hapticTap()
       onSelect(localSelected)
       onClose()
     }
-  }, [localSelected, allowEmpty, selectedHasBalance, onSelect, onClose])
+  }, [localSelected, allowEmpty, selectedHasBalance, selectedShortage, onSelect, onClose])
 
   // Portalled: inside a transformed Stackflow activity `fixed` is trapped in the
   // activity's stacking context, so the root-level tab dock (z-50) paints over
@@ -148,22 +157,27 @@ function MintSelectBottomSheetInner({
           onScroll={handleScroll}
           className="flex gap-2 px-[calc(50%-var(--card-w)/2)] overflow-x-auto snap-x snap-mandatory scrollbar-hide py-2"
         >
-          {filteredMints.map((mint) => (
-            <div
-              key={mint.url}
-              className="snap-center snap-always shrink-0"
-            >
-              <MintCard
-                mint={mint}
-                {...resolveMintColor(mint.url, settings.mints.indexOf(mint.url), settings.mintColors)}
-                isSelected={localSelected === mint.url}
-                onClick={() => {
-                  hapticTap()
-                  setLocalSelected(mint.url)
-                }}
-              />
-            </div>
-          ))}
+          {filteredMints.map((mint) => {
+            const shortage = getShortage ? Math.max(0, getShortage(mint)) : 0
+            return (
+              <div
+                key={mint.url}
+                className="snap-center snap-always shrink-0"
+              >
+                <MintCard
+                  mint={mint}
+                  {...resolveMintColor(mint.url, settings.mints.indexOf(mint.url), settings.mintColors)}
+                  isSelected={localSelected === mint.url}
+                  disabled={shortage > 0}
+                  badgeText={shortage > 0 ? t('settings.mintShortBadge', { amount: formatSats(shortage) }) : undefined}
+                  onClick={() => {
+                    hapticTap()
+                    setLocalSelected(mint.url)
+                  }}
+                />
+              </div>
+            )
+          })}
         </div>
 
         {/* Pagination Dots */}
@@ -180,12 +194,16 @@ function MintSelectBottomSheetInner({
           </div>
         )}
 
-        {/* Info text (e.g. estimated fee) */}
-        {infoText && (
+        {/* Info text (e.g. estimated fee); a shortage on the selected mint wins. */}
+        {selectedShortage > 0 ? (
+          <p className="text-center text-caption text-accent-danger mt-2 px-6">
+            {t('settings.mintShortReason', { amount: formatSats(selectedShortage) })}
+          </p>
+        ) : infoText ? (
           <p className="text-center text-caption text-foreground-muted mt-2 px-6">
             {infoText}
           </p>
-        )}
+        ) : null}
 
         {/* Confirm Button — pb-app keeps it clear of the home indicator now that
             viewport-fit=cover extends the sheet to the physical screen edge. */}
@@ -193,7 +211,7 @@ function MintSelectBottomSheetInner({
           <Button
             variant="brand"
             size="xl"
-            disabled={!localSelected || (!allowEmpty && !selectedHasBalance)}
+            disabled={!localSelected || (!allowEmpty && (!selectedHasBalance || selectedShortage > 0))}
             onClick={handleConfirm}
             className="w-full"
           >

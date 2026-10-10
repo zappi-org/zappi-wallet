@@ -198,7 +198,7 @@ export interface WalletSettings {
   relays: string[]
   lightningAddress?: string
   /** zappi-link API base URL extracted from LNURL callback (e.g. "https://link.zappi.space") */
-  zappiLinkApiUrl?: string
+  npubcashUrl?: string
   /** Idle auto-lock toggle (fixed 5-minute timeout). A full app kill always
    *  relocks regardless — the session is memory-only. */
   autoLockEnabled: boolean
