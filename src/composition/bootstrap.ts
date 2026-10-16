@@ -78,7 +78,7 @@ export interface BootstrapResult extends ServiceRegistry {
   onResume(): Promise<void>;
   onPause(): Promise<void>;
   /** Clean up timers/subscriptions on registry swap/disposal (flusher, TLS polling, watcher, gateway) */
-  dispose(): void;
+  dispose(): Promise<void>;
   disconnectBridge(): void;
   disconnectGiftWrapSettlement(): void;
 
@@ -217,7 +217,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   const p2pkKeyManager = new CocoP2PKKeyManager(getCashuKeyring);
 
   // 7~8. Cold-start cache + EventBus→Store / Transfer→Tx bridges
-  const { balanceRefresh, disconnectBridge } = connectStoreBridges({
+  const { balanceRefresh, disconnectBridge, disconnectTransferBridge } = connectStoreBridges({
     balanceCache,
     balance,
     eventBus,
@@ -229,7 +229,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   // mintHealth/reclaim/nostrIncomingWatcher are created below in 9~13 — pass the
   // original TDZ-safe closure captures explicitly as lazy getter args (same deref
   // at call time).
-  const { activate, onResume, onPause, dispose } = createLifecycle({
+  const { activate, onResume, onPause, dispose: disposeLifecycle } = createLifecycle({
     nostrPrivateKeyHex: deps.nostrPrivateKeyHex,
     killSwitches,
     eventBus,
@@ -241,6 +241,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     getMintHealth: () => mintHealth,
     getReclaim: () => reclaim,
     getNostrIncomingWatcher: () => nostrIncomingWatcher,
+    getNpubcashWatcher: () => npubcashQuoteWatcher,
   });
 
   // 9~11. Shared dedup store + Nostr incoming watcher + receive services
@@ -274,7 +275,8 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     transactionMgmt,
     routeExecution,
     paymentRequest,
-    username,
+    paymentAlias,
+    npubcashQuoteWatcher,
     trustRegistry,
     nostrDirectPayment,
     externalWalletRecovery,
@@ -325,7 +327,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     inputParser,
     paymentRequest,
     routing,
-    username,
+    paymentAlias,
     trustRegistry,
     support,
     nostrDirectPayment,
@@ -343,7 +345,11 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     activate,
     onResume,
     onPause,
-    dispose,
+    dispose: () => {
+      const stopped = disposeLifecycle();
+      disconnectTransferBridge();
+      return Promise.all([stopped, disconnectTransferBridge.waitForIdle()]).then(() => {});
+    },
     disconnectBridge,
     disconnectGiftWrapSettlement,
 

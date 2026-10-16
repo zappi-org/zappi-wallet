@@ -15,6 +15,11 @@ pipeline {
             defaultValue: 'main',
             description: 'Branch name (for example: feature/qr-fix) or full 40-character commit SHA'
         )
+        string(
+            name: 'VITE_NPUBCASH_URL',
+            defaultValue: '',
+            description: 'npubcash API base URL for testing (empty = Dockerfile default)'
+        )
     }
 
     environment {
@@ -100,6 +105,7 @@ pipeline {
                 dir('app') {
                     sh '''
                         docker build \
+                            --build-arg VITE_NPUBCASH_URL="${VITE_NPUBCASH_URL}" \
                             --build-arg VITE_ZAPPI_CHANNEL=nightly \
                             -t "${IMAGE_NAME}:nightly-${DEPLOY_SHA}" .
                     '''

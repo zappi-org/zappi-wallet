@@ -5,8 +5,11 @@ FROM oven/bun:1 AS builder
 ARG VITE_ZAPPI_CHANNEL=main
 # Comma-separated invite codes; empty = open beta.
 ARG VITE_ZAPPI_INVITE_CODES=
+# npubcash API base URL — overridden by build-arg in CI.
+ARG VITE_NPUBCASH_URL=https://zappi.space
 ENV VITE_ZAPPI_CHANNEL=$VITE_ZAPPI_CHANNEL
 ENV VITE_ZAPPI_INVITE_CODES=$VITE_ZAPPI_INVITE_CODES
+ENV VITE_NPUBCASH_URL=$VITE_NPUBCASH_URL
 
 WORKDIR /app
 

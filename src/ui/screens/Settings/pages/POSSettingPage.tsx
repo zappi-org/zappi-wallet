@@ -45,9 +45,9 @@ export function POSSettingPage({
     if (!la || !la.includes('@')) return null
     const [user] = la.split('@')
     if (!user) return null
-    const zappiLinkUrl = settings.zappiLinkApiUrl || `https://${la.split('@')[1]}`
+    const zappiLinkUrl = settings.npubcashUrl || `https://${la.split('@')[1]}`
     return { zappiLinkUrl, zappiLinkUser: user }
-  }, [settings.lightningAddress, settings.zappiLinkApiUrl])
+  }, [settings.lightningAddress, settings.npubcashUrl])
 
   const handleAddDevice = useCallback(async () => {
     if (pin.length !== 6) return

@@ -34,6 +34,10 @@ interface MintCardProps {
   onReceive?: () => void;
   onRename?: (newName: string) => void;
   sendDisabled?: boolean;
+  /** Dimmed presentation (still clickable so the caller can explain why). */
+  disabled?: boolean;
+  /** Small corner chip (e.g. "₿10 short"). */
+  badgeText?: string;
 }
 
 function MintLogo({ iconUrl }: { iconUrl?: string }) {
@@ -183,6 +187,8 @@ export function MintCard({
   onReceive,
   onRename,
   sendDisabled,
+  disabled,
+  badgeText,
 }: MintCardProps) {
   const { t } = useTranslation();
   const formatSats = useFormatSats();
@@ -240,8 +246,10 @@ export function MintCard({
         "shadow-[0px_4px_8px_0px_rgba(0,0,0,0.15)]",
         isClassicDesign && !customColor && variantColorClass[variant],
         isSelected === true && "ring-2 ring-primary ring-offset-3 ring-offset-background",
-        isSelected === false && "opacity-70"
+        isSelected === false && "opacity-70",
+        disabled && "opacity-45 grayscale"
       )}
+      aria-disabled={disabled || undefined}
       style={isClassicDesign ? surfaceStyle : undefined}
     >
       {isClassicDesign && (
@@ -262,6 +270,12 @@ export function MintCard({
             style={{ backgroundImage: `url('${cardNoise}')`, backgroundSize: NOISE_TILE_SIZE, backgroundPosition: 'top left' }}
           />
         </>
+      )}
+
+      {badgeText && (
+        <span className="absolute top-2.5 right-2.5 z-20 rounded-full bg-black/45 px-2 py-0.5 text-overline font-bold text-white whitespace-nowrap">
+          {badgeText}
+        </span>
       )}
 
       {/* Card Body */}

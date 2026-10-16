@@ -136,12 +136,25 @@ function extractMintFromTransfer(transfer: PendingTransfer): string {
 
 export function connectTransferTxBridge(
   deps: TransferTxBridgeDeps
-): () => void {
+): (() => void) & { waitForIdle(): Promise<void> } {
   const unsubscribers: (() => void)[] = [];
+  const pendingWrites = new Set<Promise<void>>();
+  // EventBus.emit is synchronous; retain asynchronous handlers so logout can
+  // finish writes already dispatched before clearing their destination tables.
+  const on: EventBus["on"] = (type, handler) =>
+    deps.eventBus.on(type, (event) => {
+      const task = Promise.resolve(handler(event));
+      pendingWrites.add(task);
+      void task.then(
+        () => pendingWrites.delete(task),
+        () => pendingWrites.delete(task),
+      );
+      return task;
+    });
 
   // 1. Submitted → Pending Transaction 생성
   unsubscribers.push(
-    deps.eventBus.on("transfer:submitted", async (event) => {
+    on("transfer:submitted", async (event) => {
       const { transfer } = event.payload;
 
       // 이미 생성된 Transaction이 있는지 확인 (중복 방지)
@@ -286,7 +299,7 @@ export function connectTransferTxBridge(
   );
   // 2. Settled → 기존 Transaction 업데이트 (또는 incoming이면 새로 생성)
   unsubscribers.push(
-    deps.eventBus.on("transfer:settled", async (event) => {
+    on("transfer:settled", async (event) => {
       const transfer = event.payload.transfer;
 
       try {
@@ -367,7 +380,9 @@ export function connectTransferTxBridge(
               | undefined;
             metadata = {
               operationId: ref?.operationId,
-              bolt11: ref?.request,
+              // lightning-address(npubcash) 입금은 인보이스/preimage가 없음 —
+              // 없으면 키 자체를 남기지 않는다.
+              ...(ref?.request ? { bolt11: ref.request } : {}),
               direction: transfer.direction,
               ...(ref?.preimage && { preimage: ref.preimage }),
             };
@@ -454,7 +469,7 @@ export function connectTransferTxBridge(
 
   // 3. Reclaimed → Transaction을 reclaimed로 업데이트
   unsubscribers.push(
-    deps.eventBus.on("transfer:reclaimed", async (event) => {
+    on("transfer:reclaimed", async (event) => {
       const transfer = event.payload.transfer;
 
       try {
@@ -496,7 +511,7 @@ export function connectTransferTxBridge(
 
   // 4. Failed → Transaction을 failed로 업데이트
   unsubscribers.push(
-    deps.eventBus.on("transfer:failed", async (event) => {
+    on("transfer:failed", async (event) => {
       const transfer = event.payload.transfer;
 
       try {
@@ -572,9 +587,14 @@ export function connectTransferTxBridge(
     })
   );
 
-  return () => {
+  const disconnect = () => {
     for (const unsub of unsubscribers) {
       unsub();
     }
   };
+  return Object.assign(disconnect, {
+    async waitForIdle(): Promise<void> {
+      while (pendingWrites.size) await Promise.all([...pendingWrites]);
+    },
+  });
 }

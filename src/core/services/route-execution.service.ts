@@ -410,7 +410,7 @@ export class RouteExecutionService implements RouteExecutionUseCase {
   }
 }
 
-function isAlreadyRedeemedQuote(error: unknown): boolean {
+export function isAlreadyRedeemedQuote(error: unknown): boolean {
   const message = String(error).toLowerCase();
   return (
     message.includes("already pending") ||

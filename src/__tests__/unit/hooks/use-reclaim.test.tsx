@@ -52,7 +52,7 @@ function createMockRegistry(reclaimService: ReturnType<typeof vi.fn>, txMgmt?: {
     inputParser: {} as unknown as ServiceRegistry['inputParser'],
     paymentRequest: {} as unknown as ServiceRegistry['paymentRequest'],
     routing: {} as unknown as ServiceRegistry['routing'],
-    username: {} as unknown as ServiceRegistry['username'],
+    paymentAlias: {} as unknown as ServiceRegistry['paymentAlias'],
     trustRegistry: { isTrusted: vi.fn(), addTrust: vi.fn(), revokeTrust: vi.fn(), getTrustedAccounts: vi.fn() } as unknown as ServiceRegistry['trustRegistry'],
     support: {} as unknown as ServiceRegistry['support'],
     nostrDirectPayment: { resolve: vi.fn() } as unknown as ServiceRegistry['nostrDirectPayment'],
