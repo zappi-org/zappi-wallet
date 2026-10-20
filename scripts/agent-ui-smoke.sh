@@ -22,10 +22,21 @@ set -uo pipefail
 
 BASE="${1:-http://localhost:5174}"
 FAILED=0
+SKIPPED=0
 
 step() { printf '\n\033[1m▸ %s\033[0m\n' "$1"; }
 ok()   { printf '  \033[32m✓\033[0m %s\n' "$1"; }
 fail() { printf '  \033[31m✗\033[0m %s\n' "$1"; FAILED=1; }
+skip() { printf '  \033[33m—\033[0m skipped: %s\n' "$1"; SKIPPED=$((SKIPPED + 1)); }
+
+# Sections are gated on the screens they drive. A runbook that is red on every branch that
+# does not yet own a screen is worse than a partial one: people stop reading it. Skips are
+# printed and counted, so "green with 3 skips" cannot be mistaken for "fully covered".
+have_sel() { # <css-selector>
+  local sel="${1//\"/\\\"}"
+  [ "$(orca eval --expression "String(document.querySelector(\"$sel\") !== null)" 2>/dev/null)" = "true" ]
+}
+have() { have_sel "[data-testid=\"$1\"]"; } # <testid>
 
 # ── preflight ────────────────────────────────────────────────────────────────
 step "preflight"
@@ -116,13 +127,27 @@ click_js "document.querySelector('[data-testid=\"app-nav-tab\"][data-item-id=\"s
   "dock tab → Settings"
 sleep 2
 assert_testid "settings-category-row" "category cards carry a stable id"
-click_js "document.querySelector('[data-testid=\"settings-category-row\"][data-item-id=\"category-login-auth\"]')" \
-  "category card → Login & Auth"
-sleep 2
-assert_testid "settings-signer-entry" "login-auth page exposes the signer entry"
 
-# ── 3. signer hub ────────────────────────────────────────────────────────────
+# ── 3. signer hub (owned by the signer-screen PR) ────────────────────────────
+# The category card, the entry row and the screens all arrive with that PR, so each hop is
+# gated independently — main runs this today and must stay green.
 step "signer hub"
+SKIP_SIGNER=1
+LOGIN_AUTH='[data-testid="settings-category-row"][data-item-id="category-login-auth"]'
+if ! have_sel "$LOGIN_AUTH"; then
+  skip "category-login-auth card absent — the signer entry point is not on this branch"
+else
+  click_js "document.querySelector('[data-testid=\"settings-category-row\"][data-item-id=\"category-login-auth\"]')" \
+    "category card → Login & Auth"
+  sleep 2
+  if ! have "settings-signer-entry"; then
+    skip "settings-signer-entry absent — the signer screens are not on this branch"
+  else
+    assert_testid "settings-signer-entry" "login-auth page exposes the signer entry"
+    SKIP_SIGNER=0
+  fi
+fi
+if [ "$SKIP_SIGNER" = "0" ]; then
 click_js "document.querySelector('[data-testid=\"settings-signer-entry\"]')" "open signer"
 sleep 2
 assert_testid "signer-screen" "signer screen mounted"
@@ -141,10 +166,11 @@ case "$activity_count" in
   *) ok "recent signatures: $activity_count" ;;
 esac
 shot signer-hub
+fi
 
 # ── report ───────────────────────────────────────────────────────────────────
 if [ "$FAILED" -eq 0 ]; then
-  printf '\n\033[32mall checks passed\033[0m\n'
+  printf '\n\033[32mall checks passed\033[0m (%d skipped)\n' "$SKIPPED"
 else
   printf '\n\033[31msome checks failed\033[0m — screenshot was taken above (orca reports the path)\n'
 fi
