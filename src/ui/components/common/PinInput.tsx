@@ -61,7 +61,10 @@ export function PinInput({
   const isSubmitDisabled = !isComplete || disabled || loading
 
   return (
-    <div className="flex flex-col items-center w-full max-w-sm mx-auto">
+    <div
+      className="flex flex-col items-center w-full max-w-sm mx-auto"
+      data-state={error ? 'error' : 'ready'}
+    >
       {label && (
         <p className="text-foreground-muted text-caption mb-4">{label}</p>
       )}

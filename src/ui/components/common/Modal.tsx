@@ -10,6 +10,11 @@ export interface ModalProps {
   showCloseButton?: boolean
   closeOnOverlayClick?: boolean
   size?: 'sm' | 'md' | 'lg' | 'full'
+  /**
+   * Stable automation handle for the dialog body (docs/ui-test-contract.md). While open the
+   * body also carries `data-state="open"` — a closed Modal renders nothing at all.
+   */
+  testId?: string
 }
 
 const sizeStyles = {
@@ -27,6 +32,7 @@ export function Modal({
   showCloseButton = true,
   closeOnOverlayClick = true,
   size = 'md',
+  testId,
 }: ModalProps) {
   const { t } = useTranslation()
   const overlayRef = useRef<HTMLDivElement>(null)
@@ -109,6 +115,8 @@ export function Modal({
     >
       <div
         ref={contentRef}
+        data-testid={testId}
+        data-state="open"
         className={`
           w-full ${sizeStyles[size]}
           bg-background rounded-xl shadow-xl
