@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import zappiImg from '@/assets/zappi.webp'
+import { TEST_IDS } from '@/ui/lib/test-ids'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>
@@ -18,6 +19,17 @@ function isPWA(): boolean {
   if ('standalone' in window.navigator && (window.navigator as { standalone?: boolean }).standalone === true) return true
   if (document.referrer.includes('android-app://')) return true
   return false
+}
+
+/**
+ * `?seed=1` is the dev automation entry point and has to reach the app shell, so the install
+ * screen steps aside for it. The key is duplicated from src/ui/lib/dev-seed.ts on purpose: a
+ * static import from there would pull the dev mnemonic into the production module graph, and
+ * a guard test (dev-seed.test.ts) keeps the two spellings in sync.
+ */
+function isDevSeedNavigation(): boolean {
+  if (!import.meta.env.DEV) return false
+  return new URLSearchParams(window.location.search).has('seed')
 }
 
 function getPlatform(): 'ios' | 'android' | 'desktop' {
@@ -40,7 +52,7 @@ interface PWAInstallGuardProps {
 
 export function PWAInstallGuard({ children }: PWAInstallGuardProps) {
   const { t } = useTranslation()
-  const [isInstalled, setIsInstalled] = useState(() => isPWA())
+  const [isInstalled, setIsInstalled] = useState(() => isPWA() || isDevSeedNavigation())
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [platform] = useState(() => getPlatform())
 
@@ -136,6 +148,7 @@ export function PWAInstallGuard({ children }: PWAInstallGuardProps) {
         <div className="shrink-0 px-5 pb-5">
           <button
             onClick={() => setIsInstalled(true)}
+            data-testid={TEST_IDS.app.installSkip}
             className="w-full text-label font-medium text-foreground-muted hover:text-foreground underline underline-offset-2 transition-colors"
           >
             {t('pwa.guard.devSkip')}

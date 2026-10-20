@@ -9,29 +9,6 @@
 /** The closed set of region states an assertion may read. */
 export type UiRegionState = 'empty' | 'loading' | 'ready' | 'error'
 
-/** Handles for screens this branch doesn't have yet — declared, not clickable. */
-export const PENDING_TEST_IDS = {
-  signer: {
-    screen: 'signer-screen',
-    scan: 'signer-scan',
-    paste: 'signer-paste',
-    sessions: 'signer-sessions',
-    sessionRow: 'signer-session-row',
-    activityList: 'signer-activity-list',
-    activityRow: 'signer-activity-row',
-    revokeConfirm: 'signer-revoke-confirm',
-    approval: 'signer-approval',
-    approvalAllow: 'signer-approval-allow',
-    approvalDeny: 'signer-approval-deny',
-  },
-  myAddress: {
-    screen: 'my-address-screen',
-    address: 'my-address-address',
-    copy: 'my-address-copy',
-    register: 'my-address-register',
-  },
-} as const
-
 /**
  * Wired handles — clickable today. The screen prefix keeps ids unique app-wide.
  *
@@ -41,6 +18,10 @@ export const PENDING_TEST_IDS = {
 export const TEST_IDS = {
   app: {
     ready: 'app-ready',
+    /** Bottom dock tab button; the tab key (`wallet` | `contacts` | `settings`) is data-item-id. */
+    navTab: 'app-nav-tab',
+    /** "Skip install (dev only)" on the PWA install screen — i18n text must not be the handle. */
+    installSkip: 'app-install-skip',
   },
   settings: {
     categoryRow: 'settings-category-row',

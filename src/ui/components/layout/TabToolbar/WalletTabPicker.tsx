@@ -1,6 +1,7 @@
 import { motion } from 'motion/react'
 
 import { isExternalNavigation } from '@/ui/navigation/navigation-store'
+import { TEST_IDS, rowAttrs } from '@/ui/lib/test-ids'
 import type { NavItem } from '../nav-item'
 import { pickerTabIds, springTransition } from './styles'
 
@@ -50,6 +51,7 @@ export function WalletTabPicker({ navItems, activeTab, onTabSelect }: WalletTabP
           <motion.button
             key={id}
             type="button"
+            {...rowAttrs(TEST_IDS.app.navTab, id)}
             aria-current={isActive ? 'page' : undefined}
             // Re-tapping the active tab is a no-op — don't remount the screen.
             onClick={() => {

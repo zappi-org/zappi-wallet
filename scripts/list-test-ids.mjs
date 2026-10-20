@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 /**
- * Print the test-id inventory — WIRED (clickable) first, then PENDING (screen not here yet).
+ * Print the test-id inventory — the handles agents drive the app by.
  *
- *   npm run testids
+ *   npm run testids           # inventory
+ *   npm run testids -- --check # exit 1 if a declared handle is never referenced
  *
  * Reads src/ui/lib/test-ids.ts, so it prints what the code uses, not a doc that rots.
  */
@@ -30,5 +31,15 @@ function printGroup(title, group) {
 }
 
 printGroup('WIRED — clickable today', mod.TEST_IDS)
-printGroup('PENDING — screen not on this branch yet', mod.PENDING_TEST_IDS)
-console.log('\nOnly WIRED handles are reachable; PENDING ones ship with their screen.')
+
+if (process.argv.includes('--check')) {
+  const { checkTestIds } = await import('./test-ids-check.mjs')
+  const srcRoot = new URL('../src', import.meta.url).pathname
+  const { ok, problems, checked } = checkTestIds({ inventory: mod.TEST_IDS, srcRoot })
+  if (!ok) {
+    console.error(`\n✗ ${problems.length} drift problem(s) in ${checked} handles:`)
+    for (const problem of problems) console.error(`  - ${problem}`)
+    process.exit(1)
+  }
+  console.log(`\n✓ all ${checked} handles are referenced by a component`)
+}

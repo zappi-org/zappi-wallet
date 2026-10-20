@@ -1,9 +1,9 @@
 /**
- * TEST_IDS guard: no duplicate values (across both groups), no screen-prefix drift, and the
- * wired/pending groups stay disjoint so a promoted handle can't be forgotten in both.
+ * TEST_IDS guard: no duplicate values, no screen-prefix drift. Drift against the components
+ * that render them is covered by test-ids-usage.test.ts.
  */
 import { describe, it, expect } from 'vitest'
-import { PENDING_TEST_IDS, TEST_IDS, rowAttrs, stateAttrs } from '@/ui/lib/test-ids'
+import { TEST_IDS, rowAttrs, stateAttrs } from '@/ui/lib/test-ids'
 
 function entriesOf(group: Record<string, Record<string, string>>) {
   return Object.entries(group).flatMap(([screen, ids]) =>
@@ -11,12 +11,10 @@ function entriesOf(group: Record<string, Record<string, string>>) {
   )
 }
 
-const wired = entriesOf(TEST_IDS)
-const pending = entriesOf(PENDING_TEST_IDS)
-const all = [...wired, ...pending]
+const all = entriesOf(TEST_IDS)
 
 describe('test-id inventory', () => {
-  it('has no duplicate values across wired AND pending handles', () => {
+  it('has no duplicate values', () => {
     const seen = new Set<string>()
     for (const { value } of all) {
       expect(seen.has(value), `duplicate id: ${value}`).toBe(false)
@@ -29,13 +27,6 @@ describe('test-id inventory', () => {
       const prefix = screen.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)
       expect(value, `${screen}/${value}`).toMatch(/^[a-z0-9]+(-[a-z0-9]+)*$/)
       expect(value.startsWith(`${prefix}-`), `${value} should start with ${prefix}-`).toBe(true)
-    }
-  })
-
-  it('keeps the two groups disjoint — a pending handle that went live must move', () => {
-    const wiredScreens = new Set(Object.keys(TEST_IDS))
-    for (const screen of Object.keys(PENDING_TEST_IDS)) {
-      expect(wiredScreens.has(screen), `${screen} is in both groups`).toBe(false)
     }
   })
 })
