@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from 'vitest'
 import {
   DEV_SEED_MNEMONIC,
   DEV_SEED_PIN,
+  readInjectedSeed,
   isDevSeedRequested,
   seedDevWallet,
 } from '@/ui/lib/dev-seed'
@@ -21,6 +22,21 @@ describe('isDevSeedRequested', () => {
   })
 })
 
+const storageWith = (value: string | null) => ({ getItem: vi.fn(() => value) })
+
+describe('readInjectedSeed', () => {
+  it('accepts a script-injected phrase of 12+ words', () => {
+    const injected = 'legal winner thank year wave sausage worth useful legal winner thank yellow'
+    expect(readInjectedSeed(storageWith(injected))).toBe(injected)
+  })
+
+  it('rejects absent, blank, and short values (a typo must not become a wallet)', () => {
+    for (const value of [null, '', '   ', 'abandon abandon about']) {
+      expect(readInjectedSeed(storageWith(value))).toBeNull()
+    }
+  })
+})
+
 describe('seedDevWallet', () => {
   const makeSecurity = (has: boolean) => ({
     hasWallet: vi.fn(async () => has),
@@ -29,12 +45,21 @@ describe('seedDevWallet', () => {
     createWallet: vi.fn(async () => ({ ok: true, value: { keys: {}, bip39Seed: new Uint8Array() } })),
   })
 
-  it('creates the wallet with the fixed vector and PIN when none exists', async () => {
+  it('creates the wallet with the built-in vector and PIN when nothing is injected', async () => {
     const security = makeSecurity(false)
 
-    await expect(seedDevWallet(security)).resolves.toBe(true)
+    await expect(seedDevWallet(security, storageWith(null))).resolves.toBe(true)
 
     expect(security.createWallet).toHaveBeenCalledWith(DEV_SEED_MNEMONIC, DEV_SEED_PIN)
+  })
+
+  it('lets a script-injected phrase override the built-in vector', async () => {
+    const security = makeSecurity(false)
+    const injected = 'legal winner thank year wave sausage worth useful legal winner thank yellow'
+
+    await expect(seedDevWallet(security, storageWith(injected))).resolves.toBe(true)
+
+    expect(security.createWallet).toHaveBeenCalledWith(injected, DEV_SEED_PIN)
   })
 
   it('leaves an existing wallet alone — a seeded automation run must not overwrite state', async () => {
