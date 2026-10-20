@@ -35,7 +35,28 @@ function App() {
         setSettings(savedSettings)
 
         const hasWallet = await services.security.hasWallet()
-        setIsOnboarded(hasWallet)
+        if (hasWallet) {
+          setIsOnboarded(true)
+          return
+        }
+
+        // Dev-only `?seed=1` (src/ui/lib/dev-seed.ts) — provisions a throwaway wallet so
+        // browser automation never has to drive onboarding. The dynamic import sits behind
+        // `import.meta.env.DEV`, which Vite folds to `false` in a production build, so the
+        // seed module (and its test-vector mnemonic) never reaches the prod bundle.
+        if (import.meta.env.DEV) {
+          const { isDevSeedRequested, seedDevWallet } = await import('@/ui/lib/dev-seed')
+          if (isDevSeedRequested()) {
+            const seeded = await seedDevWallet(services.security).catch((e) => {
+              console.error('[DevSeed] seeding failed:', e)
+              return false
+            })
+            setIsOnboarded(seeded)
+            return
+          }
+        }
+
+        setIsOnboarded(false)
       } catch (error) {
         console.error('Init error:', error)
         setIsOnboarded(false)

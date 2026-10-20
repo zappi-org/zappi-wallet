@@ -8,6 +8,7 @@ import { sat, toNumber } from '@/core/domain/amount'
 import { resolveSendRoute, resolveDirectPaymentOrLookupFailure, SEND_ROUTE_ERROR_I18N } from '@/core/domain/send-route-resolution'
 import { InsufficientBalanceError } from '@/core/errors/payment.errors'
 import { ServiceProvider } from '@/ui/hooks/service-context'
+import { TEST_IDS } from '@/ui/lib/test-ids'
 import { useAppNavigation } from '@/ui/hooks/use-app-navigation'
 import type { Screen } from '@/ui/hooks/use-app-navigation'
 import { useAutoLock } from '@/ui/hooks/use-auto-lock'
@@ -636,6 +637,18 @@ export default function MainApp() {
     await applyUnlock(result.value)
     return true
   }, [preUnlock.security, applyUnlock])
+
+  // Dev-only `?seed=1` (src/ui/lib/dev-seed.ts): unlock with the fixed dev PIN so browser
+  // automation never drives the keypad. The dynamic import is dead code in a production
+  // build (`import.meta.env.DEV` folds to false), so the seed module is never bundled.
+  useEffect(() => {
+    if (!isLocked || isInitializing || !import.meta.env.DEV) return
+    void (async () => {
+      const { DEV_SEED_PIN, isDevSeedRequested } = await import('@/ui/lib/dev-seed')
+      if (!isDevSeedRequested()) return
+      await handleUnlock(DEV_SEED_PIN)
+    })().catch((e) => console.error('[DevSeed] auto-unlock failed:', e))
+  }, [isLocked, isInitializing, handleUnlock])
 
   // Security handlers (auto-lock / PIN change·verify / mnemonic backup / logout).
   // handleUnlock stays in MainApp — it's the bootstrap shim (registry generation
@@ -1363,7 +1376,7 @@ export default function MainApp() {
   // Main app content
   const mainContent = (
     <>
-      <div className="relative h-full overflow-hidden">
+      <div className="relative h-full overflow-hidden" data-testid={TEST_IDS.app.ready}>
         <AppStack renderScreen={renderStackScreen} />
       </div>
 

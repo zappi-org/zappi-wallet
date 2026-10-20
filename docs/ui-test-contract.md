@@ -66,3 +66,21 @@ id는 한국어 라벨을 영문으로 바꾼 것이 아니다. **라벨이 바�
 3. 리스트는 `rowAttrs`, 상태 컨테이너는 `stateAttrs`.
 4. `bun scripts/list-test-ids.mjs`로 목록 확인.
 5. 스크린샷 1장 + `data-state` 확인으로 실제 브라우저에서 검증.
+
+## 7. 진입점 — dev seed (`?seed=1`)
+
+브라우저 자동화의 시작점. 새 프로필은 지갑이 없어 매 실행마다 온보딩(니모닉 생성→확인→PIN→PIN확인)을
+타야 하는데, `?seed=1`이 그 6단계를 없앤다 (`src/ui/lib/dev-seed.ts`).
+
+```bash
+# dev 서버에서만. 프로덕션 번들에서는 import.meta.env.DEV가 false로 치환돼 코드가 제거된다.
+http://localhost:5174/?seed=1
+```
+
+1. `App.tsx` — 지갑이 없으면 공개 BIP-39 테스트 벡터로 생성하고 바로 메인 셸로 진입
+2. `MainApp` — `DEV_SEED_PIN`으로 자동 언락 (키패드 조작 없음)
+3. 앱 셸 컨테이너에 `data-testid="app-ready"` 부여 → **이 요소의 존재가 "사용 가능 상태"의 단언**
+
+주의: seed 니모닉은 공개 테스트 벡터다(실자산 금지). 이미 지갑이 있으면 아무것도 하지 않아
+기존 상태를 덮어쓰지 않는다. PIN을 바꾸고 싶으면 `DEV_SEED_PIN`을 고친다 — 환경변수로 뺄 만큼의
+변동성은 아직 없다.
