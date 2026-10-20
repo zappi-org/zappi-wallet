@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react'
 import { NumericKeypad } from './NumericKeypad'
 import { Button } from './Button'
+import type { UiRegionState } from '@/ui/lib/test-ids'
 
 export interface PinInputProps {
   value: string
@@ -59,9 +60,13 @@ export function PinInput({
 
   const isComplete = value.length === length
   const isSubmitDisabled = !isComplete || disabled || loading
+  const state: UiRegionState = error ? 'error' : 'ready'
 
   return (
-    <div className="flex flex-col items-center w-full max-w-sm mx-auto">
+    <div
+      className="flex flex-col items-center w-full max-w-sm mx-auto"
+      data-state={state}
+    >
       {label && (
         <p className="text-foreground-muted text-caption mb-4">{label}</p>
       )}
