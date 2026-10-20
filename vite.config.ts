@@ -1,7 +1,7 @@
 import path from 'path'
 import fs from 'node:fs'
 import { execSync } from 'node:child_process'
-import { defineConfig } from 'vitest/config'
+import { configDefaults, defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
@@ -138,6 +138,19 @@ const httpsConfig =
       }
     : undefined
 
+// ponytail: UI (React-rendering) suite is opt-in via UI_TESTS=1 — default `test` script and
+// CI only see non-UI tests. Swap for vitest `projects` if the split grows past two suites.
+const TEST_PATTERN = `*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}`
+const UI_TEST_DIRS = [
+  'src/__tests__/unit/ui/**',
+  'src/__tests__/unit/screens/**',
+  'src/__tests__/unit/components/**',
+  'src/__tests__/unit/hooks/**',
+  'src/ui/**',
+]
+const UI_TEST_INCLUDE = UI_TEST_DIRS.map((dir) => `${dir}/${TEST_PATTERN}`)
+const runUiOnly = process.env.UI_TESTS === '1'
+
 export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(appVersion),
@@ -164,7 +177,10 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/__tests__/setup.ts'],
-    include: ['src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
+    // include + exclude split the suites: `UI_TESTS=1` runs UI only, otherwise everything else.
+    // configDefaults.exclude is spread back because setting `exclude` replaces vitest's defaults.
+    include: runUiOnly ? UI_TEST_INCLUDE : [`src/**/${TEST_PATTERN}`],
+    exclude: [...configDefaults.exclude, ...(runUiOnly ? [] : UI_TEST_DIRS)],
     coverage: {
       reporter: ['text', 'json', 'html'],
       // include also counts un-imported files (without it they escape coverage stats;

@@ -61,3 +61,6 @@ screenshots/
 .impeccable/
 skills-lock.json
 PRODUCT.md
+
+# agent-local sandbox config (absolute machine paths)
+.pi/
