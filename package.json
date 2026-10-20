@@ -11,6 +11,8 @@
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "test:ui": "UI_TESTS=1 vitest",
+    "test:ui:run": "UI_TESTS=1 vitest run",
     "check:phantom": "node scripts/check-phantom-deps.mjs"
   },
   "dependencies": {
