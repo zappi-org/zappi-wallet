@@ -5,6 +5,7 @@ import { Cog6ToothIcon, WalletIcon } from '@heroicons/react/24/outline'
 import { useTranslation } from 'react-i18next'
 import { useAppStore, type UpdatePhase } from '@/store'
 import { Button } from '@/ui/components/common/Button'
+import { TEST_IDS, rowAttrs } from '@/ui/lib/test-ids'
 import { checkForAppUpdate, updateSW } from '@/registerSW'
 import { appBuildInfo } from '@/ui/utils/app-build-info'
 import { ENABLE_LIGHTNING_ADDRESS_SETTINGS } from '@/ui/config/feature-flags'
@@ -75,6 +76,7 @@ export function SettingsMainList({
             <button
               key={page}
               onClick={() => onNavigate(page)}
+              {...rowAttrs(TEST_IDS.settings.categoryRow, page)}
               className="w-full bg-background-card rounded-card px-4 py-4 flex items-center gap-3.5 active:scale-[0.98] active:opacity-80 transition-all text-left"
             >
               <Icon className="w-[22px] h-[22px] text-foreground-muted shrink-0" strokeWidth={1.8} />
