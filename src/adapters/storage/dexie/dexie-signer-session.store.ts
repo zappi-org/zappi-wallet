@@ -1,12 +1,13 @@
 /**
  * DexieSignerSessionStore — SignerSessionStore implementation.
  *
- * Three tables (v24): connected sessions, the durable processed-request ledger,
- * and single-use connect secrets. The ledgers are pruned by `pruneProcessed`
- * on start; kind:24133 is ephemeral but non-compliant relays can redeliver.
+ * Four tables: connected sessions, the durable processed-request ledger,
+ * single-use connect secrets, and the signed-event activity log. The ledgers are
+ * pruned by `pruneProcessed` on start; kind:24133 is ephemeral but non-compliant
+ * relays can redeliver.
  */
 
-import type { SignerSession } from '@/core/domain/remote-signing'
+import type { SignerSession, SignerSignedEvent } from '@/core/domain/remote-signing'
 import type { SignerSessionStore } from '@/core/ports/driven/signer-session-store.port'
 import { getDatabase } from './schema'
 
@@ -51,5 +52,13 @@ export class DexieSignerSessionStore implements SignerSessionStore {
 
   async releaseSecret(secret: string): Promise<void> {
     await getDatabase().signerSecrets.delete(secret)
+  }
+
+  async logSigned(activity: SignerSignedEvent): Promise<void> {
+    await getDatabase().signerActivity.put(activity)
+  }
+
+  async listRecentSigned(limit: number): Promise<SignerSignedEvent[]> {
+    return getDatabase().signerActivity.orderBy('signedAt').reverse().limit(limit).toArray()
   }
 }

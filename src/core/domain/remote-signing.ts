@@ -66,6 +66,20 @@ export interface SignerSession {
   lastUsedAt: number
 }
 
+/** One `sign_event` we answered — kept only for the recent-activity list. */
+export interface SignerSignedEvent {
+  /** Signed event id (dedupe key). */
+  id: string
+  clientPubkey: string
+  kind: number
+  /** The signed event's own `created_at`, in seconds. */
+  createdAt: number
+  /** Local persist time in ms — display ordering. */
+  signedAt: number
+  /** Display-only truncated summary (see summarizeEvent). */
+  preview: string
+}
+
 export interface SignerRequest {
   id: string
   method: string

@@ -20,6 +20,7 @@ import type {
   NostrConnectRequest,
   SignerPermission,
   SignerSession,
+  SignerSignedEvent,
   SignerUriError,
 } from '@/core/domain/remote-signing'
 
@@ -40,6 +41,9 @@ const METHOD_LABEL: Record<string, string> = {
   ping: '연결 확인',
   logout: '연결 해제',
 }
+
+/** How many signatures the hub page shows. */
+const RECENT_LIMIT = 5
 
 function permissionLabel(p: SignerPermission): string {
   if (p.method === 'sign_event') {
@@ -76,6 +80,7 @@ export function SignerScreen({ onBack }: { onBack: () => void }) {
   const addToast = useAppStore((s) => s.addToast)
 
   const [sessions, setSessions] = useState<SignerSession[]>([])
+  const [recent, setRecent] = useState<SignerSignedEvent[]>([])
   const [pending, setPending] = useState<NostrConnectRequest | null>(null)
   const [busy, setBusy] = useState(false)
   const [showScanner, setShowScanner] = useState(false)
@@ -86,6 +91,10 @@ export function SignerScreen({ onBack }: { onBack: () => void }) {
       .listSessions()
       .then(setSessions)
       .catch((e) => console.error('[Signer] listSessions failed:', e))
+    registry.remoteSigning
+      .listRecentSigned(RECENT_LIMIT)
+      .then(setRecent)
+      .catch((e) => console.error('[Signer] listRecentSigned failed:', e))
   }, [registry])
 
   useEffect(() => {
@@ -96,9 +105,11 @@ export function SignerScreen({ onBack }: { onBack: () => void }) {
   useEffect(() => {
     const offOpen = registry.eventBus.on('signer:session-opened', reload)
     const offRevoked = registry.eventBus.on('signer:session-revoked', reload)
+    const offSigned = registry.eventBus.on('signer:event-signed', reload)
     return () => {
       offOpen()
       offRevoked()
+      offSigned()
     }
   }, [registry, reload])
 
@@ -250,6 +261,22 @@ export function SignerScreen({ onBack }: { onBack: () => void }) {
                 >
                   <Trash2 className="w-[18px] h-[18px]" />
                 </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <p className="text-caption text-foreground-muted px-1 pt-3">최근 서명</p>
+        {recent.length === 0 ? (
+          <p className="text-body text-foreground-muted px-1 py-6 text-center">서명 기록이 없습니다</p>
+        ) : (
+          <div className="flex flex-col gap-2.5">
+            {recent.map((item) => (
+              <div key={item.id} className="bg-background-card rounded-card px-4 py-3">
+                <p className="text-body truncate">{item.preview}</p>
+                <p className="text-caption text-foreground-muted mt-1 font-mono">
+                  {item.id.slice(0, 16)}… · {new Date(item.signedAt).toLocaleString()}
+                </p>
               </div>
             ))}
           </div>

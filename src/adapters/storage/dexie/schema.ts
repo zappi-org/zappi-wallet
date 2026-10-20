@@ -2,7 +2,7 @@ import Dexie, { type Table } from 'dexie'
 import type { Transaction, WalletSettings, MintMetadata, ExchangeRateCache, Contact } from '@/core/types'
 import type { ProcessedRecord, SyncAnchor } from '@/core/types'
 import type { GiftwrapCursorRecord } from '@/core/domain/giftwrap-cursor'
-import type { SignerSession } from '@/core/domain/remote-signing'
+import type { SignerSession, SignerSignedEvent } from '@/core/domain/remote-signing'
 import type {
   SupportAttachment,
   SupportCategory,
@@ -301,6 +301,7 @@ export class ZappiDatabase extends Dexie {
   signerSessions!: Table<SignerSession, string>
   signerProcessed!: Table<SignerProcessedRecord, string>
   signerSecrets!: Table<SignerSecretRecord, string>
+  signerActivity!: Table<SignerSignedEvent, string>
 
   constructor() {
     super(DATABASE.NAME)
@@ -379,6 +380,9 @@ export class ZappiDatabase extends Dexie {
       signerSessions: 'clientPubkey, lastUsedAt',
       signerProcessed: 'id, expiresAt',
       signerSecrets: 'secret, expiresAt',
+
+      // v25: signed-event activity log ("recent signatures" list)
+      signerActivity: 'id, clientPubkey, signedAt',
     })
   }
 }

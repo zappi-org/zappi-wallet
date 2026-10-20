@@ -1,4 +1,4 @@
-import type { SignerSession } from '@/core/domain/remote-signing'
+import type { SignerSession, SignerSignedEvent } from '@/core/domain/remote-signing'
 
 /**
  * SignerSessionStore — persistence for NIP-46 signer state.
@@ -16,6 +16,10 @@ export interface SignerSessionStore {
   hasProcessed(id: string): Promise<boolean>
   markProcessed(id: string, expiresAt: number): Promise<void>
   pruneProcessed(now: number): Promise<void>
+
+  logSigned(activity: SignerSignedEvent): Promise<void>
+  /** Newest first. */
+  listRecentSigned(limit: number): Promise<SignerSignedEvent[]>
 
   hasUsedSecret(secret: string): Promise<boolean>
   markSecretUsed(secret: string, expiresAt: number): Promise<void>

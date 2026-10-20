@@ -29,6 +29,7 @@ export type DomainEvent =
   | SignerSessionOpenedEvent
   | SignerSessionRevokedEvent
   | SignerApprovalRequestedEvent
+  | SignerEventSignedEvent
 
 export interface PaymentCompletedEvent {
   type: 'payment:completed'
@@ -232,4 +233,9 @@ export interface SignerSessionRevokedEvent {
 export interface SignerApprovalRequestedEvent {
   type: 'signer:approval-requested'
   payload: { request: SignerApprovalRequest }
+}
+
+export interface SignerEventSignedEvent {
+  type: 'signer:event-signed'
+  payload: { id: string; clientPubkey: string; kind: number }
 }

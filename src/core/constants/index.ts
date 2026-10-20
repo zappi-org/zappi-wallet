@@ -124,7 +124,8 @@ export const DATABASE = {
   //      was removable. Surviving tables pass the schema diff losslessly)
   // v24: added signerSessions/signerProcessed/signerSecrets (NIP-46 remote signer:
   //      connected clients + durable anti-replay ledgers)
-  VERSION: 24,
+  // v25: added signerActivity (NIP-46 signed-event log for the recent-signatures list)
+  VERSION: 25,
 } as const
 
 /**

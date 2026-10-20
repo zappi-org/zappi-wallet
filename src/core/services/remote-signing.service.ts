@@ -14,6 +14,7 @@ import {
   type SignerRequest,
   type SignerResponse,
   type SignerSession,
+  type SignerSignedEvent,
   type SignerUriResult,
 } from '@/core/domain/remote-signing'
 import type { NostrEvent, UnsignedNostrEvent } from '@/core/domain/nostr'
@@ -102,6 +103,10 @@ export class RemoteSigningService implements RemoteSigningUseCase {
 
   async listSessions(): Promise<SignerSession[]> {
     return this.store.listSessions()
+  }
+
+  async listRecentSigned(limit = 5): Promise<SignerSignedEvent[]> {
+    return this.store.listRecentSigned(limit)
   }
 
   async revokeSession(clientPubkey: string): Promise<void> {
@@ -245,11 +250,31 @@ export class RemoteSigningService implements RemoteSigningUseCase {
       if (!allow) return { id, error: 'permission denied' }
     }
 
+    let signed: NostrEvent
     try {
-      return { id, result: JSON.stringify(this.transport.signEvent(event)) }
+      signed = this.transport.signEvent(event)
     } catch {
       return { id, error: 'signing failed' }
     }
+
+    // ponytail: best-effort append-only log. Grows unbounded — add pruning when a
+    // full activity screen (not just "recent 5") needs it.
+    void this.store
+      .logSigned({
+        id: signed.id,
+        clientPubkey: session.clientPubkey,
+        kind: event.kind,
+        createdAt: event.created_at,
+        signedAt: this.config.now?.() ?? Date.now(),
+        preview: summarizeEvent(event),
+      })
+      .catch(() => {})
+    this.eventBus.emit({
+      type: 'signer:event-signed',
+      payload: { id: signed.id, clientPubkey: session.clientPubkey, kind: event.kind },
+    })
+
+    return { id, result: JSON.stringify(signed) }
   }
 
   private requestApproval(session: SignerSession, event: UnsignedNostrEvent): Promise<boolean> {

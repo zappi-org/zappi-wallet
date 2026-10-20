@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { RemoteSigningService } from '@/core/services/remote-signing.service'
 import { createEventBus } from '@/core/events/event-bus'
-import { SIGNER_REQUEST_KIND, type NostrConnectRequest, type SignerPermission, type SignerResponse, type SignerSession } from '@/core/domain/remote-signing'
+import { SIGNER_REQUEST_KIND, type NostrConnectRequest, type SignerPermission, type SignerResponse, type SignerSession, type SignerSignedEvent } from '@/core/domain/remote-signing'
 import type { NostrEvent, UnsignedNostrEvent } from '@/core/domain/nostr'
 import type { EventBus } from '@/core/events/event-bus'
 import type { SignerSessionStore } from '@/core/ports/driven/signer-session-store.port'
@@ -40,6 +40,7 @@ function makeStore() {
   const sessions = new Map<string, SignerSession>()
   const processed = new Set<string>()
   const secrets = new Set<string>()
+  const signed: SignerSignedEvent[] = []
   const store: SignerSessionStore = {
     listSessions: vi.fn(async () => [...sessions.values()]),
     getSession: vi.fn(async (pk: string) => sessions.get(pk) ?? null),
@@ -61,8 +62,14 @@ function makeStore() {
     releaseSecret: vi.fn(async (s: string) => {
       secrets.delete(s)
     }),
+    logSigned: vi.fn(async (a: SignerSignedEvent) => {
+      signed.push(a)
+    }),
+    listRecentSigned: vi.fn(async (limit: number) =>
+      [...signed].sort((x, y) => y.signedAt - x.signedAt).slice(0, limit),
+    ),
   }
-  return { store, sessions, secrets }
+  return { store, sessions, secrets, signed }
 }
 
 function requestEvent(
@@ -191,6 +198,10 @@ describe('RemoteSigningService', () => {
       expect(response?.id).toBe('r1')
       expect(response?.error).toBeUndefined()
       expect(JSON.parse(response?.result ?? '{}')).toMatchObject({ kind: 1, sig: 'x' })
+      // The signed request lands in the recent-activity log, newest first.
+      expect(store.signed).toHaveLength(1)
+      expect(store.signed[0]).toMatchObject({ clientPubkey: CLIENT, kind: 1, preview: 'kind 1: hello' })
+      await expect(service.listRecentSigned(5)).resolves.toHaveLength(1)
     })
 
     it('requires approval for a kind outside the permissions', async () => {

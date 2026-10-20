@@ -4,6 +4,7 @@ import type {
   NostrConnectRequest,
   SignerPermission,
   SignerSession,
+  SignerSignedEvent,
   SignerUriResult,
 } from '@/core/domain/remote-signing'
 
@@ -24,6 +25,8 @@ export interface RemoteSigningUseCase {
   ): Promise<Result<SignerSession, RemoteSigningError>>
 
   listSessions(): Promise<SignerSession[]>
+  /** Most recently signed events, newest first (default 5). */
+  listRecentSigned(limit?: number): Promise<SignerSignedEvent[]>
   revokeSession(clientPubkey: string): Promise<void>
 
   /** Resolve a pending out-of-permission sign_event approval. */
