@@ -113,6 +113,19 @@ wait_testid() { # <testid> <seconds>
 # `?seed=1` provisions the throwaway wallet (src/ui/lib/dev-seed.ts); `mode=standalone`
 # skips the PWA install guard (src/ui/components/PWAInstallGuard.tsx isPWA()).
 step "boot → ?seed=1&mode=standalone"
+# The script owns its seed: it lands in localStorage (origin-scoped, survives reload) and the
+# app prefers it over its built-in vector at wallet creation. `AGENT_UI_SEED` overrides.
+SEED_PHRASE="${AGENT_UI_SEED:-abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about}"
+orca goto --url "$BASE/" >/dev/null 2>&1   # origin must exist before storage works
+# localStorage is per origin (scheme+host+port): injecting into http://, or 127.0.0.1 while
+# booting on localhost, silently seeds a different store and the run falls back to the built-in
+# vector. Compare against the URL we boot with instead of trusting the navigation.
+same_origin=$(orca eval --expression "String(new URL('$BASE').origin === location.origin)" 2>/dev/null | tr -d '\r\n')
+[ "$same_origin" = "true" ] && ok "injection origin matches $BASE" \
+  || fail "injection origin is ${same_origin:-unknown} — expected $(printf '%s' "$BASE" | sed -E 's#(^[a-z]+://[^/]+).*#\1#')"
+orca storage local set --key zappi.dev-seed --value "$SEED_PHRASE" >/dev/null 2>&1 \
+  && ok "seed injected (localStorage zappi.dev-seed)" \
+  || fail "could not inject the seed"
 # Reuse the active tab instead of opening one per run — each run used to leak a tab and
 # the browser session grew until the machine was under memory pressure.
 orca goto --url "$BASE/?seed=1&mode=standalone" >/dev/null 2>&1
