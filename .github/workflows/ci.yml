@@ -17,4 +17,6 @@ jobs:
       - run: bun install --frozen
       - run: bun run lint
       - run: bun run build
+      # Artifact scan: the alias is the guard, this catches what an alias cannot see.
+      - run: bun run check:seed-leak
       - run: bun run test:run

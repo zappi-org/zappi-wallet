@@ -1,14 +1,7 @@
 /**
- * Drift check for the test-id contract, in the one direction a type system cannot see:
- * a handle that is declared in `src/ui/lib/test-ids.ts` but never referenced by a component
- * (renamed prop, dropped attribute, copy-paste leftover). Agents then assert on an id that
- * no screen renders and read the resulting silence as a product bug.
- *
- * The other direction — a screen that hardcodes its own `data-testid` string — is not gated
- * here: a handful of older screens use literal testids for their own unit tests, and they are
- * internal, not part of the agent contract.
- *
- * Shared by `npm run testids -- --check` and the vitest guard, so the two cannot disagree.
+ * Drift check: a handle declared in `src/ui/lib/test-ids.ts` that no component references.
+ * The reverse direction (hardcoded `data-testid`) is not gated — older screens use literal
+ * testids for their own tests, internal and outside the agent contract.
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'

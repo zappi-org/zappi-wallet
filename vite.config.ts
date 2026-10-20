@@ -151,7 +151,8 @@ const UI_TEST_DIRS = [
 const UI_TEST_INCLUDE = UI_TEST_DIRS.map((dir) => `${dir}/${TEST_PATTERN}`)
 const runUiOnly = process.env.UI_TESTS === '1'
 
-export default defineConfig({
+// `mode` is needed to make the dev-seed module unreachable from a production build.
+export default defineConfig(({ mode }) => ({
   define: {
     __APP_VERSION__: JSON.stringify(appVersion),
     __APP_COMMIT__: JSON.stringify(appCommit),
@@ -167,6 +168,11 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      // Must precede '@': that entry matches every '@/...' specifier, and when it went
+      // first the override never fired and the mnemonic shipped.
+      ...(mode === 'production' && {
+        '@/ui/lib/dev-seed': path.resolve(__dirname, './src/ui/lib/dev-seed.prod-stub.ts'),
+      }),
       '@': path.resolve(__dirname, './src'),
     },
   },
@@ -294,4 +300,4 @@ export default defineConfig({
       }
     })
   ],
-})
+}))

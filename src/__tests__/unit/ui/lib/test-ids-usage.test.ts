@@ -1,8 +1,5 @@
-/**
- * Drift guard: every handle declared in `src/ui/lib/test-ids.ts` must be referenced by a
- * component. A declared-but-unrendered id is the worst failure mode for automation — the
- * smoke run reports "element not found" and whoever reads it blames the product.
- */
+/** Declared-but-unrendered handles: the smoke run says "element not found" and the reader
+ * blames the product. */
 import { describe, expect, it } from 'vitest'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'

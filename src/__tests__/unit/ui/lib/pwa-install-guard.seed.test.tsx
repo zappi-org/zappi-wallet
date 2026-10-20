@@ -1,8 +1,5 @@
-/**
- * `?seed=1` is the dev automation entry point, so the install screen must step aside for it —
- * otherwise every automated run stops on a screen whose only escape is an i18n'd button.
- * Negative case kept in the same file: the bypass must not leak into a plain visit.
- */
+/** `?seed=1` must skip the install screen. The second case pins that the bypass does not
+ * leak into a plain visit. */
 import { render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { PWAInstallGuard } from '@/ui/components/PWAInstallGuard'
