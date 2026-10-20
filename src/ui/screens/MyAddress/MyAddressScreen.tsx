@@ -10,6 +10,7 @@ import { Copy, Check, Share2, ChevronRight } from 'lucide-react'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
 import { Button } from '@/ui/components/common/Button'
+import { TEST_IDS } from '@/ui/lib/test-ids'
 import { DirectionalTabPanel } from '@/ui/components/common/DirectionalTabPanel'
 import { SegmentControl } from '@/ui/components/common/SegmentControl'
 import { useAppStore } from '@/store'
@@ -142,10 +143,10 @@ export function MyAddressScreen({ onBack, onOpenSettings }: MyAddressScreenProps
               >
                 <QRCodeDisplay value={value} className="rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.08)]" />
               </button>
-              <p className="mt-4 max-w-full break-all px-4 text-center text-body font-medium">{value}</p>
+              <p className="mt-4 max-w-full break-all px-4 text-center text-body font-medium" data-testid={TEST_IDS.myAddress.address}>{value}</p>
               {/* Copy left, share right — the app-wide order for this pair. */}
               <div className="flex gap-10 mt-4">
-                <button onClick={handleCopy} className="flex min-h-11 items-center gap-1.5 rounded-lg px-3 -mx-3 text-subtitle font-medium text-foreground-muted active:text-foreground active:scale-95 motion-reduce:active:scale-100 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40">
+                <button onClick={handleCopy} data-testid={TEST_IDS.myAddress.copy} className="flex min-h-11 items-center gap-1.5 rounded-lg px-3 -mx-3 text-subtitle font-medium text-foreground-muted active:text-foreground active:scale-95 motion-reduce:active:scale-100 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40">
                   {isCopied() ? <Check className="w-5 h-5 text-brand" /> : <Copy className="w-5 h-5" />}
                   {isCopied() ? t('common.copied') : t('common.copy')}
                 </button>
@@ -159,7 +160,7 @@ export function MyAddressScreen({ onBack, onOpenSettings }: MyAddressScreenProps
             // Lightning tab without a registered address (npub is always derivable).
             <div className="mt-10 flex flex-col items-center gap-4">
               <p className="text-body text-foreground-muted">{t('myAddress.noAddress')}</p>
-              <Button variant="secondary" size="md" onClick={() => { hapticTap(); onOpenSettings() }}>
+              <Button variant="secondary" size="md" data-testid={TEST_IDS.myAddress.register} onClick={() => { hapticTap(); onOpenSettings() }}>
                 {t('myAddress.createAddress')}
               </Button>
             </div>

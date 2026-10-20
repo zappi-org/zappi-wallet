@@ -10,6 +10,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import { Button } from '@/ui/components/common/Button'
 import { Modal } from '@/ui/components/common/Modal'
+import { TEST_IDS } from '@/ui/lib/test-ids'
 import type { SignerApprovalRequest } from '@/core/domain/remote-signing'
 
 const AUTO_DENY_MS = 60_000
@@ -42,9 +43,9 @@ export function SignerApprovalModal() {
   )
 
   return (
-    <Modal isOpen={request !== null} onClose={() => resolve(false)} title="서명 요청">
+    <Modal isOpen={request !== null} onClose={() => resolve(false)} title="서명 요청" testId={TEST_IDS.signer.approval}>
       {request && (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3" data-kind={request.kind}>
           <div>
             <p className="text-body font-medium">{request.name || request.url || '알 수 없는 사이트'}</p>
             {request.url && <p className="text-caption text-foreground-muted break-all">{request.url}</p>}
@@ -57,10 +58,10 @@ export function SignerApprovalModal() {
             <p className="text-body break-all">{request.preview || '(내용 없음)'}</p>
           </div>
           <div className="flex gap-2 mt-2">
-            <Button variant="secondary" size="lg" className="flex-1" onClick={() => resolve(false)}>
+            <Button variant="secondary" size="lg" className="flex-1" data-testid={TEST_IDS.signer.approvalDeny} onClick={() => resolve(false)}>
               거부
             </Button>
-            <Button variant="primary" size="lg" className="flex-1" onClick={() => resolve(true)}>
+            <Button variant="primary" size="lg" className="flex-1" data-testid={TEST_IDS.signer.approvalAllow} onClick={() => resolve(true)}>
               승인
             </Button>
           </div>

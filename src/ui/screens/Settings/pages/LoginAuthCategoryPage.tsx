@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { SettingsDetailPage } from '../components/SettingsDetailPage'
 import { SettingsRow } from '../components/SettingsRow'
+import { TEST_IDS } from '@/ui/lib/test-ids'
 
 interface LoginAuthCategoryPageProps {
   onBack: () => void
@@ -20,6 +21,7 @@ export function LoginAuthCategoryPage({ onBack, onSigner }: LoginAuthCategoryPag
         <div className="bg-background-card">
           <SettingsRow
             label={t('settings.connectedApps')}
+            testId={TEST_IDS.settings.signerEntry}
             onPress={() => onSigner?.()}
           />
         </div>

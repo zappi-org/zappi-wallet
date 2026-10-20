@@ -16,6 +16,7 @@ import { QrScannerModal } from '@/ui/components/common/QrScannerModal'
 import { Button } from '@/ui/components/common/Button'
 import { Modal } from '@/ui/components/common/Modal'
 import { SettingsDetailPage } from '@/ui/screens/Settings/components/SettingsDetailPage'
+import { TEST_IDS, rowAttrs, stateAttrs } from '@/ui/lib/test-ids'
 import type {
   NostrConnectRequest,
   SignerPermission,
@@ -227,12 +228,12 @@ export function SignerScreen({ onBack }: { onBack: () => void }) {
   // ─── Hub: scan/paste + sessions (UC1 entry + UC2) ───
   return (
     <SettingsDetailPage title="연결된 앱" onBack={onBack}>
-      <div className="px-4 pt-4 flex flex-col gap-2.5">
+      <div className="px-4 pt-4 flex flex-col gap-2.5" data-testid={TEST_IDS.signer.screen}>
         <div className="flex gap-2.5">
-          <Button variant="surface" size="lg" className="flex-1" icon={<QrCode className="w-5 h-5" />} onClick={() => setShowScanner(true)}>
+          <Button variant="surface" size="lg" className="flex-1" data-testid={TEST_IDS.signer.scan} icon={<QrCode className="w-5 h-5" />} onClick={() => setShowScanner(true)}>
             스캔하기
           </Button>
-          <Button variant="surface" size="lg" className="flex-1" icon={<ClipboardPaste className="w-5 h-5" />} onClick={handlePaste}>
+          <Button variant="surface" size="lg" className="flex-1" data-testid={TEST_IDS.signer.paste} icon={<ClipboardPaste className="w-5 h-5" />} onClick={handlePaste}>
             붙혀넣기
           </Button>
         </div>
@@ -241,9 +242,9 @@ export function SignerScreen({ onBack }: { onBack: () => void }) {
         {sessions.length === 0 ? (
           <p className="text-body text-foreground-muted px-1 py-6 text-center">연결된 앱이 없습니다</p>
         ) : (
-          <div className="flex flex-col gap-2.5">
-            {sessions.map((session) => (
-              <div key={session.clientPubkey} className="bg-background-card rounded-card p-4 flex items-start gap-3">
+          <div className="flex flex-col gap-2.5" {...stateAttrs(TEST_IDS.signer.sessions, 'ready', sessions.length)}>
+            {sessions.map((session, index) => (
+              <div key={session.clientPubkey} {...rowAttrs(TEST_IDS.signer.sessionRow, session.clientPubkey, index)} className="bg-background-card rounded-card p-4 flex items-start gap-3">
                 <ClientAvatar name={clientName(session)} image={session.image} />
                 <div className="flex-1 min-w-0">
                   <p className="text-body font-medium truncate">{clientName(session)}</p>
@@ -268,11 +269,11 @@ export function SignerScreen({ onBack }: { onBack: () => void }) {
 
         <p className="text-caption text-foreground-muted px-1 pt-3">최근 서명</p>
         {recent.length === 0 ? (
-          <p className="text-body text-foreground-muted px-1 py-6 text-center">서명 기록이 없습니다</p>
+          <p className="text-body text-foreground-muted px-1 py-6 text-center" {...stateAttrs(TEST_IDS.signer.activityList, 'empty', 0)}>서명 기록이 없습니다</p>
         ) : (
-          <div className="flex flex-col gap-2.5">
-            {recent.map((item) => (
-              <div key={item.id} className="bg-background-card rounded-card px-4 py-3">
+          <div className="flex flex-col gap-2.5" {...stateAttrs(TEST_IDS.signer.activityList, 'ready', recent.length)}>
+            {recent.map((item, index) => (
+              <div key={item.id} {...rowAttrs(TEST_IDS.signer.activityRow, item.id, index)} data-kind={item.kind} className="bg-background-card rounded-card px-4 py-3">
                 <p className="text-body truncate">{item.preview}</p>
                 <p className="text-caption text-foreground-muted mt-1 font-mono">
                   {item.id.slice(0, 16)}… · {new Date(item.signedAt).toLocaleString()}
@@ -303,7 +304,7 @@ export function SignerScreen({ onBack }: { onBack: () => void }) {
           <Button variant="secondary" size="lg" className="flex-1" onClick={() => setRevokeTarget(null)}>
             취소
           </Button>
-          <Button variant="destructive" size="lg" className="flex-1" onClick={handleRevoke}>
+          <Button variant="destructive" size="lg" className="flex-1" data-testid={TEST_IDS.signer.revokeConfirm} onClick={handleRevoke}>
             연결 끊기
           </Button>
         </div>

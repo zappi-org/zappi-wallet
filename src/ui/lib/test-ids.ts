@@ -40,8 +40,9 @@ export const TEST_IDS = {
     register: 'my-address-register',
   },
   settings: {
-    signerRow: 'settings-row-signer',
-    myAddressRow: 'settings-row-my-address',
+    /** One id for every category card; the page key lives in `data-item-id`. */
+    categoryRow: 'settings-category-row',
+    signerEntry: 'settings-signer-entry',
   },
 } as const
 
