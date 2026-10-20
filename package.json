@@ -13,7 +13,8 @@
     "test:coverage": "vitest run --coverage",
     "test:ui": "UI_TESTS=1 vitest",
     "test:ui:run": "UI_TESTS=1 vitest run",
-    "check:phantom": "node scripts/check-phantom-deps.mjs"
+    "check:phantom": "node scripts/check-phantom-deps.mjs",
+    "testids": "node scripts/list-test-ids.mjs"
   },
   "dependencies": {
     "@agicash/qr-scanner": "0.1.2",
