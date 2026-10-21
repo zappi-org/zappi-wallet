@@ -4,6 +4,7 @@ import { lightningReceiptCursorKey } from '@/core/domain/lightning-receipt-curso
 import { Ok, Err, type Result } from '@/core/domain/result'
 import type { BaseError } from '@/core/errors/base'
 import { NpubcashApiError } from '@/core/errors/npubcash'
+import { MintConnectionError, TokenSpentError } from '@/core/errors/cashu'
 import type {
   AuthSession,
   AccountInfo,
@@ -236,6 +237,42 @@ describe('NpubcashQuoteWatcher', () => {
       expect(h.mint.mintAndReceive).toHaveBeenCalledTimes(5)
       expect(h.eventBus.emit).not.toHaveBeenCalled()
       expect(h.processedQuotesRepo.markProcessed).not.toHaveBeenCalled()
+      expect(h.pendingQuotesRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ quoteId: 'q1', state: 'retry' }),
+      )
+    })
+
+    it('treats a non-retryable mint rejection as terminal: one attempt, no pending, failure surfaced', async () => {
+      const h = createHarness()
+      h.provider.getPaidQuotes.mockResolvedValue(Ok([quote({ quoteId: 'q1', paidAt: 1_000 })]))
+      h.mint.mintAndReceive.mockRejectedValue(new TokenSpentError('proof already spent'))
+
+      await h.watcher.syncNow()
+
+      // Terminal: no retry loop, and the quote leaves the retry queue for good.
+      expect(h.mint.mintAndReceive).toHaveBeenCalledTimes(1)
+      expect(h.pendingQuotesRepo.save).not.toHaveBeenCalled()
+      expect(h.cursorStore.upsert).toHaveBeenCalledWith(CURSOR_KEY, 1_000)
+      // The user has to know the deposit will never arrive by itself.
+      expect(h.eventBus.emit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'transfer:failed',
+          payload: expect.objectContaining({ transfer: expect.objectContaining({ phase: 'failed' }) }),
+        }),
+      )
+    })
+
+    it('keeps retrying retryable mint errors (connection down is not terminal)', async () => {
+      vi.useFakeTimers()
+      const h = createHarness()
+      h.provider.getPaidQuotes.mockResolvedValue(Ok([quote({ quoteId: 'q1', paidAt: 1_000 })]))
+      h.mint.mintAndReceive.mockRejectedValue(new MintConnectionError('mint.example'))
+
+      const done = h.watcher.syncNow()
+      await vi.runAllTimersAsync()
+      await done
+
+      expect(h.mint.mintAndReceive).toHaveBeenCalledTimes(5)
       expect(h.pendingQuotesRepo.save).toHaveBeenCalledWith(
         expect.objectContaining({ quoteId: 'q1', state: 'retry' }),
       )

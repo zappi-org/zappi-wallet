@@ -6,6 +6,7 @@ import type { PaidQuote } from '@/core/ports/driven/payment-alias-provider.port'
 import type { PaymentAliasProcessedQuotesRepository } from '@/core/ports/driven/payment-alias-processed-quotes.repository.port'
 import type { PaymentAliasPendingQuotesRepository } from '@/core/ports/driven/payment-alias-pending-quotes.repository.port'
 import { isAlreadyRedeemedQuote } from '@/core/services/route-execution.service'
+import { BaseError } from '@/core/errors/base'
 import { RETRY } from '@/core/constants'
 import {
   lightningReceiptCursorKey,
@@ -14,10 +15,23 @@ import {
 
 export type SignerFactory = (privkey: string) => NostrSigner
 
-/** Per-quote result. `retry` is persisted for a later drain; `dead` (expired) and `claimed` are terminal. */
+/**
+ * Per-quote result. `retry` is persisted for a later drain; `claimed`, `dead`
+ * (expired) and `failed` (mint rejected it for good) are terminal.
+ */
 type QuoteHandling =
   | { outcome: 'claimed' }
-  | { outcome: 'retry' | 'dead'; error: string }
+  | { outcome: 'retry' | 'dead' | 'failed'; error: string }
+
+/**
+ * A classified domain error that declares itself non-retryable cannot be fixed by
+ * asking the mint again (token already spent, proof invalid, quote gone, amount
+ * rejected). Retrying those forever only burns requests and hides the failure
+ * from the user. Unclassified errors stay retryable — unknown is not permanent.
+ */
+export function isPermanentQuoteFailure(error: unknown): boolean {
+  return error instanceof BaseError && error.isRetryable === false
+}
 
 const isExpired = (q: PaidQuote): boolean => q.expiry > 0 && Date.now() > toMs(q.expiry)
 
@@ -148,6 +162,38 @@ export function createNpubcashQuoteWatcher(deps: {
     await step(gen, () => processedQuotesRepo.markProcessed(q.quoteId), true)
   }
 
+  /** Surface an unclaimable deposit instead of retrying it into the void. */
+  const emitFailed = async (q: PaidQuote, reason: string, gen: number) => {
+    if (emittedThisSession.has(q.quoteId)) return
+    assertCurrent(gen)
+    emittedThisSession.add(q.quoteId)
+    const now = Date.now()
+    eventBus.emit({
+      type: 'transfer:failed',
+      payload: {
+        reason,
+        transfer: {
+          id: `lightning-address-${q.quoteId}`,
+          txId: `tx-${q.quoteId}`,
+          direction: 'incoming',
+          phase: 'failed',
+          finality: 'immediate',
+          onExpiry: 'expire',
+          transportRef: {
+            type: 'lightning-address',
+            protocol: 'bolt11',
+            mintUrl: q.mintUrl,
+            receivedAmount: q.amount,
+            fee: 0,
+          },
+          createdAt: now,
+          updatedAt: now,
+          amount: q.amount,
+        },
+      },
+    })
+  }
+
   /**
    * Mint and settle one quote. Returns an explicit outcome so the caller can
    * decide the cursor and persistence — never swallows a failure as success.
@@ -166,6 +212,13 @@ export function createNpubcashQuoteWatcher(deps: {
         if (isAlreadySettled(err)) {
           await emitSettled(q, gen)
           return { outcome: 'claimed' }
+        }
+        if (isPermanentQuoteFailure(err)) {
+          console.warn(
+            `[NpubcashQuoteWatcher] mint rejected ${q.quoteId} permanently:`,
+            err,
+          )
+          return { outcome: 'failed', error: String(err) }
         }
         if (attempt === maxRetries - 1) {
           const error = String(err)
@@ -239,7 +292,7 @@ export function createNpubcashQuoteWatcher(deps: {
       }
       const result = await handleQuote(q, gen)
 
-      if (result.outcome === 'claimed' || result.outcome === 'dead') {
+      if (result.outcome === 'claimed' || result.outcome === 'dead' || result.outcome === 'failed') {
         await step(gen, () => pendingQuotesRepo.delete(item.quoteId).catch(() => {}), true)
       } else {
         remaining = true
@@ -287,6 +340,10 @@ export function createNpubcashQuoteWatcher(deps: {
       switch (result.outcome) {
         case 'retry':
           if (!(await savePending(q, result.error, gen))) holdCursor = true;
+          break
+        case 'failed':
+          await step(gen, () => pendingQuotesRepo.delete(q.quoteId).catch(() => {}), true)
+          await emitFailed(q, result.error, gen)
           break
         case 'dead':
         case 'claimed':
