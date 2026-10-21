@@ -400,9 +400,18 @@ export class SwapService implements SwapUseCase {
         finish(() => reject(new Error('Swap receive timed out')))
       }, 5 * 60 * 1000)
 
-      unsubscribe = adapter.onReceiveCompleted!(requestId, () => {
-        finish(resolve)
-      })
+      unsubscribe = adapter.onReceiveCompleted!(
+        requestId,
+        () => {
+          finish(resolve)
+        },
+        // Terminal failure (the mint rejected the issuance for good): fail now
+        // instead of sitting on the 5-minute arrival timeout, which reports
+        // "timed out" for a swap the user can already see never happened.
+        (error) => {
+          finish(() => reject(error))
+        },
+      )
     })
 
     return {

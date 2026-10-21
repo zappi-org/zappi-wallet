@@ -772,6 +772,7 @@ export default {
     networkError: 'A network error occurred',
     timeoutError: 'Request timed out',
     unknownError: 'An unknown error occurred',
+    swapFailedWithReason: 'Failed to move balance: {{reason}}',
     adapterNotFound: 'No payment method available for this operation',
     serviceNotReady: 'Service is starting up — try again in a moment.',
     invalidDestination: 'Unrecognized destination address',

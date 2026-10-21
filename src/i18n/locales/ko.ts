@@ -778,6 +778,7 @@ export default {
     networkError: '네트워크 오류가 발생했습니다',
     timeoutError: '요청 시간이 초과되었습니다',
     unknownError: '알 수 없는 오류가 발생했습니다',
+    swapFailedWithReason: '잔액 이동에 실패했습니다: {{reason}}',
     adapterNotFound: '이 작업을 처리할 결제 수단을 찾을 수 없어요',
     serviceNotReady: '서비스를 준비하고 있어요. 잠시 후 다시 시도해 주세요.',
     invalidDestination: '인식할 수 없는 주소예요',

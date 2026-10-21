@@ -11,6 +11,7 @@ import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
 import { NPUBCASH_DOMAIN } from '@/core/constants'
 import { writeMyAddressCache } from '@/ui/utils/my-address-cache'
+import { translateError } from '@/ui/utils/error-i18n'
 import { isErr } from '@/core/domain/result'
 import { sat } from '@/core/domain/amount'
 import { FundingRequiredError } from '@/core/errors'
@@ -348,7 +349,17 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings, onAddress
         amount: sat(funding.requiredAmount),
       })
       if (isErr(swapResult)) {
-        addToast({ type: 'error', message: (swapResult.error as { message?: string }).message ?? t('settings.usernameChangeFailed') })
+        // A swap that dies at the target mint surfaces as an UNKNOWN error carrying the
+        // mint's own reason (`Invoice already paid or pending`, `Blinded Message is
+        // already signed`). Translating it alone would trade that reason for "an unknown
+        // error" and leave the user with nothing to act on.
+        const swapError = swapResult.error
+        addToast({
+          type: 'error',
+          message: swapError.code === 'UNKNOWN'
+            ? t('errors.swapFailedWithReason', { reason: swapError.message })
+            : translateError(swapError, t),
+        })
         setStep('confirm')
         return
       }

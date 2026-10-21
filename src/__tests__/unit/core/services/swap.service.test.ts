@@ -284,6 +284,40 @@ describe('SwapService', () => {
       expect(unsubscribe).toHaveBeenCalledTimes(1)
     })
 
+    it('fails the swap on a terminal receive failure instead of waiting for the arrival timeout', async () => {
+      const unsubscribe = vi.fn()
+      const failingAdapter = createMockLightningAdapter({
+        // The mint never issues: the arrival callback is never called, only the failure.
+        onReceiveCompleted: vi.fn().mockImplementation((_requestId, _handler, onFailed) => {
+          setTimeout(() => onFailed?.(new Error('Invoice already paid or pending')), 0)
+          return unsubscribe
+        }),
+      })
+      const mod = createMockModule([failingAdapter])
+      service = new SwapService([mod], txRepo, eventBus, quoteMarker)
+
+      const result = await service.executeSwap({
+        sourceAccountId: 'https://mint-a.test',
+        targetAccountId: 'https://mint-b.test',
+        amount: sat(1000),
+      })
+
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+      // The mint's reason, not "Swap receive timed out" five minutes later.
+      expect(result.error.message).toBe('Invoice already paid or pending')
+      expect(eventBus.emit).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'swap:failed' }),
+      )
+      // Both legs are marked failed, so the user's balance is not left looking healthy.
+      expect(txRepo.update).toHaveBeenCalledTimes(2)
+      expect(txRepo.update).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ status: 'failed' }),
+      )
+      expect(unsubscribe).toHaveBeenCalledTimes(1)
+    })
+
     it('works without onReceiveCompleted (instant resolve)', async () => {
       const adapterWithoutCallback = createMockLightningAdapter({
         onReceiveCompleted: undefined,

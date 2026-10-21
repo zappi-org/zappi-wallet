@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MyAddressScreen } from '@/ui/screens/MyAddress/MyAddressScreen'
 import { ChangeUsernameSheet } from '@/ui/screens/Settings/ChangeUsernameSheet'
 import { NPUBCASH_DOMAIN } from '@/core/constants'
-import { FundingRequiredError } from '@/core/errors'
+import { FundingRequiredError, UnknownError } from '@/core/errors'
 
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }))
 vi.mock('@/ui/config/feature-flags', () => ({ ENABLE_LIGHTNING_ADDRESS_SETTINGS: true }))
@@ -204,6 +204,29 @@ describe('no-payable-mint message', () => {
     await flush()
     expect(screen.queryByText('settings.noPayableMint')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'fund' })).toBeInTheDocument()
+  })
+
+  it('wraps a failed swap in the i18n frame instead of toasting the mint raw', async () => {
+    // The mint's reason is English prose from the mint; the sentence around it is ours,
+    // so the toast has to go through t(). A swap that dies at the target mint is an
+    // UNKNOWN error, which translateError would flatten to "unknown error" — losing the
+    // only part the user can act on.
+    state.balance = { byMint: { 'https://mint': 0, 'https://source': 1000 } }
+    executeSwap.mockResolvedValue({
+      ok: false,
+      error: new UnknownError('Invoice already paid or pending'),
+    })
+    await toConfirm()
+    fireEvent.click(screen.getByRole('button', { name: 'settings.pay' }))
+    await flush()
+    fireEvent.click(screen.getByRole('button', { name: 'fund' }))
+    await flush()
+    expect(state.addToast).toHaveBeenCalledWith({
+      type: 'error',
+      message: 'errors.swapFailedWithReason',
+    })
+    // Back on the confirm card, not stuck on the paying spinner.
+    expect(screen.getByRole('button', { name: 'settings.pay' })).toBeInTheDocument()
   })
 
   it('blocks when the fee is the whole balance and no other mint can top it up', async () => {
