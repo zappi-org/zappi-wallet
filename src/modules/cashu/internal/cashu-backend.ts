@@ -694,6 +694,10 @@ export function onMintQuotePaid(quoteId: string, handler: () => void): () => voi
 
 export async function mintAndReceive(quoteId: string, mintUrl: string, amount: number): Promise<void> {
   const manager = await getCocoManager();
+  // The quote can name a mint this wallet has never used (npubcash mints a
+  // deposit on the mint the server picked). coco rejects an untrusted mint with
+  // UnknownMintError, so trust it first or the deposit is never claimable.
+  await ensureMintTrusted(manager, mintUrl);
   const op = await manager.ops.mint.importQuote({
     mintUrl,
     quote: {
