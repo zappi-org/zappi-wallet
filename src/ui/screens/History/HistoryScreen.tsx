@@ -12,6 +12,7 @@ import type { MintInfo } from '@/core/types'
 import { useAppStore } from '@/store'
 import { useWallet, useMintMetadata } from '@/ui/hooks'
 import { getMintBalance, isSameMintUrl, mintUrlKey } from '@/utils/url'
+import { visibleMintUrls } from '@/utils/visible-mint-urls'
 import { getLocaleCode, useFormatSats } from '@/utils/format'
 import type { PendingItem } from '@/core/ports/driving/pending-items.usecase'
 import { isSendToken, type TokenDetails } from '@/ui/types/pending-item-details'
@@ -182,7 +183,7 @@ export function HistoryScreen({
   const { balance } = useWallet()
 
   const availableMints: MintInfo[] = useMemo(() => {
-    return settings.mints.map((url) => ({
+    return visibleMintUrls(settings.mints, balance.byMint).map((url) => ({
       url,
       name: getDisplayName(url),
       alias: settings.mintAliases?.[url],

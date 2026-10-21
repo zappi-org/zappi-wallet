@@ -3,6 +3,7 @@ import { useMemo } from 'react'
 import { useAppStore } from '@/store'
 import { useWallet, useMintMetadata } from '@/ui/hooks'
 import { getMintBalance } from '@/utils/url'
+import { visibleMintUrls } from '@/utils/visible-mint-urls'
 import type { MintInfo } from '@/core/types'
 
 /**
@@ -23,7 +24,7 @@ export function useAvailableMints(extraUrls?: string[]) {
   const { balance } = useWallet()
 
   const availableMints: MintInfo[] = useMemo(() => {
-    return settings.mints.map((url) => ({
+    return visibleMintUrls(mintUrls, balance.byMint).map((url) => ({
       url,
       name: getDisplayName(url),
       alias: settings.mintAliases?.[url],
@@ -31,7 +32,7 @@ export function useAvailableMints(extraUrls?: string[]) {
       iconUrl: getIconUrl(url),
       isOnline: true,
     }))
-  }, [settings.mints, settings.mintAliases, balance.byMint, getDisplayName, getIconUrl])
+  }, [mintUrls, settings.mintAliases, balance.byMint, getDisplayName, getIconUrl])
 
   return { availableMints, getDisplayName, getIconUrl }
 }
