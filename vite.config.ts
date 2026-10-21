@@ -151,7 +151,8 @@ const UI_TEST_DIRS = [
 const UI_TEST_INCLUDE = UI_TEST_DIRS.map((dir) => `${dir}/${TEST_PATTERN}`)
 const runUiOnly = process.env.UI_TESTS === '1'
 
-export default defineConfig({
+// `command` distinguishes the dev server from any build, which is what the dev-seed guard keys on.
+export default defineConfig(({ command }) => ({
   define: {
     __APP_VERSION__: JSON.stringify(appVersion),
     __APP_COMMIT__: JSON.stringify(appCommit),
@@ -167,6 +168,13 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      // Every build, not just mode=production: `vite build --mode staging` still ships a
+      // static import, only the dev server keeps the real module.
+      // Must precede '@': that entry matches every '@/...' specifier, and when it went
+      // first the override never fired and the mnemonic shipped.
+      ...(command === 'build' && {
+        '@/ui/lib/dev-seed': path.resolve(__dirname, './src/ui/lib/dev-seed.prod-stub.ts'),
+      }),
       '@': path.resolve(__dirname, './src'),
     },
   },
@@ -294,4 +302,4 @@ export default defineConfig({
       }
     })
   ],
-})
+}))

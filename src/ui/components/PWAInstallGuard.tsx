@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import zappiImg from '@/assets/zappi.webp'
+import { TEST_IDS } from '@/ui/lib/test-ids'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>
@@ -10,14 +11,27 @@ interface BeforeInstallPromptEvent extends Event {
 
 // Detect if running as installed PWA
 function isPWA(): boolean {
-  const urlParams = new URLSearchParams(window.location.search)
-  if (urlParams.get('mode') === 'standalone') return true
+  if (isDevEscape(window.location.search)) return true
   if (window.matchMedia('(display-mode: standalone)').matches) return true
   if (window.matchMedia('(display-mode: fullscreen)').matches) return true
   if (window.matchMedia('(display-mode: minimal-ui)').matches) return true
   if ('standalone' in window.navigator && (window.navigator as { standalone?: boolean }).standalone === true) return true
   if (document.referrer.includes('android-app://')) return true
   return false
+}
+
+/**
+ * Install-screen escapes — dev builds only. The install screen keeps wallet storage out of
+ * Safari's 7-day eviction, so a shipped escape loses users' funds after a week of no use.
+ * `check:seed-leak` fails the build if one survives minification.
+ *
+ * `seed` is spelled out rather than imported: a static import of dev-seed would pull the
+ * mnemonic into the production module graph.
+ */
+function isDevEscape(search: string): boolean {
+  if (!import.meta.env.DEV) return false
+  const params = new URLSearchParams(search)
+  return params.has('seed') || params.get('mode') === 'standalone' || params.get('bypass') === 'true'
 }
 
 function getPlatform(): 'ios' | 'android' | 'desktop' {
@@ -131,11 +145,12 @@ export function PWAInstallGuard({ children }: PWAInstallGuardProps) {
         </div>
       </div>
 
-      {/* Dev bypass */}
-      {(import.meta.env.DEV || window.location.search.includes('bypass=true')) && (
+      {/* Dev-only skip button — gated by isDevEscape, so unreachable in a production build */}
+      {import.meta.env.DEV && (
         <div className="shrink-0 px-5 pb-5">
           <button
             onClick={() => setIsInstalled(true)}
+            data-testid={TEST_IDS.app.installSkip}
             className="w-full text-label font-medium text-foreground-muted hover:text-foreground underline underline-offset-2 transition-colors"
           >
             {t('pwa.guard.devSkip')}

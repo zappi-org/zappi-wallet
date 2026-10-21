@@ -10,6 +10,8 @@ export interface ModalProps {
   showCloseButton?: boolean
   closeOnOverlayClick?: boolean
   size?: 'sm' | 'md' | 'lg' | 'full'
+  /** Automation handle for the body; it also carries `data-state="open"` while open. */
+  testId?: string
 }
 
 const sizeStyles = {
@@ -27,6 +29,7 @@ export function Modal({
   showCloseButton = true,
   closeOnOverlayClick = true,
   size = 'md',
+  testId,
 }: ModalProps) {
   const { t } = useTranslation()
   const overlayRef = useRef<HTMLDivElement>(null)
@@ -109,6 +112,8 @@ export function Modal({
     >
       <div
         ref={contentRef}
+        data-testid={testId}
+        data-state="open"
         className={`
           w-full ${sizeStyles[size]}
           bg-background rounded-xl shadow-xl

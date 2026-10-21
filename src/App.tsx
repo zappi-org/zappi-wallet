@@ -35,7 +35,26 @@ function App() {
         setSettings(savedSettings)
 
         const hasWallet = await services.security.hasWallet()
-        setIsOnboarded(hasWallet)
+        if (hasWallet) {
+          setIsOnboarded(true)
+          return
+        }
+
+        // Dev-only `?seed=1`: dynamic import inside the DEV branch keeps the seed module (and
+        // its test-vector mnemonic) out of the production bundle.
+        if (import.meta.env.DEV) {
+          const { isDevSeedRequested, seedDevWallet } = await import('@/ui/lib/dev-seed')
+          if (isDevSeedRequested()) {
+            const seeded = await seedDevWallet(services.security).catch((e) => {
+              console.error('[DevSeed] seeding failed:', e)
+              return false
+            })
+            setIsOnboarded(seeded)
+            return
+          }
+        }
+
+        setIsOnboarded(false)
       } catch (error) {
         console.error('Init error:', error)
         setIsOnboarded(false)

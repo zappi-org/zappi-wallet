@@ -6,6 +6,8 @@ interface SettingsRowProps {
   label: string
   value?: string | null
   onPress: () => void
+  /** Automation handle — explicit, never derived from `label` (which translates). */
+  testId?: string
   variant?: 'nav' | 'copy' | 'danger'
   mono?: boolean
   truncateValue?: boolean
@@ -16,6 +18,7 @@ export function SettingsRow({
   label,
   value,
   onPress,
+  testId,
   variant = 'nav',
   mono = false,
   truncateValue = false,
@@ -34,6 +37,7 @@ export function SettingsRow({
   return (
     <button
       onClick={handlePress}
+      data-testid={testId}
       className="w-full px-4 py-3.5 flex items-center justify-between active:bg-background-hover text-left min-h-[52px]"
     >
       <span className={cn(
