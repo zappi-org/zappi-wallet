@@ -25,11 +25,6 @@ const SUCCESS_DELAY_MS = 1500
 const GHOST_MS = 1000
 const TITLE_ID = 'change-username-title'
 
-/** Balance snapshot present (pre-check needs it). */
-function hasBalanceData(balance: { byMint: Record<string, number> }): boolean {
-  return Object.keys(balance.byMint).length > 0
-}
-
 /** Max-balance mint, excluding the payment mint. */
 function bestFundedMint(
   mintUrls: string[],
@@ -53,6 +48,9 @@ function bestFundedMint(
  * True when some mint (≠ exclude) holds at least the fee. The swap moves the
  * FULL required amount, so the target's own balance doesn't help — only the
  * source's does. Best-balance ≥ fee ⟺ some mint can cover it.
+ *
+ * `mintUrls` is fed the wallet's actual mint keys (`balance.byMint`), not
+ * `settings.mints`: a deposit can land on a mint the user never listed.
  */
 function hasPayableSource(
   mintUrls: string[],
@@ -128,13 +126,16 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings, onAddress
   // Same predicate as handleConfirm's pre-check, evaluated at render so the
   // confirm card blocks before the user taps pay. Self-clears on new price/balance.
   const blockedBeforePay = useMemo(() => {
-    if (!hasBalanceData(balance) || !price?.mintUrl) return false
-    const required = price?.amount ?? 0
+    // Non-sat quotes can't be compared against a sat balance.
+    if (price?.unit !== 'sat' || !price.mintUrl) return false
+    const urls = Object.keys(balance.byMint)
+    const required = price.amount
     return (
+      urls.length > 0 &&
       getMintBalance(price.mintUrl, balance.byMint) < required &&
-      !hasPayableSource(settings.mints, balance.byMint, required, price.mintUrl)
+      !hasPayableSource(urls, balance.byMint, required, price.mintUrl)
     )
-  }, [balance, price, settings.mints])
+  }, [balance, price])
 
   // Ghost-load the address/fee fields on confirm-card entry, then reveal.
   const [revealed, setRevealed] = useState(false)
@@ -251,14 +252,24 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings, onAddress
   const handleConfirm = useCallback(async () => {
     if (!nostrPrivkey) return
 
+    // Judge on the freshest balance, never the render snapshot: the store can
+    // have been emptied (or refilled) since the last paint.
+    const fresh = useAppStore.getState().balance
+    const urls = Object.keys(fresh.byMint)
+    const required = price?.amount ?? 0
+    const paymentMint = price?.mintUrl ?? ''
     // Pre-check skips the failing round-trip when the payment mint is short.
-    const preCheck = hasBalanceData(balance) && price?.mintUrl
-    if (preCheck && getMintBalance(preCheck, balance.byMint) < (price?.amount ?? 0)) {
-      if (!hasPayableSource(settings.mints, balance.byMint, price?.amount ?? 0, preCheck)) {
+    if (
+      price?.unit === 'sat' &&
+      paymentMint &&
+      urls.length > 0 &&
+      getMintBalance(paymentMint, fresh.byMint) < required
+    ) {
+      if (!hasPayableSource(urls, fresh.byMint, required, paymentMint)) {
         setPayBlocked(true)
         return
       }
-      openFundingSheet(preCheck, price?.amount ?? 0)
+      openFundingSheet(paymentMint, required)
       return
     }
 
@@ -268,11 +279,19 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings, onAddress
       const result = await registry.paymentAlias.changeAlias(nostrPrivkey, newUsername, '', t('settings.changeUsername'))
       if (isErr(result)) {
         if (result.error instanceof FundingRequiredError) {
-          // creq mint can differ from the quoted mint.
-          if (!hasPayableSource(settings.mints, balance.byMint, result.error.requiredAmount, result.error.targetMintUrl)) {
+          const { targetMintUrl, requiredAmount } = result.error
+          const latest = useAppStore.getState().balance
+          const latestUrls = Object.keys(latest.byMint)
+          const targetBalance = getMintBalance(targetMintUrl, latest.byMint)
+          // The target may already hold the fee and be short only of the send fee,
+          // so the amount to move is the deficit, not the whole fee again.
+          const deficit = Math.max(requiredAmount - targetBalance, 1)
+          // creq mint can differ from the quoted mint; the source check must use
+          // the same deficit the sheet will swap.
+          if (!hasPayableSource(latestUrls, latest.byMint, deficit, targetMintUrl)) {
             setPayBlocked(true)
           } else {
-            openFundingSheet(result.error.targetMintUrl, result.error.requiredAmount)
+            openFundingSheet(targetMintUrl, deficit)
           }
           setRevealed(false)
           setStep('confirm')
@@ -311,7 +330,7 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings, onAddress
       setRevealed(false)
       setStep('confirm')
     }
-  }, [nostrPrivkey, nostrPubkey, balance, price, newUsername, registry, addToast, updateSettings, onSaveSettings, onAddressChanged, settings, triggerTxRefresh, t, openFundingSheet, currentUsername])
+  }, [nostrPrivkey, nostrPubkey, price, newUsername, registry, addToast, updateSettings, onSaveSettings, onAddressChanged, settings, triggerTxRefresh, t, openFundingSheet, currentUsername])
 
   // Swap-in confirmed: fund payment mint, then retry changeAlias.
   const handleFundingSwap = useCallback(async (sourceMint: string) => {
@@ -364,8 +383,8 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings, onAddress
 
   // Best source pre-select; user still confirms.
   const bestSourceMint = useMemo(
-    () => (funding ? bestFundedMint(settings.mints, balance.byMint, funding.targetMintUrl) : null),
-    [funding, settings.mints, balance.byMint],
+    () => (funding ? bestFundedMint(Object.keys(balance.byMint), balance.byMint, funding.targetMintUrl) : null),
+    [funding, balance.byMint],
   )
 
   const handleBackToInput = useCallback(() => {
@@ -501,7 +520,9 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings, onAddress
           </div>
 
           <div className="mt-5 flex items-center gap-2">
-            {blockedBeforePay || payBlocked ? (
+            {/* Failure line only while the user can still act on it: mid-payment the
+                balance dips below the fee as proofs lock, which is not a failure. */}
+            {step === 'confirm' && (blockedBeforePay || payBlocked) ? (
               <>
                 <XCircle className="mt-0.5 h-3 w-3 shrink-0 text-accent-danger" strokeWidth={1.5} aria-hidden />
                 <p className="text-label leading-4 text-accent-danger">{t('settings.noPayableMint')}</p>
@@ -571,9 +592,11 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings, onAddress
         onClose={() => setFundingSheetOpen(false)}
         onSelect={handleFundingSwap}
         selectedMintUrl={bestSourceMint}
+        mintUrls={Object.keys(balance.byMint).filter((url) => url !== funding?.targetMintUrl)}
         filterFn={(m) => (m.balance ?? 0) > 0}
-        // Swap moves the whole fee, so a source with balance < fee can never cover
-        // it: render it dimmed + "N short" badge (button disabled with a reason).
+        // Swap moves the whole required amount (fee, or the fee deficit when the
+        // payment mint is short only of the send fee), so a source with less
+        // than that can never cover it: render it dimmed + "N short" badge.
         getShortage={funding ? (m) => Math.max(0, funding.requiredAmount - (m.balance ?? 0)) : undefined}
         infoText={funding ? t('settings.swapRequiredBody', { amount: formatSats(funding.requiredAmount) }) : undefined}
         buttonLabel={t('settings.pay')}
