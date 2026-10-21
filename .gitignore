@@ -64,3 +64,6 @@ PRODUCT.md
 
 # agent-local sandbox config (absolute machine paths)
 .pi/
+
+# local npubcash dev-stack runbook (machine-specific paths)
+docs/local-npubcash.md
