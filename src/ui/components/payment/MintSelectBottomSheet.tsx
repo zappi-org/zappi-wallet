@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { BottomSheet } from '@/ui/components/common/BottomSheet'
+import { TEST_IDS, rowAttrs } from '@/ui/lib/test-ids'
 import { hapticTap } from '@/ui/utils/haptic'
 import { useAppStore } from '@/store'
 import { getMintBalance } from '@/utils/url'
@@ -169,6 +170,7 @@ function MintSelectBottomSheetInner({
             return (
               <div
                 key={mint.url}
+                {...rowAttrs(TEST_IDS.mintSelect.card, mint.url)}
                 className="snap-center snap-always shrink-0"
               >
                 <MintCard
@@ -218,6 +220,7 @@ function MintSelectBottomSheetInner({
           <Button
             variant="brand"
             size="xl"
+            data-testid={TEST_IDS.mintSelect.confirm}
             disabled={!localSelected || (!allowEmpty && (!selectedHasBalance || selectedShortage > 0))}
             onClick={handleConfirm}
             className="w-full"

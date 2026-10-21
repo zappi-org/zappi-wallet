@@ -12,6 +12,7 @@ import { useReducedMotion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
 import { Pencil, Copy, Check, Share2, Info, ArrowRightLeft } from 'lucide-react'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
+import { TEST_IDS } from '@/ui/lib/test-ids'
 import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
 import { Button } from '@/ui/components/common/Button'
 import { MintIcon } from '@/ui/components/common/MintIcon'
@@ -317,9 +318,13 @@ export function MyAddressScreen({ onBack, onSaveSettings }: MyAddressScreenProps
                     <div className="mt-[23px]">
                       <p className="text-caption text-foreground-muted">{t('myAddress.addressLabel')}</p>
                       <div className="mt-1 flex items-center justify-between gap-3">
-                        <p className="min-w-0 break-all text-subtitle font-extrabold">{displayAddress}</p>
+                        <p
+                          data-testid={TEST_IDS.myAddress.value}
+                          className="min-w-0 break-all text-subtitle font-extrabold"
+                        >{displayAddress}</p>
                         <button
                           type="button"
+                          data-testid={TEST_IDS.myAddress.edit}
                           onClick={() => { hapticTap(); setUsernameSheetOpen(true); setUsernameSheetOpenCount((c) => c + 1) }}
                           className="flex h-[26px] w-[50px] shrink-0 items-center justify-center gap-1 rounded-[7px] border border-neutral-300 bg-background-card text-[11px] text-foreground active:scale-95 motion-reduce:active:scale-100 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
                         >
@@ -345,6 +350,7 @@ export function MyAddressScreen({ onBack, onSaveSettings }: MyAddressScreenProps
                           <span className="min-w-0 truncate text-body font-medium">{getDisplayName(mintUrl)}</span>
                           <button
                             type="button"
+                            data-testid={TEST_IDS.myAddress.mintEdit}
                             onClick={() => { hapticTap(); setMintPickerOpen(true) }}
                             className="ml-1 flex h-[26px] w-[50px] shrink-0 items-center justify-center gap-1 rounded-[7px] border border-neutral-300 bg-background-card text-[11px] text-foreground active:scale-95 motion-reduce:active:scale-100 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
                           >

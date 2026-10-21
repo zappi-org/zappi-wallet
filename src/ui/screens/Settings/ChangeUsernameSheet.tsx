@@ -3,6 +3,7 @@ import { useReducedMotion } from 'motion/react'
 import { Zap, CheckCircle2, XCircle, Loader2, Info } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { BottomSheet } from '@/ui/components/common/BottomSheet'
+import { TEST_IDS, stateAttrs } from '@/ui/lib/test-ids'
 import { useKeyboardInset } from '@/ui/hooks/use-keyboard-inset'
 import { useFormatSats } from '@/utils/format'
 import { useAppStore } from '@/store'
@@ -446,6 +447,7 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings, onAddress
           <div className="mt-1 flex items-center gap-2">
             <input
               type="text"
+              data-testid={TEST_IDS.changeUsername.input}
               value={newUsername}
               onChange={(e) => handleInputChange(e.target.value)}
               placeholder="username"
@@ -470,6 +472,7 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings, onAddress
             </button>
             <button
               type="button"
+              data-testid={TEST_IDS.changeUsername.submit}
               onClick={handleCheckPrice}
               disabled={!isUsernameValid || step === 'checking'}
               className="flex h-10 flex-1 items-center justify-center gap-2 rounded-[11px] bg-brand text-[11px] font-bold text-white active:scale-[0.98] disabled:opacity-60 transition-transform"
@@ -525,12 +528,18 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings, onAddress
             {step === 'confirm' && (blockedBeforePay || payBlocked) ? (
               <>
                 <XCircle className="mt-0.5 h-3 w-3 shrink-0 text-accent-danger" strokeWidth={1.5} aria-hidden />
-                <p className="text-label leading-4 text-accent-danger">{t('settings.noPayableMint')}</p>
+                <p
+                  {...stateAttrs(TEST_IDS.changeUsername.notice, 'blocked')}
+                  className="text-label leading-4 text-accent-danger"
+                >{t('settings.noPayableMint')}</p>
               </>
             ) : (
               <>
                 <Info className="mt-0.5 h-3 w-3 shrink-0 text-foreground-muted" strokeWidth={1.5} aria-hidden />
-                <p className="text-label leading-4 text-foreground-muted">{t('settings.changeIrreversible')}</p>
+                <p
+                  {...stateAttrs(TEST_IDS.changeUsername.notice, 'info')}
+                  className="text-label leading-4 text-foreground-muted"
+                >{t('settings.changeIrreversible')}</p>
               </>
             )}
           </div>
@@ -547,6 +556,7 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings, onAddress
             </button>
             <button
               type="button"
+              data-testid={TEST_IDS.changeUsername.pay}
               onClick={handleConfirm}
               disabled={step === 'paying' || blockedBeforePay}
               className="flex h-10 flex-1 items-center justify-center gap-2 rounded-[11px] bg-brand text-[11px] font-bold text-white active:scale-[0.98] disabled:opacity-60 transition-transform"
@@ -568,7 +578,10 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings, onAddress
           </div>
         </div>
       ) : step === 'success' ? (
-        <div className="flex flex-col items-center px-7.5 pt-3 pb-1 text-center">
+        <div
+          data-testid={TEST_IDS.changeUsername.success}
+          className="flex flex-col items-center px-7.5 pt-3 pb-1 text-center"
+        >
           <CheckCircle2 className="h-7.5 w-7.5 text-accent-success" strokeWidth={1.6} />
           <p className="mt-3 text-body font-medium text-foreground">{t('settings.changeDone')}</p>
           <p className="mt-2 text-label text-foreground-muted">{t('settings.successAddressLabel')}</p>

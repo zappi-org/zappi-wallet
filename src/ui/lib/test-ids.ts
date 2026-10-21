@@ -25,6 +25,34 @@ export const TEST_IDS = {
   },
   settings: {
     categoryRow: 'settings-category-row',
+    /** Row inside a category detail page; the page key (`my-address`, …) is data-item-id. */
+    pageRow: 'settings-page-row',
+  },
+  myAddress: {
+    /** The live alias text (`<name>@<domain>`) — read it, never click it. */
+    value: 'my-address-value',
+    /** Pencil → opens the username-change sheet. */
+    edit: 'my-address-edit',
+    /** Deposit-mint "change" affordance → opens the mint picker. */
+    mintEdit: 'my-address-mint-edit',
+  },
+  /**
+   * Username purchase sheet. `notice` carries the state an assertion cares about:
+   * `blocked` (no payable mint — only while the user can still act) vs `info`.
+   */
+  changeUsername: {
+    input: 'change-username-input',
+    /** "변경" — price check, then the confirm card. */
+    submit: 'change-username-submit',
+    /** "결제" — spends the fee. */
+    pay: 'change-username-pay',
+    notice: 'change-username-notice',
+    success: 'change-username-success',
+  },
+  mintSelect: {
+    /** One per carousel card; the mint url is data-item-id. */
+    card: 'mint-select-card',
+    confirm: 'mint-select-confirm',
   },
 } as const
 
@@ -46,7 +74,8 @@ export function rowAttrs(
 /** Region attrs: state + count, for assertions that must not parse text. */
 export function stateAttrs(
   testId: string,
-  state: UiRegionState,
+  /** Region states are conventional; a sheet may name its own (e.g. 'blocked'). */
+  state: UiRegionState | string,
   count?: number,
 ): {
   'data-testid': string
