@@ -29,6 +29,10 @@ RUN bun run test:run
 # Build the app
 RUN bun run build
 
+# Artifact gate: the dev mnemonic and install-screen escapes must not reach dist/.
+# Here, not only in CI — this image is what Jenkins deploys.
+RUN bun run check:seed-leak
+
 # Production stage
 FROM nginx:alpine
 

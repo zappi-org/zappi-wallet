@@ -16,6 +16,16 @@ export function seedNeedles(mnemonic = DEV_SEED_MNEMONIC) {
   }
 }
 
+/**
+ * The install-screen escapes in their post-minify shape. Not bare `seed`/`standalone`/`bypass`:
+ * those ship legitimately (i18n copy, display-mode checks, SDK code) and would fire on a clean build.
+ */
+export const DEV_ESCAPE_NEEDLES = [
+  'get("mode")==="standalone"',
+  'get("bypass")==="true"',
+  'has("seed")',
+]
+
 function collectFiles(dir, out = []) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const full = join(dir, entry.name)
@@ -25,11 +35,17 @@ function collectFiles(dir, out = []) {
   return out
 }
 
+function scan({ distDir, matches }) {
+  const files = collectFiles(distDir).filter((file) => matches(readFileSync(file, 'utf-8')))
+  return { leaked: files.length > 0, files }
+}
+
 export function findSeedLeak({ distDir, mnemonic = DEV_SEED_MNEMONIC }) {
   const { plain, spaced } = seedNeedles(mnemonic)
-  const files = collectFiles(distDir).filter((file) => {
-    const text = readFileSync(file, 'utf-8')
-    return text.includes(plain) || spaced.test(text)
-  })
-  return { leaked: files.length > 0, files }
+  return scan({ distDir, matches: (text) => text.includes(plain) || spaced.test(text) })
+}
+
+/** Dev-only install-screen escapes that reached the bundle. */
+export function findDevEscapes({ distDir, needles = DEV_ESCAPE_NEEDLES }) {
+  return scan({ distDir, matches: (text) => needles.some((needle) => text.includes(needle)) })
 }

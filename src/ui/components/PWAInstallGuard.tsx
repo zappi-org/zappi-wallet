@@ -11,8 +11,7 @@ interface BeforeInstallPromptEvent extends Event {
 
 // Detect if running as installed PWA
 function isPWA(): boolean {
-  const urlParams = new URLSearchParams(window.location.search)
-  if (urlParams.get('mode') === 'standalone') return true
+  if (isDevEscape(window.location.search)) return true
   if (window.matchMedia('(display-mode: standalone)').matches) return true
   if (window.matchMedia('(display-mode: fullscreen)').matches) return true
   if (window.matchMedia('(display-mode: minimal-ui)').matches) return true
@@ -22,14 +21,17 @@ function isPWA(): boolean {
 }
 
 /**
- * `?seed=1` is the dev automation entry point and has to reach the app shell, so the install
- * screen steps aside for it. The key is duplicated from src/ui/lib/dev-seed.ts on purpose: a
- * static import from there would pull the dev mnemonic into the production module graph, and
- * a guard test (dev-seed.test.ts) keeps the two spellings in sync.
+ * Install-screen escapes — dev builds only. The install screen keeps wallet storage out of
+ * Safari's 7-day eviction, so a shipped escape loses users' funds after a week of no use.
+ * `check:seed-leak` fails the build if one survives minification.
+ *
+ * `seed` is spelled out rather than imported: a static import of dev-seed would pull the
+ * mnemonic into the production module graph.
  */
-function isDevSeedNavigation(): boolean {
+function isDevEscape(search: string): boolean {
   if (!import.meta.env.DEV) return false
-  return new URLSearchParams(window.location.search).has('seed')
+  const params = new URLSearchParams(search)
+  return params.has('seed') || params.get('mode') === 'standalone' || params.get('bypass') === 'true'
 }
 
 function getPlatform(): 'ios' | 'android' | 'desktop' {
@@ -52,7 +54,7 @@ interface PWAInstallGuardProps {
 
 export function PWAInstallGuard({ children }: PWAInstallGuardProps) {
   const { t } = useTranslation()
-  const [isInstalled, setIsInstalled] = useState(() => isPWA() || isDevSeedNavigation())
+  const [isInstalled, setIsInstalled] = useState(() => isPWA())
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [platform] = useState(() => getPlatform())
 
@@ -143,8 +145,8 @@ export function PWAInstallGuard({ children }: PWAInstallGuardProps) {
         </div>
       </div>
 
-      {/* Dev bypass */}
-      {(import.meta.env.DEV || window.location.search.includes('bypass=true')) && (
+      {/* Dev-only skip button — gated by isDevEscape, so unreachable in a production build */}
+      {import.meta.env.DEV && (
         <div className="shrink-0 px-5 pb-5">
           <button
             onClick={() => setIsInstalled(true)}

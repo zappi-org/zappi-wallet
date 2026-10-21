@@ -1,11 +1,11 @@
-/** A scanner that cannot see a planted leak proves nothing. Also pins precision: the app's
- * i18n has "abandon the remaining …", which must not count as a hit. */
+/** Planted hits prove the scanners work; the clean cases pin precision (i18n wording, and the
+ * bare words `seed`/`standalone`/`bypass` that ship legitimately). */
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import { DEV_SEED_MNEMONIC } from '@/ui/lib/dev-seed'
-import { findSeedLeak } from '../../../../../scripts/seed-leak.mjs'
+import { findDevEscapes, findSeedLeak } from '../../../../../scripts/seed-leak.mjs'
 
 const dir = mkdtempSync(join(tmpdir(), 'seed-leak-'))
 afterAll(() => rmSync(dir, { recursive: true, force: true }))
@@ -30,5 +30,29 @@ describe('seed leak scan', () => {
       'const t = "abandon the remaining {{amount}} on that mint."; const u = "abandon abandon about";',
     )
     expect(findSeedLeak({ distDir: dir })).toEqual({ leaked: false, files: [] })
+  })
+})
+
+describe('install-screen escape scan', () => {
+  const escapeDir = mkdtempSync(join(tmpdir(), 'escape-leak-'))
+  afterAll(() => rmSync(escapeDir, { recursive: true, force: true }))
+
+  it('flags each escape the minifier would emit for a live dev gate', () => {
+    for (const shape of [
+      'p.get("mode")==="standalone"',
+      'p.get("bypass")==="true"',
+      'p.has("seed")',
+    ]) {
+      writeFileSync(join(escapeDir, 'bundle.js'), `const x=${shape}`)
+      expect(findDevEscapes({ distDir: escapeDir }).leaked, shape).toBe(true)
+    }
+  })
+
+  it('does not flag a clean bundle, nor the bare words that legitimately ship', () => {
+    writeFileSync(
+      join(escapeDir, 'bundle.js'),
+      'matchMedia("(display-mode: standalone)");"standalone"in navigator;const bypass=1;seedPhrase;',
+    )
+    expect(findDevEscapes({ distDir: escapeDir })).toEqual({ leaked: false, files: [] })
   })
 })

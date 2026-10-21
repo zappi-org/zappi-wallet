@@ -1,5 +1,5 @@
-/** `?seed=1` must skip the install screen. The second case pins that the bypass does not
- * leak into a plain visit. */
+/** Every install-screen escape must work in dev and be dead in a production build: a shipped
+ * escape strands users in a Safari tab, whose storage Safari evicts after 7 days of no use. */
 import { render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { PWAInstallGuard } from '@/ui/components/PWAInstallGuard'
@@ -12,20 +12,48 @@ function visit(search: string) {
   window.history.replaceState({}, '', `/${search}`)
 }
 
+const ESCAPES = ['?seed=1', '?mode=standalone', '?bypass=true']
+
+function renderGuard() {
+  return render(
+    <PWAInstallGuard>
+      <div data-testid="app-child" />
+    </PWAInstallGuard>,
+  )
+}
+
 afterEach(() => {
   visit('')
+  vi.unstubAllEnvs()
 })
 
 describe('PWAInstallGuard', () => {
   it('renders the app when ?seed=1 is present', () => {
     visit('?seed=1')
-    render(
-      <PWAInstallGuard>
-        <div data-testid="app-child" />
-      </PWAInstallGuard>,
-    )
+    renderGuard()
     expect(screen.getByTestId('app-child')).toBeTruthy()
     expect(screen.queryByTestId('app-install-skip')).toBeNull()
+  })
+
+  it('offers the skip button behind every escape in dev', () => {
+    for (const search of ESCAPES) {
+      vi.stubEnv('DEV', true)
+      visit(search)
+      const { unmount } = renderGuard()
+      expect(screen.getByTestId('app-child'), search).toBeTruthy()
+      unmount()
+    }
+  })
+
+  it('ignores every escape in a production build', () => {
+    vi.stubEnv('DEV', false)
+    for (const search of ESCAPES) {
+      visit(search)
+      const { unmount } = renderGuard()
+      expect(screen.queryByTestId('app-child'), search).toBeNull()
+      expect(screen.queryByTestId('app-install-skip'), search).toBeNull()
+      unmount()
+    }
   })
 
   it('stays on the install screen without the seed param, with a locale-independent skip handle', () => {
