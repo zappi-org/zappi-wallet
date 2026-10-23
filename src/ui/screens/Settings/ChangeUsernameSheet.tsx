@@ -103,10 +103,12 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings, onAddress
   const triggerTxRefresh = useAppStore((s) => s.triggerTxRefresh)
   const registry = useServiceRegistry()
 
-  // Prefill = the current address (the row is gone; the input IS the address).
-  // Mount-time init, not an effect: the parent remounts the sheet per open
-  // (keyed by open count), so state starts fresh without the lint-rejected reset effect.
-  const currentUsername = (settings.lightningAddress ?? '').split('@')[0]
+  // Mount-time init, not an effect: the parent remounts the sheet per open.
+  // Prefill real aliases only — an npub address (the server default when no name
+  // is bought) exceeds maxLength and could only be deleted char by char.
+  const addressLocalPart = (settings.lightningAddress ?? '').split('@')[0]
+  const currentUsername = USERNAME_REGEX.test(addressLocalPart) ? addressLocalPart : ''
+  const unaliasedAddress = currentUsername ? '' : (settings.lightningAddress ?? '')
 
   const [step, setStep] = useState<SheetStep>('input')
   // Prefill from the CURRENT address; no select-all/focus on open.
@@ -416,6 +418,13 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings, onAddress
       <span className="text-caption text-foreground-muted">{t('settings.usernameInvalid')}</span>
     ))
 
+  // npub address: shown, not pre-filled.
+  const idleRow = unaliasedAddress ? (
+    <span className="text-caption text-foreground-muted truncate" title={unaliasedAddress}>
+      {unaliasedAddress}
+    </span>
+  ) : null
+
   // Handle + header in children, like MintSelectBottomSheet: the shared
   // handle block is a 44px-tall centered bar (~20px below the bar); the label
   // wants the tight py-2 pair — same structure, same spacing.
@@ -459,7 +468,7 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings, onAddress
           </div>
           <div className="h-px bg-[#8C8C8C]" />
 
-          <div className="h-7 flex items-center mt-2">{statusRow}</div>
+          <div className="h-7 flex items-center mt-2">{statusRow || idleRow}</div>
 
           <div className="mt-4 flex gap-3 pb-1">
             <button

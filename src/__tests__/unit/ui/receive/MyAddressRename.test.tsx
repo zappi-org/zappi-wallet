@@ -136,6 +136,23 @@ describe('username availability races', () => {
   })
 })
 
+describe('username prefill', () => {
+  const npubAddress = 'npub1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq@zappi.link'
+
+  it('leaves the input empty for an npub-derived address and shows it as a hint', () => {
+    // 63 chars vs maxLength=20 → prefilling makes the field unclearable.
+    state.settings.lightningAddress = npubAddress
+    render(<ChangeUsernameSheet isOpen onClose={vi.fn()} onSaveSettings={vi.fn()} />)
+    expect(screen.getByRole('textbox')).toHaveValue('')
+    expect(screen.getByText(npubAddress)).toBeInTheDocument()
+  })
+
+  it('prefills a real alias', () => {
+    render(<ChangeUsernameSheet isOpen onClose={vi.fn()} onSaveSettings={vi.fn()} />)
+    expect(screen.getByRole('textbox')).toHaveValue('john')
+  })
+})
+
 describe('no-payable-mint message', () => {
   const toConfirm = async () => {
     const view = render(<ChangeUsernameSheet isOpen onClose={vi.fn()} onSaveSettings={vi.fn()} />)
