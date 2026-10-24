@@ -669,19 +669,31 @@ export async function getSendRecoveryOps() {
 }
 
 /**
- * Detect mint-quote payment completion.
- * Subscribes to the SDK's mint-op:finalized event and calls handler when the
- * given quoteId finalizes.
+ * Detect mint-quote settlement.
+ * Subscribes to the SDK's mint-op:finalized event for the given quoteId:
+ * `onPaid` on a finalized op, `onFailed` on a terminal failure (the SDK gives
+ * up retrying). Callers that await the arrival need both — reporting only
+ * success turns a rejected issuance into a silent wait.
  */
-export function onMintQuotePaid(quoteId: string, handler: () => void): () => void {
+export function onMintQuotePaid(
+  quoteId: string,
+  handler: () => void,
+  onFailed?: (error: Error) => void,
+): () => void {
   let unsub: (() => void) | null = null
   let cancelled = false
 
   getCocoManager().then((manager) => {
     if (cancelled) return
     unsub = manager.on('mint-op:finalized', (event) => {
-      if (event.operation.quoteId === quoteId && event.operation.state === 'finalized') {
+      if (event.operation.quoteId !== quoteId) return
+      if (event.operation.state === 'finalized') {
         handler()
+        return
+      }
+      if (event.operation.state === 'failed' && onFailed) {
+        const failure = event.operation.terminalFailure
+        onFailed(new Error(failure?.reason ?? event.operation.error ?? 'Mint issuance failed'))
       }
     })
   }).catch(() => {})

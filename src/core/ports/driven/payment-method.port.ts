@@ -56,9 +56,16 @@ export interface PaymentMethodAdapter {
   estimateReclaimFee?(tx: Transaction): Promise<RedeemFeeEstimate>
 
   // ─── 수신 완료 감지 (비동기 수신 — invoice paid, swap 완료 등) ───
+  /**
+   * `onFailed` fires when the receive can never complete (the mint rejected the
+   * issuance permanently). Without it a caller that is awaiting the arrival —
+   * the swap conductor, for one — can only wait out its own timeout and then
+   * reports "timed out" for something that already failed for a known reason.
+   */
   onReceiveCompleted?(
     requestId: string,
     handler: (result: ReceiveCompletedResult) => void,
+    onFailed?: (error: Error) => void,
   ): () => void
 
   // undefined = no verdict (local record pruned, transport unsure) — never expire on it

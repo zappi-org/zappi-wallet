@@ -64,7 +64,11 @@ export interface LightningBackend {
   checkMintQuote(mintUrl: string, quoteId: string): Promise<{ state: string } | null>
   recoverPendingMelts(): Promise<{ recovered: number; failed: number }>
   recoverPendingQuotes(): Promise<{ recovered: number; failed: number; expired: number }>
-  onMintQuotePaid?(quoteId: string, handler: () => void): () => void
+  onMintQuotePaid?(
+    quoteId: string,
+    handler: () => void,
+    onFailed?: (error: Error) => void,
+  ): () => void
 }
 
 // ─── Adapter ───
@@ -376,17 +380,22 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter, TransferOperato
   onReceiveCompleted(
     requestId: string,
     handler: (result: ReceiveCompletedResult) => void,
+    onFailed?: (error: Error) => void,
   ): () => void {
     if (!this.backend.onMintQuotePaid) {
       return () => { }
     }
-    return this.backend.onMintQuotePaid(requestId, () => {
-      handler({
-        requestId,
-        amount: sat(0),
-        completedAt: Date.now(),
-      })
-    })
+    return this.backend.onMintQuotePaid(
+      requestId,
+      () => {
+        handler({
+          requestId,
+          amount: sat(0),
+          completedAt: Date.now(),
+        })
+      },
+      onFailed,
+    )
   }
 
   async checkAlive(params: CheckAliveParams): Promise<boolean | undefined> {
