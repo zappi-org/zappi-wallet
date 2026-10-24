@@ -50,6 +50,11 @@ describe('TrustRegistryService', () => {
     it('returns false for unknown accountId', async () => {
       await expect(service.isTrusted('https://mint-x.test')).resolves.toBe(false)
     })
+
+    it('matches notation variants of a listed mint', async () => {
+      await expect(service.isTrusted('https://MINT-a.test:443/')).resolves.toBe(true)
+      await expect(service.isTrusted('mint-a.test')).resolves.toBe(true)
+    })
   })
 
   describe('addTrust', () => {
@@ -71,6 +76,14 @@ describe('TrustRegistryService', () => {
       expect(repo.saveSettings).not.toHaveBeenCalled()
     })
 
+    it('is idempotent across notation variants and stores the normalized form', async () => {
+      await service.addTrust('https://MINT-a.test:443/')
+      expect(repo.saveSettings).not.toHaveBeenCalled()
+
+      await service.addTrust('mint-new.test')
+      await expect(service.getTrustedAccounts()).resolves.toContain('https://mint-new.test')
+    })
+
     it('persists via SettingsRepository', async () => {
       await service.addTrust('https://mint-new.test')
       expect(repo.saveSettings).toHaveBeenCalledTimes(1)
@@ -80,6 +93,11 @@ describe('TrustRegistryService', () => {
   describe('revokeTrust', () => {
     it('removes the accountId', async () => {
       await service.revokeTrust('https://mint-a.test')
+      await expect(service.getTrustedAccounts()).resolves.toEqual(['https://mint-b.test'])
+    })
+
+    it('removes notation variants of the same mint', async () => {
+      await service.revokeTrust('MINT-a.test:443/')
       await expect(service.getTrustedAccounts()).resolves.toEqual(['https://mint-b.test'])
     })
 

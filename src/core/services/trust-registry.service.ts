@@ -8,27 +8,30 @@
 
 import type { TrustRegistry } from '@/core/ports/driving/trust-registry.usecase'
 import type { SettingsRepository } from '@/core/ports/driven/settings.repository.port'
+import { isSameMintUrl, normalizeMintUrl } from '@/core/domain/mint-url'
 
 export class TrustRegistryService implements TrustRegistry {
   constructor(private readonly settingsRepo: SettingsRepository) {}
 
+  // Comparison goes through the app-wide canonical (absorbs :443, host case, slash);
+  // stored strings are never rewritten — only new entries are normalized on write.
   async isTrusted(accountId: string): Promise<boolean> {
     const settings = await this.settingsRepo.getSettings()
-    return settings.mints.includes(accountId)
+    return settings.mints.some((m) => isSameMintUrl(m, accountId))
   }
 
   async addTrust(accountId: string): Promise<void> {
     const settings = await this.settingsRepo.getSettings()
-    if (settings.mints.includes(accountId)) return
+    if (settings.mints.some((m) => isSameMintUrl(m, accountId))) return
     await this.settingsRepo.saveSettings({
       ...settings,
-      mints: [...settings.mints, accountId],
+      mints: [...settings.mints, normalizeMintUrl(accountId)],
     })
   }
 
   async revokeTrust(accountId: string): Promise<void> {
     const settings = await this.settingsRepo.getSettings()
-    const filtered = settings.mints.filter((m) => m !== accountId)
+    const filtered = settings.mints.filter((m) => !isSameMintUrl(m, accountId))
     if (filtered.length === settings.mints.length) return
     await this.settingsRepo.saveSettings({
       ...settings,

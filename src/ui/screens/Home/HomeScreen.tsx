@@ -16,6 +16,7 @@ import {
   toRecentRow,
 } from "../../components/wallet/homeRecentRow";
 import { useWallet, useMintHealth, useMintMetadata } from "@/ui/hooks";
+import { visibleMintUrls } from "@/utils/visible-mint-urls";
 import { useAllPendingItems, type PendingItem } from "@/ui/hooks/usePendingItems";
 import { useAppStore } from "@/store";
 import { useSatUnit, useFormatFiat } from "@/utils/format";
@@ -86,7 +87,12 @@ export function HomeScreen({
     checkAllMints();
   }, [checkAllMints]);
 
-  const mintUrls = settings.mints;
+  // Funded-but-unlisted mints must appear: npubcash deposits land on the
+  // server's mint, which the user never added.
+  const mintUrls = useMemo(
+    () => visibleMintUrls(settings.mints, balance.byMint),
+    [settings.mints, balance.byMint],
+  );
   const mintAliases = settings.mintAliases;
   const mints: MintInfo[] = useMemo(() => {
     return mintUrls.map((url) => {
