@@ -321,7 +321,7 @@ describe('SwapService', () => {
       expect(receiveUpdate![1]).toMatchObject({ metadata: { failureReason: 'Invoice already paid or pending' } })
 
       expect(eventBus.emit).toHaveBeenCalledWith(
-        expect.objectContaining({ type: 'swap:failed', payload: expect.objectContaining({ retryable: true }) }),
+        expect.objectContaining({ type: 'swap:failed', payload: expect.objectContaining({ error: 'Invoice already paid or pending' }) }),
       )
       // Stays marked, or the recovery's mint becomes a second receive TX.
       expect(quoteMarker.unmark).not.toHaveBeenCalled()
@@ -362,6 +362,71 @@ describe('SwapService', () => {
         expect.objectContaining({ status: 'failed' }),
       )
       expect(quoteMarker.unmark).toHaveBeenCalledWith('quote-1')
+      expect(unsubscribe).toHaveBeenCalledTimes(1)
+    })
+
+    it('fails the send leg when the melt reports failed — proofs were reclaimed', async () => {
+      const adapter = createMockLightningAdapter({
+        // coco: 'failed' = melt failed AND proofs reclaimed, so nothing left the mint.
+        executeSend: vi.fn().mockResolvedValue({ id: 'melt-1', state: 'failed' }),
+        onReceiveCompleted: vi.fn().mockImplementation((_requestId, _handler, onFailed) => {
+          setTimeout(() => onFailed?.(new Error('melt failed')), 0)
+          return () => {}
+        }),
+        queryReceiveStatus: vi.fn().mockResolvedValue({ state: 'UNPAID' }),
+      })
+      service = new SwapService([createMockModule([adapter])], txRepo, eventBus, quoteMarker)
+
+      const result = await service.executeSwap({
+        sourceAccountId: 'https://mint-a.test',
+        targetAccountId: 'https://mint-b.test',
+        amount: sat(1000),
+      })
+
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+      // The bug this locks: send marked settled+claimed even though nothing was paid.
+      expect(txRepo.update).not.toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ status: 'settled' }),
+      )
+      expect(txRepo.update).toHaveBeenCalledWith(expect.any(String), { status: 'failed' })
+      expect(result.error.isRetryable).toBe(false)
+      expect(quoteMarker.unmark).toHaveBeenCalledWith('quote-1')
+    })
+
+    it('keeps the receive leg recoverable when the quote probe itself fails', async () => {
+      const unsubscribe = vi.fn()
+      const adapter = createMockLightningAdapter({
+        executeSend: vi.fn().mockResolvedValue({ id: 'melt-1', state: 'finalized' }),
+        onReceiveCompleted: vi.fn().mockImplementation((_requestId, _handler, onFailed) => {
+          setTimeout(() => onFailed?.(new Error('Invoice already paid or pending')), 0)
+          return unsubscribe
+        }),
+        // The melt left; only the status read fails. Unknown is not "lost".
+        queryReceiveStatus: vi.fn().mockRejectedValue(new Error('fetch failed')),
+      })
+      service = new SwapService([createMockModule([adapter])], txRepo, eventBus, quoteMarker)
+
+      const result = await service.executeSwap({
+        sourceAccountId: 'https://mint-a.test',
+        targetAccountId: 'https://mint-b.test',
+        amount: sat(1000),
+      })
+
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+      expect(result.error.isRetryable).toBe(true)
+
+      // quoteId is what recoverPendingQuotes resolves the leg by; without it the sweep
+      // cannot mint and the "still arriving" promise is never kept.
+      const receiveUpdate = vi.mocked(txRepo.update).mock.calls.find(
+        ([, patch]) => (patch as { status?: string }).status === undefined,
+      )
+      expect(receiveUpdate?.[1]).toMatchObject({
+        metadata: { quoteId: 'quote-1', failureReason: 'Invoice already paid or pending' },
+      })
+      expect(quoteMarker.unmark).not.toHaveBeenCalled()
       expect(unsubscribe).toHaveBeenCalledTimes(1)
     })
 

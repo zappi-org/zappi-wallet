@@ -774,7 +774,7 @@ export default {
     networkError: 'ネットワークエラーが発生しました',
     timeoutError: 'リクエストがタイムアウトしました',
     unknownError: '不明なエラーが発生しました',
-    swapDelayedWithReason: '到着が遅れています。残高はミントが保有しており、自動で復旧します: {{reason}}',
+    swapDelayedWithReason: '到着が遅れています。残高はミントが保有しており、自動で復旧します。',
     swapFailedWithReason: '残高の移動に失敗しました: {{reason}}',
     adapterNotFound: 'この操作に使える決済手段が見つかりません',
     serviceNotReady: 'サービスを準備しています。しばらくしてからもう一度お試しください。',

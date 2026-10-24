@@ -88,8 +88,6 @@ export interface SwapFailedEvent {
     sourceAccountId: string
     targetAccountId: string
     error: string
-    /** The target mint still holds the funds; a recovery sweep will collect them. */
-    retryable?: boolean
   }
 }
 

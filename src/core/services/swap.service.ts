@@ -142,7 +142,8 @@ export class SwapService implements SwapUseCase {
       cancel: () => {},
     }
     let sendAttempted = false
-    let sendExecuted = false
+    let sendState: string | null = null
+    let receiveExpiresAt: number | undefined
     let executedFee: { quoted: Amount; effective: Amount } | undefined
     let cleanupAttemptedQuoteId: string | null = null
     const swapMeta = {
@@ -185,6 +186,7 @@ export class SwapService implements SwapUseCase {
 
       // Mark the swap quote so mint-quote-observer doesn't create a duplicate TX.
       swapQuoteId = request.id
+      receiveExpiresAt = request.expiresAt
       this.swapQuoteMarker?.mark(swapQuoteId)
 
       // Register the receive-completion wait before send to avoid a race.
@@ -221,6 +223,7 @@ export class SwapService implements SwapUseCase {
             accountId: params.targetAccountId,
           })
           swapQuoteId = request.id
+          receiveExpiresAt = request.expiresAt
           this.swapQuoteMarker?.mark(swapQuoteId)
           receiveCompletion = this.createReceiveCompletionHandle(targetLightning, request.id)
           prepared = await sourceLightning.prepareSend({
@@ -264,7 +267,7 @@ export class SwapService implements SwapUseCase {
 
       sendAttempted = true
       const sendResult = await sourceLightning.executeSend(prepared.id)
-      sendExecuted = true
+      sendState = sendResult.state
       if (sendResult.effectiveFee) executedFee = { quoted: prepared.fee, effective: sendResult.effectiveFee }
 
       await receiveCompletion.promise
@@ -326,11 +329,17 @@ export class SwapService implements SwapUseCase {
         ? `${primaryMessage} (cleanup failed: ${cleanupFailure.message})`
         : primaryMessage
 
-      // Melt already paid the target mint, so a PAID quote means the money is there:
-      // leave the leg pending and let recoverPendingQuotes mint it from the quote alone.
-      const receiveRetryable = sendExecuted && swapQuoteId !== null
+      const meltSettled = sendState === 'finalized'
+      const meltDead = sendState === 'failed' || sendState === 'rolled_back'
+      const meltInflight = sendState !== null && !meltSettled && !meltDead
+
+      // Melt already paid the target mint, so PAID/ISSUED means the money is there: leave
+      // the leg pending and let recoverPendingQuotes mint it from the quote alone.
+      // null = the probe could not answer (network, silent adapter) — unknown is not "lost".
+      const claimable = (meltSettled || meltInflight) && swapQuoteId !== null
         ? await this.isQuoteStillClaimable(targetLightning, swapQuoteId, params.targetAccountId)
         : false
+      const receiveRetryable = claimable !== false
 
       // Stays marked while the leg can still land, or mint-quote-observer records the
       // recovery's mint as a second receive TX. ponytail: one stale string per stalled swap.
@@ -340,18 +349,26 @@ export class SwapService implements SwapUseCase {
       // silently — log so a later recovery sweep can clean up any tx left pending.
       await Promise.all([
         // Only failed when the melt itself did not go through.
-        this.txRepo.update(sendTxId, sendExecuted
+        this.txRepo.update(sendTxId, meltSettled
           ? {
             status: 'settled',
             outcome: 'claimed',
             completedAt: Date.now(),
             ...(executedFee && { fee: executedFee }),
           }
-          : { status: 'failed' }).catch((markError) => {
-          console.error('[SwapService] Failed to mark send tx:', sendTxId, markError)
+          : meltInflight
+            ? { status: 'pending' }
+            : { status: 'failed' }).catch((markError) => {
+              console.error('[SwapService] Failed to mark send tx:', sendTxId, markError)
         }),
         this.txRepo.update(receiveTxId, receiveRetryable
-          ? { metadata: { ...swapMeta, failureReason: message } }
+          ? {
+            // recoverPendingQuotes only finds the leg through metadata.quoteId — without
+            // it the sweep cannot mint and just expires the tx, so "still arriving" would
+            // be a promise nothing keeps.
+            metadata: { ...swapMeta, ...(swapQuoteId && { quoteId: swapQuoteId }), failureReason: message },
+            ...(receiveExpiresAt !== undefined && { expiresAt: receiveExpiresAt }),
+          }
           : { status: 'failed' }).catch((markError) => {
           console.error('[SwapService] Failed to mark receive tx:', receiveTxId, markError)
         }),
@@ -363,7 +380,6 @@ export class SwapService implements SwapUseCase {
           sourceAccountId: params.sourceAccountId,
           targetAccountId: params.targetAccountId,
           error: message,
-          ...(receiveRetryable && { retryable: true }),
         },
       })
 
@@ -373,18 +389,25 @@ export class SwapService implements SwapUseCase {
 
   // ─── Private helpers ───
 
-  /** PAID quote = the target mint was paid and still owes the issuance. */
+  /**
+   * PAID = the mint was paid and still owes the issuance. ISSUED = it signed already
+   * (recoverPendingQuotes settles those). UNPAID/EXPIRED = nothing is coming.
+   * null = no verdict — the probe threw or the mint answered something new, and silence
+   * must not be read as "lost". Only a missing adapter capability is a definite no.
+   */
   private async isQuoteStillClaimable(
     adapter: PaymentMethodAdapter,
     quoteId: string,
     accountId: string,
-  ): Promise<boolean> {
+  ): Promise<boolean | null> {
     if (!adapter.queryReceiveStatus) return false
     try {
-      const status = await adapter.queryReceiveStatus({ requestId: quoteId, accountId })
-      return status.state === 'PAID'
+      const { state } = await adapter.queryReceiveStatus({ requestId: quoteId, accountId })
+      if (state === 'PAID' || state === 'ISSUED') return true
+      if (state === 'UNPAID' || state === 'EXPIRED') return false
+      return null
     } catch {
-      return false
+      return null
     }
   }
 

@@ -11,7 +11,7 @@ import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
 import { NPUBCASH_DOMAIN } from '@/core/constants'
 import { writeMyAddressCache } from '@/ui/utils/my-address-cache'
-import { translateError } from '@/ui/utils/error-i18n'
+import { getErrorI18n, translateError } from '@/ui/utils/error-i18n'
 import { isErr } from '@/core/domain/result'
 import { sat } from '@/core/domain/amount'
 import { FundingRequiredError } from '@/core/errors'
@@ -349,15 +349,14 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings, onAddress
         amount: sat(funding.requiredAmount),
       })
       if (isErr(swapResult)) {
-        // UNKNOWN carries the mint's own reason; translateError would flatten it to
-        // "unknown error". isRetryable = still landing, so don't say "failed".
+        // No specific translation for this failure (UNKNOWN carries the mint's own reason;
+        // translateError would flatten it to "unknown error"). isRetryable = still landing,
+        // so say "delayed", not "failed" — and read the flag for any future code, not just UNKNOWN.
         const swapError = swapResult.error
         addToast({
           type: 'error',
-          message: swapError.code === 'UNKNOWN'
-            ? swapError.isRetryable
-              ? t('errors.swapDelayedWithReason', { reason: swapError.message })
-              : t('errors.swapFailedWithReason', { reason: swapError.message })
+          message: getErrorI18n(swapError).key === 'errors.unknownError'
+            ? t(swapError.isRetryable ? 'errors.swapDelayedWithReason' : 'errors.swapFailedWithReason', { reason: swapError.message })
             : translateError(swapError, t),
         })
         setStep('confirm')
