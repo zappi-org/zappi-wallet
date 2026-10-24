@@ -11,6 +11,7 @@
 import { Ok, Err } from '@/core/domain/result'
 import type { Result } from '@/core/domain/result'
 import { sat, toNumber } from '@/core/domain/amount'
+import type { Amount } from '@/core/domain/amount'
 import { createTransaction } from '@/core/domain/transaction'
 import type { BaseError } from '@/core/errors/base'
 import { UnknownError } from '@/core/errors/base'
@@ -141,7 +142,13 @@ export class SwapService implements SwapUseCase {
       cancel: () => {},
     }
     let sendAttempted = false
+    let sendExecuted = false
+    let executedFee: { quoted: Amount; effective: Amount } | undefined
     let cleanupAttemptedQuoteId: string | null = null
+    const swapMeta = {
+      fromMintUrl: params.sourceAccountId,
+      toMintUrl: params.targetAccountId,
+    }
 
     const abandonCurrentSwapQuote = async (): Promise<void> => {
       if (!swapQuoteId) return
@@ -230,10 +237,6 @@ export class SwapService implements SwapUseCase {
         }
       }
 
-      const swapMeta = {
-        fromMintUrl: params.sourceAccountId,
-        toMintUrl: params.targetAccountId,
-      }
       const sendTx = createTransaction({
         id: sendTxId,
         direction: 'send',
@@ -261,6 +264,8 @@ export class SwapService implements SwapUseCase {
 
       sendAttempted = true
       const sendResult = await sourceLightning.executeSend(prepared.id)
+      sendExecuted = true
+      if (sendResult.effectiveFee) executedFee = { quoted: prepared.fee, effective: sendResult.effectiveFee }
 
       await receiveCompletion.promise
 
@@ -316,22 +321,39 @@ export class SwapService implements SwapUseCase {
         }
       }
 
-      // Only unmark on failure if send was already attempted for this quote.
-      if (swapQuoteId && sendAttempted) this.swapQuoteMarker?.unmark(swapQuoteId)
-
       const primaryMessage = error instanceof Error ? error.message : 'Unknown error'
       const message = cleanupFailure instanceof Error
         ? `${primaryMessage} (cleanup failed: ${cleanupFailure.message})`
         : primaryMessage
 
+      // Melt already paid the target mint, so a PAID quote means the money is there:
+      // leave the leg pending and let recoverPendingQuotes mint it from the quote alone.
+      const receiveRetryable = sendExecuted && swapQuoteId !== null
+        ? await this.isQuoteStillClaimable(targetLightning, swapQuoteId, params.targetAccountId)
+        : false
+
+      // Stays marked while the leg can still land, or mint-quote-observer records the
+      // recovery's mint as a second receive TX. ponytail: one stale string per stalled swap.
+      if (swapQuoteId && sendAttempted && !receiveRetryable) this.swapQuoteMarker?.unmark(swapQuoteId)
+
       // Keep emitting swap:failed even if fail-marking fails, but don't swallow it
       // silently — log so a later recovery sweep can clean up any tx left pending.
       await Promise.all([
-        this.txRepo.update(sendTxId, { status: 'failed' }).catch((markError) => {
-          console.error('[SwapService] Failed to mark send tx as failed:', sendTxId, markError)
+        // Only failed when the melt itself did not go through.
+        this.txRepo.update(sendTxId, sendExecuted
+          ? {
+            status: 'settled',
+            outcome: 'claimed',
+            completedAt: Date.now(),
+            ...(executedFee && { fee: executedFee }),
+          }
+          : { status: 'failed' }).catch((markError) => {
+          console.error('[SwapService] Failed to mark send tx:', sendTxId, markError)
         }),
-        this.txRepo.update(receiveTxId, { status: 'failed' }).catch((markError) => {
-          console.error('[SwapService] Failed to mark receive tx as failed:', receiveTxId, markError)
+        this.txRepo.update(receiveTxId, receiveRetryable
+          ? { metadata: { ...swapMeta, failureReason: message } }
+          : { status: 'failed' }).catch((markError) => {
+          console.error('[SwapService] Failed to mark receive tx:', receiveTxId, markError)
         }),
       ])
 
@@ -341,14 +363,30 @@ export class SwapService implements SwapUseCase {
           sourceAccountId: params.sourceAccountId,
           targetAccountId: params.targetAccountId,
           error: message,
+          ...(receiveRetryable && { retryable: true }),
         },
       })
 
-      return Err(new UnknownError(message))
+      return Err(new UnknownError(message, undefined, { retryable: receiveRetryable }))
     }
   }
 
   // ─── Private helpers ───
+
+  /** PAID quote = the target mint was paid and still owes the issuance. */
+  private async isQuoteStillClaimable(
+    adapter: PaymentMethodAdapter,
+    quoteId: string,
+    accountId: string,
+  ): Promise<boolean> {
+    if (!adapter.queryReceiveStatus) return false
+    try {
+      const status = await adapter.queryReceiveStatus({ requestId: quoteId, accountId })
+      return status.state === 'PAID'
+    } catch {
+      return false
+    }
+  }
 
   private findLightningAdapter(_accountId: string): PaymentMethodAdapter | undefined {
     for (const module of this.modules) {

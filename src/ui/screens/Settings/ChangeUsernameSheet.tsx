@@ -349,15 +349,15 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings, onAddress
         amount: sat(funding.requiredAmount),
       })
       if (isErr(swapResult)) {
-        // A swap that dies at the target mint surfaces as an UNKNOWN error carrying the
-        // mint's own reason (`Invoice already paid or pending`, `Blinded Message is
-        // already signed`). Translating it alone would trade that reason for "an unknown
-        // error" and leave the user with nothing to act on.
+        // UNKNOWN carries the mint's own reason; translateError would flatten it to
+        // "unknown error". isRetryable = still landing, so don't say "failed".
         const swapError = swapResult.error
         addToast({
           type: 'error',
           message: swapError.code === 'UNKNOWN'
-            ? t('errors.swapFailedWithReason', { reason: swapError.message })
+            ? swapError.isRetryable
+              ? t('errors.swapDelayedWithReason', { reason: swapError.message })
+              : t('errors.swapFailedWithReason', { reason: swapError.message })
             : translateError(swapError, t),
         })
         setStep('confirm')

@@ -284,6 +284,50 @@ describe('SwapService', () => {
       expect(unsubscribe).toHaveBeenCalledTimes(1)
     })
 
+    it('keeps the receive leg pending when the mint still owes the issuance', async () => {
+      const unsubscribe = vi.fn()
+      // Melt went out + quote PAID: recovery mints it later, so neither leg is failed.
+      const failingAdapter = createMockLightningAdapter({
+        onReceiveCompleted: vi.fn().mockImplementation((_requestId, _handler, onFailed) => {
+          setTimeout(() => onFailed?.(new Error('Invoice already paid or pending')), 0)
+          return unsubscribe
+        }),
+        queryReceiveStatus: vi.fn().mockResolvedValue({ state: 'PAID' }),
+      })
+      const mod = createMockModule([failingAdapter])
+      service = new SwapService([mod], txRepo, eventBus, quoteMarker)
+
+      const result = await service.executeSwap({
+        sourceAccountId: 'https://mint-a.test',
+        targetAccountId: 'https://mint-b.test',
+        amount: sat(1000),
+      })
+
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+      expect(result.error.isRetryable).toBe(true)
+      expect(result.error.message).toBe('Invoice already paid or pending')
+
+      // send: the melt happened, so it is settled rather than failed.
+      expect(txRepo.update).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ status: 'settled', outcome: 'claimed' }),
+      )
+      // receive: left pending (no status key) with the mint's reason recorded.
+      const receiveUpdate = vi.mocked(txRepo.update).mock.calls.find(
+        ([, patch]) => (patch as { status?: string }).status === undefined,
+      )
+      expect(receiveUpdate).toBeDefined()
+      expect(receiveUpdate![1]).toMatchObject({ metadata: { failureReason: 'Invoice already paid or pending' } })
+
+      expect(eventBus.emit).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'swap:failed', payload: expect.objectContaining({ retryable: true }) }),
+      )
+      // Stays marked, or the recovery's mint becomes a second receive TX.
+      expect(quoteMarker.unmark).not.toHaveBeenCalled()
+      expect(unsubscribe).toHaveBeenCalledTimes(1)
+    })
+
     it('fails the swap on a terminal receive failure instead of waiting for the arrival timeout', async () => {
       const unsubscribe = vi.fn()
       const failingAdapter = createMockLightningAdapter({
@@ -306,6 +350,8 @@ describe('SwapService', () => {
       if (result.ok) return
       // The mint's reason, not "Swap receive timed out" five minutes later.
       expect(result.error.message).toBe('Invoice already paid or pending')
+      // No claimable quote (adapter has no queryReceiveStatus): the swap is a loss.
+      expect(result.error.isRetryable).toBe(false)
       expect(eventBus.emit).toHaveBeenCalledWith(
         expect.objectContaining({ type: 'swap:failed' }),
       )
@@ -315,6 +361,7 @@ describe('SwapService', () => {
         expect.any(String),
         expect.objectContaining({ status: 'failed' }),
       )
+      expect(quoteMarker.unmark).toHaveBeenCalledWith('quote-1')
       expect(unsubscribe).toHaveBeenCalledTimes(1)
     })
 

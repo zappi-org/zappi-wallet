@@ -206,25 +206,24 @@ describe('no-payable-mint message', () => {
     expect(screen.getByRole('button', { name: 'fund' })).toBeInTheDocument()
   })
 
-  it('wraps a failed swap in the i18n frame instead of toasting the mint raw', async () => {
-    // The mint's reason is English prose from the mint; the sentence around it is ours,
-    // so the toast has to go through t(). A swap that dies at the target mint is an
-    // UNKNOWN error, which translateError would flatten to "unknown error" — losing the
-    // only part the user can act on.
+  // A swap that dies at the target mint is an UNKNOWN error carrying the mint's own
+  // reason; translateError would flatten that to "unknown error". When the mint still
+  // holds the funds the error is retryable, so the toast must not claim a loss.
+  it.each([
+    { retryable: false, frame: 'errors.swapFailedWithReason' },
+    { retryable: true, frame: 'errors.swapDelayedWithReason' },
+  ])('wraps a failed swap in the i18n frame (retryable=%s) instead of toasting the mint raw', async ({ retryable, frame }) => {
     state.balance = { byMint: { 'https://mint': 0, 'https://source': 1000 } }
     executeSwap.mockResolvedValue({
       ok: false,
-      error: new UnknownError('Invoice already paid or pending'),
+      error: new UnknownError('Invoice already paid or pending', undefined, { retryable }),
     })
     await toConfirm()
     fireEvent.click(screen.getByRole('button', { name: 'settings.pay' }))
     await flush()
     fireEvent.click(screen.getByRole('button', { name: 'fund' }))
     await flush()
-    expect(state.addToast).toHaveBeenCalledWith({
-      type: 'error',
-      message: 'errors.swapFailedWithReason',
-    })
+    expect(state.addToast).toHaveBeenCalledWith({ type: 'error', message: frame })
     // Back on the confirm card, not stuck on the paying spinner.
     expect(screen.getByRole('button', { name: 'settings.pay' })).toBeInTheDocument()
   })

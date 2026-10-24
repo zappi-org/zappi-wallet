@@ -776,6 +776,7 @@ export default {
     networkError: 'Terjadi kesalahan jaringan',
     timeoutError: 'Permintaan timeout',
     unknownError: 'Terjadi kesalahan yang tidak diketahui',
+    swapDelayedWithReason: 'Masih dalam perjalanan — mint menyimpan saldo dan pemulihan akan menyelesaikannya: {{reason}}',
     swapFailedWithReason: 'Gagal memindahkan saldo: {{reason}}',
     adapterNotFound: 'Tidak ada metode pembayaran untuk operasi ini',
     serviceNotReady: 'Layanan sedang disiapkan. Coba lagi sebentar lagi.',

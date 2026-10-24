@@ -776,6 +776,7 @@ export default {
     networkError: 'Ocurrió un error de red',
     timeoutError: 'Tiempo de espera agotado',
     unknownError: 'Ocurrió un error desconocido',
+    swapDelayedWithReason: 'Aún en camino: el mint retiene el saldo y la recuperación lo completará: {{reason}}',
     swapFailedWithReason: 'Error al mover el saldo: {{reason}}',
     adapterNotFound: 'No hay un método de pago disponible para esta operación',
     serviceNotReady: 'El servicio se está iniciando. Inténtalo de nuevo en un momento.',
