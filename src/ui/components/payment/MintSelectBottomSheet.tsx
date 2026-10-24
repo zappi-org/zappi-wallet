@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { BottomSheet } from '@/ui/components/common/BottomSheet'
+import { TEST_IDS, rowAttrs } from '@/ui/lib/test-ids'
 import { hapticTap } from '@/ui/utils/haptic'
 import { useAppStore } from '@/store'
 import { getMintBalance } from '@/utils/url'
@@ -30,6 +31,11 @@ export interface MintSelectBottomSheetProps {
   /** Allow selecting mints with zero balance (e.g. for receive flows) */
   allowEmpty?: boolean
   /**
+   * Mint URLs to list. Defaults to `settings.mints` — pass the wallet's actual
+   * mint keys when funds can sit on a mint the user never listed.
+   */
+  mintUrls?: string[]
+  /**
    * Returns the shortage (>0) for a mint that cannot cover the required amount.
    * Such mints render dimmed with a badge, block confirm, and show a reason line.
    */
@@ -56,6 +62,7 @@ function MintSelectBottomSheetInner({
   buttonLabel,
   infoText,
   allowEmpty,
+  mintUrls,
   getShortage,
 }: Omit<MintSelectBottomSheetProps, 'isOpen'>) {
   const { t } = useTranslation()
@@ -63,7 +70,8 @@ function MintSelectBottomSheetInner({
   const { balance } = useWallet()
   const settings = useAppStore((state) => state.settings)
   const { getCachedStatus } = useMintHealth()
-  const { getDisplayName, getIconUrl } = useMintMetadata(settings.mints)
+  const mintList = mintUrls ?? settings.mints
+  const { getDisplayName, getIconUrl } = useMintMetadata(mintList)
   // Lift the sheet above the soft keyboard: this sheet opens from flows where a
   // text input may still be focused (npub needs-mint-selection, ContactsScreen),
   // and bottom:0 alone leaves it behind the keyboard on iOS (viewport-only resize).
@@ -71,14 +79,14 @@ function MintSelectBottomSheetInner({
 
   // Build mint list (memoized to avoid rebuild on carousel scroll)
   const mints: MintInfo[] = useMemo(() =>
-    settings.mints.map((url: string) => ({
+    mintList.map((url: string) => ({
       url,
       name: getDisplayName(url),
       balance: getMintBalance(url, balance.byMint),
       isOnline: getCachedStatus(url)?.isOnline !== false,
       iconUrl: getIconUrl(url),
     })),
-    [settings.mints, getDisplayName, balance.byMint, getCachedStatus, getIconUrl]
+    [mintList, getDisplayName, balance.byMint, getCachedStatus, getIconUrl]
   )
 
   const filteredMints = useMemo(() =>
@@ -162,6 +170,7 @@ function MintSelectBottomSheetInner({
             return (
               <div
                 key={mint.url}
+                {...rowAttrs(TEST_IDS.mintSelect.card, mint.url)}
                 className="snap-center snap-always shrink-0"
               >
                 <MintCard
@@ -211,6 +220,7 @@ function MintSelectBottomSheetInner({
           <Button
             variant="brand"
             size="xl"
+            data-testid={TEST_IDS.mintSelect.confirm}
             disabled={!localSelected || (!allowEmpty && (!selectedHasBalance || selectedShortage > 0))}
             onClick={handleConfirm}
             className="w-full"

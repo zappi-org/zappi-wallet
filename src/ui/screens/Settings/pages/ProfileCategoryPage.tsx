@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { TEST_IDS } from '@/ui/lib/test-ids'
 import { SettingsDetailPage } from '../components/SettingsDetailPage'
 import { SettingsRow } from '../components/SettingsRow'
 
@@ -22,10 +23,14 @@ export function ProfileCategoryPage({
           <SettingsRow
             label={t('settings.myAddress')}
             value={t('settings.myAddressDesc')}
+            testId={TEST_IDS.settings.pageRow}
+            testItemId="my-address"
             onPress={() => onOpenMyAddress?.()}
           />
           <SettingsRow
             label={t('actions.analytics')}
+            testId={TEST_IDS.settings.pageRow}
+            testItemId="analytics"
             onPress={() => onAnalytics?.()}
           />
         </div>

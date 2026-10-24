@@ -8,6 +8,8 @@ interface SettingsRowProps {
   onPress: () => void
   /** Automation handle — explicit, never derived from `label` (which translates). */
   testId?: string
+  /** Row key for `data-item-id` — one fixed testId, varying part in this. */
+  testItemId?: string
   variant?: 'nav' | 'copy' | 'danger'
   mono?: boolean
   truncateValue?: boolean
@@ -19,6 +21,7 @@ export function SettingsRow({
   value,
   onPress,
   testId,
+  testItemId,
   variant = 'nav',
   mono = false,
   truncateValue = false,
@@ -38,6 +41,7 @@ export function SettingsRow({
     <button
       onClick={handlePress}
       data-testid={testId}
+      data-item-id={testItemId}
       className="w-full px-4 py-3.5 flex items-center justify-between active:bg-background-hover text-left min-h-[52px]"
     >
       <span className={cn(

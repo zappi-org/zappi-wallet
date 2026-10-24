@@ -69,6 +69,14 @@ attr_of() { # <testid> <attribute> — raw attribute value, '' when absent
   orca eval --expression "document.querySelector('[data-testid=\"$1\"]')?.getAttribute('$2') ?? ''" 2>/dev/null
 }
 
+# A plain `el.value = x` never reaches React state: the controlled input keeps its old
+# value and every later assertion reads a screen the user never typed into.
+type_into() { # <testid> <text>
+  local out
+  out=$(orca eval --expression "(el => { if (!el) return 'missing'; const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(el, '$2'); el.dispatchEvent(new Event('input', { bubbles: true })); return el.value === '$2' ? 'typed' : 'mismatch' })(document.querySelector('[data-testid=\"$1\"]'))" 2>/dev/null)
+  if [ "$out" = "typed" ]; then ok "typed '$2' into $1"; else fail "could not type into $1 (got: ${out:-<no output>})"; fi
+}
+
 # Negative control: an id that does not exist must read as missing. Without this, an
 # assertion that is accidentally always-true reports a green app over a blank screen — that
 # is exactly how the first version of this script passed twelve checks against an install
@@ -179,6 +187,73 @@ case "$activity_count" in
   *) ok "recent signatures: $activity_count" ;;
 esac
 shot signer-hub
+fi
+
+# ── 4. npubcash username sheet (needs `./scripts/npubcash-dev.sh up app`) ─────
+# The fee is paid from a real balance, so this section only spends when the payment is
+# already covered: with a short balance the correct UI is the blocked notice, and the pay
+# path is skipped rather than funded on the fly. Reset the stack between funded runs.
+step "npubcash my address"
+if [ "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/api/v2/auth/nip98 2>/dev/null)" != "401" ]; then
+  skip "npubcash server not answering on :8000 — run ./scripts/npubcash-dev.sh up app"
+else
+  # Back to Home first: the dock is a tab-screen affordance, so a pushed screen from the
+  # section above leaves no way to navigate.
+  orca goto --url "$BASE/?seed=1&mode=standalone" >/dev/null 2>&1
+  wait_testid "app-ready" 30 || fail "app never came back after navigation"
+  click_js "document.querySelector('[data-testid=\"app-nav-tab\"][data-item-id=\"settings\"]')" "dock tab → Settings"
+  sleep 1
+  click_js "document.querySelector('[data-testid=\"settings-category-row\"][data-item-id=\"category-profile\"]')" "category card → Profile"
+  sleep 1
+  click_js "document.querySelector('[data-testid=\"settings-page-row\"][data-item-id=\"my-address\"]')" "row → My address"
+  sleep 3
+  if wait_testid "my-address-value" 15; then
+    ok "alias handle present: $(orca eval --expression "document.querySelector('[data-testid=\"my-address-value\"]').textContent" 2>/dev/null)"
+    assert_testid "my-address-edit" "edit handle present"
+    assert_testid "my-address-mint-edit" "deposit-mint change handle present"
+    click_js "document.querySelector('[data-testid=\"my-address-edit\"]')" "pencil → username sheet"
+    sleep 1
+    type_into "change-username-input" "agent$RANDOM"
+    click_js "document.querySelector('[data-testid=\"change-username-submit\"]')" "변경 → price check"
+    wait_testid "change-username-pay" 20 || fail "confirm card never rendered the pay button"
+    # Ghost-load is 1s; the notice only settles after it, so read late.
+    sleep 2
+    notice=$(attr_of "change-username-notice" "data-state"); notice=${notice%$'\r'}
+    case "$notice" in
+      info|blocked) ok "notice state=$notice (blocked only while the user can still act)" ;;
+      *) fail "change-username-notice data-state unexpected (got: ${notice:-<absent>})" ;;
+    esac
+    if [ "$notice" = "info" ]; then
+      # Pay can still land on the funding sheet: the notice says a payable source exists,
+      # not that the payment mint itself is funded. That is the cross-mint swap path, which
+      # this runbook does not own (it spends from two mints and needs a funded source).
+      orca eval --expression "document.querySelector('[data-testid=\"change-username-pay\"]').click()" >/dev/null 2>&1
+      sleep 3
+      if have "mint-select-card"; then
+        swap_src=$(orca eval --expression "Array.from(document.querySelectorAll('[data-testid=\"mint-select-card\"]')).map(function(e){return e.dataset.itemId}).join(',')" 2>/dev/null)
+        skip "payment mint is short — funding sheet opened for swap from ${swap_src:-<none>} (swap path tested separately)"
+        click_js "Array.from(document.querySelectorAll('button')).find(function(b){return /^(\\s*Cancel|취소)\\s*$/.test(b.textContent.trim())})" "cancel funding sheet"
+      else
+      # The regression this guards: mid-payment the balance dips as proofs lock, which used
+      # to paint the noPayableMint line over a payment that was already running.
+      orca eval --expression "(function(){ window.__notice=[]; const b=document.querySelector('[data-testid=\"change-username-pay\"]'); if (b) b.click(); const h=setInterval(function(){ const n=document.querySelector('[data-testid=\"change-username-notice\"]'); window.__notice.push(n ? n.getAttribute('data-state') : 'none') }, 40); setTimeout(function(){ clearInterval(h) }, 9000); return 'paying' })()" >/dev/null 2>&1
+      sleep 10
+      samples=$(orca eval --expression "String((window.__notice||[]).length)" 2>/dev/null | tr -d '\r')
+      blocked=$(orca eval --expression "String((window.__notice||[]).filter(s => s === 'blocked').length)" 2>/dev/null | tr -d '\r')
+      if [ "${blocked:-1}" = "0" ] && [ "${samples:-0}" -gt 10 ]; then
+        ok "paying window: 0/$samples 'blocked' samples"
+      else
+        fail "paying window: blocked=$blocked of $samples samples (0 expected, >10 required)"
+      fi
+      assert_testid "change-username-success" "success card"
+      shot npubcash-username
+      fi
+    else
+      skip "balance does not cover the fee — pay path not exercised"
+    fi
+  else
+    skip "no address registered yet — tap Register on My address, then rerun"
+  fi
 fi
 
 # ── report ───────────────────────────────────────────────────────────────────

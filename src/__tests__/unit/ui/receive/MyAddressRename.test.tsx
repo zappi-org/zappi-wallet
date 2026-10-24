@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MyAddressScreen } from '@/ui/screens/MyAddress/MyAddressScreen'
 import { ChangeUsernameSheet } from '@/ui/screens/Settings/ChangeUsernameSheet'
 import { NPUBCASH_DOMAIN } from '@/core/constants'
+import { FundingRequiredError } from '@/core/errors'
 
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }))
 vi.mock('@/ui/config/feature-flags', () => ({ ENABLE_LIGHTNING_ADDRESS_SETTINGS: true }))
@@ -132,5 +133,107 @@ describe('username availability races', () => {
     expect(checkAliasPrice).toHaveBeenCalledTimes(1)
     await act(async () => pending.resolve(quote(100)))
     expect(screen.getByText('settings.changeConfirmTitle')).toBeInTheDocument()
+  })
+})
+
+describe('username prefill', () => {
+  const npubAddress = 'npub1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq@zappi.link'
+
+  it('leaves the input empty for an npub-derived address and shows it as a hint', () => {
+    // 63 chars vs maxLength=20 → prefilling makes the field unclearable.
+    state.settings.lightningAddress = npubAddress
+    render(<ChangeUsernameSheet isOpen onClose={vi.fn()} onSaveSettings={vi.fn()} />)
+    expect(screen.getByRole('textbox')).toHaveValue('')
+    expect(screen.getByText(npubAddress)).toBeInTheDocument()
+  })
+
+  it('prefills a real alias', () => {
+    render(<ChangeUsernameSheet isOpen onClose={vi.fn()} onSaveSettings={vi.fn()} />)
+    expect(screen.getByRole('textbox')).toHaveValue('john')
+  })
+})
+
+describe('no-payable-mint message', () => {
+  const toConfirm = async () => {
+    const view = render(<ChangeUsernameSheet isOpen onClose={vi.fn()} onSaveSettings={vi.fn()} />)
+    changeInput('alice'); submit(); await flush()
+    await act(async () => vi.advanceTimersByTime(1000))
+    return view
+  }
+  // Fresh element each time: an identical element reference bails out of re-render.
+  const sheet = () => <ChangeUsernameSheet isOpen onClose={vi.fn()} onSaveSettings={vi.fn()} />
+
+  it('keeps the error off screen while the payment is in flight (balance dips as proofs lock)', async () => {
+    // Payment mint holds exactly the quoted fee: prepare/execute drains it, so the
+    // store balance drops below the fee mid-payment even though the send succeeds.
+    // New object identity: the real store sets a fresh balance on every refresh,
+    // so the component's useMemo deps must see the change.
+    state.balance = { byMint: { 'https://mint': 100 } }
+    const inFlight = deferred<unknown>()
+    changeAlias.mockReturnValue(inFlight.promise)
+    const view = await toConfirm()
+    fireEvent.click(screen.getByRole('button', { name: 'settings.pay' }))
+    await flush()
+
+    state.balance = { byMint: { 'https://mint': 0 } }
+    view.rerender(sheet())
+    await flush()
+
+    expect(screen.queryByText('settings.noPayableMint')).not.toBeInTheDocument()
+    await act(async () => inFlight.resolve({ ok: true, value: { alias: 'alice' } }))
+    await flush()
+    await act(async () => vi.advanceTimersByTime(1500))
+    expect(screen.getByText('settings.changeDone')).toBeInTheDocument()
+  })
+
+  it('still blocks up front when the balance truly cannot cover the fee', async () => {
+    state.balance = { byMint: { 'https://mint': 50 } }
+    await toConfirm()
+    expect(screen.getByText('settings.noPayableMint')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'settings.pay' })).toBeDisabled()
+  })
+
+  it('offers a swap for the deficit when the payment mint already holds the fee (send-fee shortage)', async () => {
+    // Exactly the fee on the payment mint: the send needs fee + send fee, so the
+    // service answers FundingRequiredError with required === fee. A second mint
+    // with anything in it is enough to cover the deficit.
+    state.balance = { byMint: { 'https://mint': 100, 'https://source': 5 } }
+    changeAlias.mockResolvedValue({ ok: false, error: new FundingRequiredError('https://mint', 100) })
+    await toConfirm()
+    fireEvent.click(screen.getByRole('button', { name: 'settings.pay' }))
+    await flush()
+    expect(screen.queryByText('settings.noPayableMint')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'fund' })).toBeInTheDocument()
+  })
+
+  it('blocks when the fee is the whole balance and no other mint can top it up', async () => {
+    // The payment mint alone cannot cover fee + send fee, and there is nowhere to
+    // swap from: the honest answer is "no payable mint", not an empty swap sheet.
+    state.balance = { byMint: { 'https://mint': 100 } }
+    changeAlias.mockResolvedValue({ ok: false, error: new FundingRequiredError('https://mint', 100) })
+    await toConfirm()
+    fireEvent.click(screen.getByRole('button', { name: 'settings.pay' }))
+    await flush()
+    expect(screen.getByText('settings.noPayableMint')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'fund' })).not.toBeInTheDocument()
+  })
+
+  it('counts a funded mint the wallet knows but settings.mints does not list', async () => {
+    state.balance = { byMint: { 'https://mint': 0, 'https://extra': 1000 } }
+    await toConfirm()
+    fireEvent.click(screen.getByRole('button', { name: 'settings.pay' }))
+    await flush()
+    expect(screen.queryByText('settings.noPayableMint')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'fund' })).toBeInTheDocument()
+  })
+
+  it('does not compare a non-sat quote against a sat balance', async () => {
+    state.balance = { byMint: { 'https://mint': 1 } }
+    checkAliasPrice.mockResolvedValue({ ok: true, value: { amount: 100_000, unit: 'msat', mintUrl: 'https://mint' } })
+    await toConfirm()
+    expect(screen.queryByText('settings.noPayableMint')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'settings.pay' }))
+    await flush()
+    expect(changeAlias).toHaveBeenCalled()
   })
 })
