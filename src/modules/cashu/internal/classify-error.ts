@@ -112,8 +112,16 @@ function classifyMintOperationError(error: MintOperationError): BaseError {
  *
  * Phase 1: Coco SDK 타입드 에러 (instanceof)
  * Phase 2: 문자열 폴백 (cashu-ts 등 non-Coco 에러용)
+ *
+ * `ctx` carries what the classifier cannot know but the domain error needs: the
+ * amount we tried to move and the mint's spendable balance. Without it
+ * `InsufficientBalanceError` degrades to (0, 0) and `FundingRequiredError`
+ * downstream can only ask for 0 sat.
  */
-export function classifyCashuError(error: unknown): BaseError {
+export function classifyCashuError(
+  error: unknown,
+  ctx?: InsufficientFundsContext,
+): BaseError {
   if (error instanceof BaseError) {
     return error
   }
@@ -136,8 +144,8 @@ export function classifyCashuError(error: unknown): BaseError {
     if (isRedeemFeeTooHighMessage(proofMsg)) {
       return new RedeemFeeTooHighError(error.message, error)
     }
-    if (proofMsg.includes('not enough') || proofMsg.includes('insufficient')) {
-      return new InsufficientBalanceError(0, 0, error)
+    if (isInsufficientFundsMessage(proofMsg)) {
+      return insufficientBalance(ctx, error)
     }
     return new InvalidProofError(error.message, error)
   }
@@ -158,6 +166,11 @@ export function classifyCashuError(error: unknown): BaseError {
     const proofMsg = error.message.toLowerCase()
     if(isRedeemFeeTooHighMessage(proofMsg)) {
       return new RedeemFeeTooHighError(error.message, error)
+    }
+    // coco throws this for "Not enough proofs to send" — a funds problem, not a
+    // malformed proof. Callers key their funding UI off InsufficientBalanceError.
+    if (isInsufficientFundsMessage(proofMsg)) {
+      return insufficientBalance(ctx, error)
     }
     return new InvalidProofError(error.message, error)
   }
@@ -196,7 +209,7 @@ export function classifyCashuError(error: unknown): BaseError {
   }
 
   if (msg.includes('insufficient') || msg.includes('not enough')) {
-    return new InsufficientBalanceError(0, 0, error)
+    return insufficientBalance(ctx, error)
   }
 
   if (msg.includes('timeout') || msg.includes('timed out')) {
@@ -230,4 +243,34 @@ function isRedeemFeeTooHighMessage(message: string): boolean {
       (message.includes('not sufficient') || message.includes('insufficient') || message.includes('not enough'))
     )
   )
+}
+
+/** Amount we tried to move + the mint's spendable balance, when the caller knows them. */
+export interface InsufficientFundsContext {
+  amount?: number
+  available?: number
+}
+
+/**
+ * coco says "Not enough proofs to send" (ProofValidationError); cashu-ts says
+ * "Not enough funds". Both are funds problems, never proof corruption.
+ */
+export function isInsufficientFundsMessage(message: string): boolean {
+  const msg = message.toLowerCase()
+  if (isRedeemFeeTooHighMessage(msg)) return false
+  return /\b(?:not enough|insufficient)\b/.test(msg)
+}
+
+/**
+ * A send needs `amount` plus the swap fee, so `available >= amount` but still
+ * failing means the gap is the fee (coco does not report it).
+ */
+function insufficientBalance(
+  ctx: InsufficientFundsContext | undefined,
+  cause: unknown,
+): InsufficientBalanceError {
+  if (!ctx) return new InsufficientBalanceError(0, 0, cause)
+  const amount = ctx.amount ?? 0
+  const available = ctx.available ?? 0
+  return new InsufficientBalanceError(amount, available, cause, available >= amount ? 1 : 0)
 }

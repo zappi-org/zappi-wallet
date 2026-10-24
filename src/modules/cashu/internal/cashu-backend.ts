@@ -7,11 +7,11 @@
 
 import type { PendingQuote } from '@/core/domain/quote';
 import type { CashuProof } from '@/core/domain/cashu-payment-payload';
-import { InsufficientBalanceError, RedeemFeeTooHighError } from '@/core/errors/payment.errors';
+import { RedeemFeeTooHighError } from '@/core/errors/payment.errors';
 import type { ProofStateResult } from '@/core/ports/driven/send-token-operator.port';
 import { getEncodedToken, normalizeMintUrl } from '@cashu/coco-core';
 import { getTokenMetadata } from '@cashu/cashu-ts';
-import { classifyCashuError } from './classify-error';
+import { classifyCashuError, isInsufficientFundsMessage } from './classify-error';
 import { getCocoManager, getPendingMintQuotes } from './coco-sdk';
 import { cocoLogger as logger } from './logger';
 
@@ -175,19 +175,17 @@ export async function prepareSend(params: {
     });
     return { operationId: prepared.id, fee: prepared.fee, needsSwap: prepared.needsSwap };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes('Not enough funds')) {
-      const normalizedMintUrl = normalizeMintUrl(params.mintUrl);
-      const balances = await manager.wallet.balances.byMint({ mintUrls: [normalizedMintUrl] });
-      const available = balances[normalizedMintUrl]?.spendable ?? 0;
-
-      if (available >= params.amount) {
-        throw new InsufficientBalanceError(params.amount, available, err, 1);
-      } else {
-        throw new InsufficientBalanceError(params.amount, available, err);
-      }
+    // Balance lookups only matter for a funds problem: coco reports it as
+    // "Not enough proofs to send", cashu-ts as "Not enough funds".
+    if (!isInsufficientFundsMessage(err instanceof Error ? err.message : String(err))) {
+      throw err;
     }
-    throw err;
+    const normalizedMintUrl = normalizeMintUrl(params.mintUrl);
+    const balances = await manager.wallet.balances.byMint({ mintUrls: [normalizedMintUrl] });
+    const available = balances[normalizedMintUrl]?.spendable ?? 0;
+    // Hand the amount + balance to the classifier so InsufficientBalanceError
+    // carries them — the funding UI derives its swap amount from `required`.
+    throw classifyCashuError(err, { amount: params.amount, available });
   }
 }
 
