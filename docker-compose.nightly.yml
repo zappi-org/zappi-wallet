@@ -1,6 +1,0 @@
-services:
-  zappi-wallet-nightly:
-    image: zappi-wallet:nightly
-    ports:
-      - "3022:80"
-    restart: unless-stopped

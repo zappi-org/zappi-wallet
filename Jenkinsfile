@@ -10,40 +10,25 @@ pipeline {
             steps {
                 checkout scm
                 script {
-                    def isTag = env.TAG_NAME != null
-                    if (env.BRANCH_NAME != 'main' && !isTag) {
-                        error "This pipeline only runs on main branch or tags: ${env.BRANCH_NAME}"
+                    if (env.TAG_NAME == null) {
+                        error "This pipeline only deploys version tags: ${env.BRANCH_NAME}"
                     }
-                    env.CHANNEL = isTag ? 'main' : 'staging'
                 }
                 sh """
                     docker build \
-                        --build-arg VITE_ZAPPI_CHANNEL=${CHANNEL} \
+                        --build-arg VITE_ZAPPI_CHANNEL=main \
                         -t ${IMAGE_NAME}:${BUILD_NUMBER} .
                 """
             }
         }
 
-        stage('Deploy Staging') {
-            when { expression { env.TAG_NAME == null } }
-            steps {
-                sh """
-                    docker tag ${IMAGE_NAME}:${BUILD_NUMBER} ${IMAGE_NAME}:staging
-                    docker compose -f docker-compose.staging.yml -p zappi-wallet-staging down || true
-                    docker compose -f docker-compose.staging.yml -p zappi-wallet-staging up -d
-                """
-            }
-        }
-
         stage('Approve Production') {
-            when { expression { env.TAG_NAME != null } }
             steps {
                 input message: "Deploy ${TAG_NAME} to production?"
             }
         }
 
         stage('Deploy Production') {
-            when { expression { env.TAG_NAME != null } }
             steps {
                 sh """
                     docker tag ${IMAGE_NAME}:${BUILD_NUMBER} ${IMAGE_NAME}:${TAG_NAME}
@@ -57,7 +42,7 @@ pipeline {
 
     post {
         success {
-            echo "SUCCESS: ${currentBuild.displayName} (${env.CHANNEL})"
+            echo "SUCCESS: ${currentBuild.displayName} (main)"
         }
         failure {
             echo "FAILED: ${currentBuild.displayName}"
