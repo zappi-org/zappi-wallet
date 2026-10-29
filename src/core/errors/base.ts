@@ -50,10 +50,13 @@ export class ServiceNotReadyError extends BaseError {
     }
 }
 
-/**
- * Unknown error wrapper
- */
 export class UnknownError extends BaseError {
   readonly code = 'UNKNOWN' as const
-  readonly isRetryable = false
+  readonly isRetryable: boolean
+
+  /** `retryable` = a later recovery sweep still finishes this; say "recovering", not "failed". */
+  constructor(message: string, cause?: unknown, options?: { retryable?: boolean }) {
+    super(message, cause)
+    this.isRetryable = options?.retryable ?? false
+  }
 }

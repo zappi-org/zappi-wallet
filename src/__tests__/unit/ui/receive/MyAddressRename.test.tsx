@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MyAddressScreen } from '@/ui/screens/MyAddress/MyAddressScreen'
 import { ChangeUsernameSheet } from '@/ui/screens/Settings/ChangeUsernameSheet'
 import { NPUBCASH_DOMAIN } from '@/core/constants'
-import { FundingRequiredError } from '@/core/errors'
+import { FundingRequiredError, UnknownError } from '@/core/errors'
 
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }))
 vi.mock('@/ui/config/feature-flags', () => ({ ENABLE_LIGHTNING_ADDRESS_SETTINGS: true }))
@@ -204,6 +204,28 @@ describe('no-payable-mint message', () => {
     await flush()
     expect(screen.queryByText('settings.noPayableMint')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'fund' })).toBeInTheDocument()
+  })
+
+  // A swap that dies at the target mint is an UNKNOWN error carrying the mint's own
+  // reason; translateError would flatten that to "unknown error". When the mint still
+  // holds the funds the error is retryable, so the toast must not claim a loss.
+  it.each([
+    { retryable: false, frame: 'errors.swapFailedWithReason' },
+    { retryable: true, frame: 'errors.swapDelayedWithReason' },
+  ])('wraps a failed swap in the i18n frame (retryable=%s) instead of toasting the mint raw', async ({ retryable, frame }) => {
+    state.balance = { byMint: { 'https://mint': 0, 'https://source': 1000 } }
+    executeSwap.mockResolvedValue({
+      ok: false,
+      error: new UnknownError('Invoice already paid or pending', undefined, { retryable }),
+    })
+    await toConfirm()
+    fireEvent.click(screen.getByRole('button', { name: 'settings.pay' }))
+    await flush()
+    fireEvent.click(screen.getByRole('button', { name: 'fund' }))
+    await flush()
+    expect(state.addToast).toHaveBeenCalledWith({ type: 'error', message: frame })
+    // Back on the confirm card, not stuck on the paying spinner.
+    expect(screen.getByRole('button', { name: 'settings.pay' })).toBeInTheDocument()
   })
 
   it('blocks when the fee is the whole balance and no other mint can top it up', async () => {

@@ -772,6 +772,8 @@ export default {
     networkError: 'A network error occurred',
     timeoutError: 'Request timed out',
     unknownError: 'An unknown error occurred',
+    swapDelayedWithReason: 'Still arriving — the mint is holding the balance and recovery will finish it.',
+    swapFailedWithReason: 'Failed to move balance: {{reason}}',
     adapterNotFound: 'No payment method available for this operation',
     serviceNotReady: 'Service is starting up — try again in a moment.',
     invalidDestination: 'Unrecognized destination address',
