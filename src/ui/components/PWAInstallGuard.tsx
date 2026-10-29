@@ -8,10 +8,20 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
 }
 
+/**
+ * Install-screen escapes — dev builds only. The install screen keeps wallet storage out of
+ * Safari's 7-day eviction, so a shipped escape loses users' funds after a week of no use.
+ * `check:seed-leak` fails the build if one survives minification.
+ */
+function isDevEscape(search: string): boolean {
+  if (!import.meta.env.DEV) return false
+  const params = new URLSearchParams(search)
+  return params.has('seed') || params.get('mode') === 'standalone' || params.get('bypass') === 'true'
+}
+
 // Detect if running as installed PWA
 function isPWA(): boolean {
-  const urlParams = new URLSearchParams(window.location.search)
-  if (urlParams.get('mode') === 'standalone') return true
+  if (isDevEscape(window.location.search)) return true
   if (window.matchMedia('(display-mode: standalone)').matches) return true
   if (window.matchMedia('(display-mode: fullscreen)').matches) return true
   if (window.matchMedia('(display-mode: minimal-ui)').matches) return true
@@ -131,8 +141,8 @@ export function PWAInstallGuard({ children }: PWAInstallGuardProps) {
         </div>
       </div>
 
-      {/* Dev bypass */}
-      {(import.meta.env.DEV || window.location.search.includes('bypass=true')) && (
+      {/* Dev-only skip button — gated by isDevEscape, so unreachable in a production build */}
+      {import.meta.env.DEV && (
         <div className="shrink-0 px-5 pb-5">
           <button
             onClick={() => setIsInstalled(true)}

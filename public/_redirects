@@ -1,0 +1,3 @@
+# SPA fallback. Pages serves any existing file first, so assets and
+# service-worker.js are unaffected; unknown paths (deep links) get the shell.
+/* /index.html 200

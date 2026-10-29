@@ -1,7 +1,7 @@
 {
   "name": "zappi-wallet",
   "private": true,
-  "version": "0.4.4",
+  "version": "0.4.4-cf.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,7 +11,8 @@
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "check:phantom": "node scripts/check-phantom-deps.mjs"
+    "check:phantom": "node scripts/check-phantom-deps.mjs",
+    "check:seed-leak": "node scripts/check-seed-leak.mjs"
   },
   "dependencies": {
     "@agicash/qr-scanner": "0.1.2",

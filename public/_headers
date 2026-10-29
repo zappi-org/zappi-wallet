@@ -1,0 +1,22 @@
+# Cloudflare Pages response headers (nginx.conf's add_header equivalents).
+# Pages sends no headers on its own, so the CSP lives here instead of in the
+# deployment. Keep in sync with nginx.conf, which still fronts prod.
+#
+# script-src: bundles are same-origin; the sha256 is index.html's inline
+#   boot-failure notice. Regenerate the hash if that script is edited.
+# style-src:  'unsafe-inline' is unavoidable (React style props cannot be hashed).
+# img-src:    https: for mint icons, blob:/data: for QR rendering.
+# connect-src: mints, relays and Lightning endpoints are user-configurable.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-ac7WfIJTQkNm6Xdoh9EvwqrdK/rOcDCkTHc47PX1Af0='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https: wss:; worker-src 'self' blob:; media-src 'self' blob:; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+
+# Browser must revalidate to notice a new service worker.
+/service-worker.js
+  Cache-Control: no-cache
+
+# Vite hashed asset names are immutable.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
