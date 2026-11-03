@@ -1,5 +1,5 @@
 # Build stage
-FROM oven/bun:1 AS builder
+FROM oven/bun:1.4.4 AS builder
 
 # Release channel (main | staging | nightly) — controls invite gate config.
 ARG VITE_ZAPPI_CHANNEL=main
@@ -17,7 +17,7 @@ WORKDIR /app
 COPY package.json bun.lock ./
 
 # Install dependencies
-RUN bun install --frozen
+RUN bun install --frozen-lockfile
 
 # Copy source code
 COPY . .
