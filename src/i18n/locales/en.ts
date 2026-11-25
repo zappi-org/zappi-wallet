@@ -781,6 +781,11 @@ export default {
     transferStateInvalid: 'This transfer can no longer be processed',
     receiveRequestInvalid: 'Invalid receive request',
     supportTicketResolved: 'This support ticket is already resolved',
+    onchainPayoutUnavailable: 'On-chain payout is unavailable right now',
+    onchainPayoutAmountOutOfRange: 'Amount is outside the supported range',
+    onchainPayoutInvalidDestination: 'Unsupported Bitcoin address',
+    onchainPayoutProviderRejected: 'The provider rejected this payout',
+    onchainPayoutQuoteExpired: 'This payout quote has expired',
   },
 
   // Redirect

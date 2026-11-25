@@ -785,6 +785,11 @@ export default {
     transferStateInvalid: 'Esta transferencia ya no se puede procesar',
     receiveRequestInvalid: 'Solicitud de recepción no válida',
     supportTicketResolved: 'Esta consulta ya está resuelta',
+    onchainPayoutUnavailable: 'El retiro en cadena no está disponible ahora',
+    onchainPayoutAmountOutOfRange: 'El importe está fuera del rango admitido',
+    onchainPayoutInvalidDestination: 'Dirección de Bitcoin no admitida',
+    onchainPayoutProviderRejected: 'El proveedor rechazó este retiro',
+    onchainPayoutQuoteExpired: 'Esta cotización de retiro ha caducado',
   },
 
   // Redirect

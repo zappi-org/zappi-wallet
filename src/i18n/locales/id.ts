@@ -785,6 +785,11 @@ export default {
     transferStateInvalid: 'Transfer ini tidak dapat diproses lagi',
     receiveRequestInvalid: 'Permintaan penerimaan tidak valid',
     supportTicketResolved: 'Tiket dukungan ini sudah diselesaikan',
+    onchainPayoutUnavailable: 'Penarikan on-chain sedang tidak tersedia',
+    onchainPayoutAmountOutOfRange: 'Jumlah di luar rentang yang didukung',
+    onchainPayoutInvalidDestination: 'Alamat Bitcoin tidak didukung',
+    onchainPayoutProviderRejected: 'Penyedia menolak penarikan ini',
+    onchainPayoutQuoteExpired: 'Penawaran penarikan ini sudah kedaluwarsa',
   },
 
   // Redirect

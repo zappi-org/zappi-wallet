@@ -787,6 +787,11 @@ export default {
     transferStateInvalid: '더 이상 처리할 수 없는 전송이에요',
     receiveRequestInvalid: '잘못된 받기 요청이에요',
     supportTicketResolved: '이미 종결된 문의예요',
+    onchainPayoutUnavailable: '지금은 온체인 출금을 사용할 수 없어요',
+    onchainPayoutAmountOutOfRange: '지원 범위를 벗어난 금액이에요',
+    onchainPayoutInvalidDestination: '지원하지 않는 비트코인 주소예요',
+    onchainPayoutProviderRejected: '제공자가 이 출금을 거부했어요',
+    onchainPayoutQuoteExpired: '출금 견적이 만료되었어요',
   },
 
   // Redirect

@@ -783,6 +783,11 @@ export default {
     transferStateInvalid: 'この送金はこれ以上処理できません',
     receiveRequestInvalid: '無効な受取リクエストです',
     supportTicketResolved: 'このお問い合わせはすでに解決済みです',
+    onchainPayoutUnavailable: 'オンチェーン送金は現在利用できません',
+    onchainPayoutAmountOutOfRange: 'サポート範囲外の金額です',
+    onchainPayoutInvalidDestination: 'サポートされていないビットコインアドレスです',
+    onchainPayoutProviderRejected: 'プロバイダーがこの送金を拒否しました',
+    onchainPayoutQuoteExpired: '送金の見積もりが期限切れになりました',
   },
 
   // Redirect
