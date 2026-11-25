@@ -13,7 +13,7 @@ export interface PreparedRouteMelt {
 }
 
 export interface ExecutedRouteMelt {
-  preimage?: string
+  secret?: string
   effectiveFee?: number
 }
 
@@ -34,6 +34,7 @@ export interface RoutePaymentOperator {
   prepareMelt(mintUrl: string, invoice: string): Promise<PreparedRouteMelt>
   executeMelt(operationId: string): Promise<ExecutedRouteMelt>
   rollbackMelt(operationId: string, reason: string): Promise<void>
+  refreshMelt(operationId: string): Promise<{ state: string }>
   redeemMintQuote(mintUrl: string, quoteId: string, amount: number): Promise<void>
   mintAndReceive(quoteId: string, mintUrl: string, amount: number): Promise<void>
   prepareTokenSend(params: {

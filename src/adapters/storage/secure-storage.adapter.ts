@@ -7,18 +7,18 @@
 
 import type { SecureStorage, StoredWallet } from '@/core/ports/driven/secure-storage.port'
 import { bytesToHex } from '@noble/hashes/utils.js'
+import {
+  decryptAtRest,
+  encryptAtRest,
+  getSecureDatabase,
+  WALLET_STORE_NAME,
+  type EncryptedAtRest,
+} from './storage-key'
 
-const DB_NAME = 'zappi-secure'
-const DB_VERSION = 1
-const STORE_NAME = 'wallet'
-const KEY_STORE_NAME = 'keys'
+const STORE_NAME = WALLET_STORE_NAME
 const WALLET_KEY = 'current'
-const CRYPTO_KEY_ID = 'storage-key'
 
 export class SecureStorageAdapter implements SecureStorage {
-  private dbPromise: Promise<IDBDatabase> | null = null
-  private cachedKey: CryptoKey | null = null
-
   async getWallet(): Promise<StoredWallet | null> {
     const record = await this.dbGet<EncryptedRecord>(STORE_NAME, WALLET_KEY)
     if (!record) return null
@@ -53,71 +53,17 @@ export class SecureStorageAdapter implements SecureStorage {
   // ─── Record crypto (outside the transaction) ───
 
   private async decryptRecord(record: EncryptedRecord): Promise<StoredWallet> {
-    const key = await this.getOrCreateKey()
-    const decrypted = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: record.iv as Uint8Array<ArrayBuffer> },
-      key,
-      record.ciphertext,
-    )
-    return JSON.parse(new TextDecoder().decode(decrypted))
+    return JSON.parse(await decryptAtRest(record))
   }
 
   private async encryptWallet(wallet: StoredWallet): Promise<EncryptedRecord> {
-    const key = await this.getOrCreateKey()
-    const iv = crypto.getRandomValues(new Uint8Array(12))
-    const plaintext = new TextEncoder().encode(JSON.stringify(wallet))
-    const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, plaintext)
-    return { iv, ciphertext }
-  }
-
-  // ─── Non-extractable key management ───
-
-  private async getOrCreateKey(): Promise<CryptoKey> {
-    if (this.cachedKey) return this.cachedKey
-
-    const existing = await this.dbGet<CryptoKey>(KEY_STORE_NAME, CRYPTO_KEY_ID)
-    if (existing) {
-      this.cachedKey = existing
-      return existing
-    }
-
-    const key = await crypto.subtle.generateKey(
-      { name: 'AES-GCM', length: 256 },
-      false, // non-extractable
-      ['encrypt', 'decrypt'],
-    )
-
-    await this.dbPut(KEY_STORE_NAME, CRYPTO_KEY_ID, key)
-    this.cachedKey = key
-    return key
+    return encryptAtRest(JSON.stringify(wallet))
   }
 
   // ─── IndexedDB helpers ───
 
-  private openDb(): Promise<IDBDatabase> {
-    if (!this.dbPromise) {
-      this.dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
-        const request = indexedDB.open(DB_NAME, DB_VERSION)
-
-        request.onupgradeneeded = () => {
-          const db = request.result
-          if (!db.objectStoreNames.contains(STORE_NAME)) {
-            db.createObjectStore(STORE_NAME)
-          }
-          if (!db.objectStoreNames.contains(KEY_STORE_NAME)) {
-            db.createObjectStore(KEY_STORE_NAME)
-          }
-        }
-
-        request.onsuccess = () => resolve(request.result)
-        request.onerror = () => reject(request.error)
-      })
-    }
-    return this.dbPromise
-  }
-
   private async dbGet<T>(storeName: string, key: string): Promise<T | null> {
-    const db = await this.openDb()
+    const db = await getSecureDatabase()
     return new Promise<T | null>((resolve, reject) => {
       const tx = db.transaction(storeName, 'readonly')
       const store = tx.objectStore(storeName)
@@ -128,7 +74,7 @@ export class SecureStorageAdapter implements SecureStorage {
   }
 
   private async dbPut(storeName: string, key: string, value: unknown): Promise<void> {
-    const db = await this.openDb()
+    const db = await getSecureDatabase()
     return new Promise<void>((resolve, reject) => {
       const tx = db.transaction(storeName, 'readwrite')
       const store = tx.objectStore(storeName)
@@ -139,7 +85,7 @@ export class SecureStorageAdapter implements SecureStorage {
   }
 
   private async dbDelete(storeName: string, key: string): Promise<void> {
-    const db = await this.openDb()
+    const db = await getSecureDatabase()
     return new Promise<void>((resolve, reject) => {
       const tx = db.transaction(storeName, 'readwrite')
       const store = tx.objectStore(storeName)
@@ -158,7 +104,7 @@ export class SecureStorageAdapter implements SecureStorage {
    * slip in between. Returns whether it actually put (true) / no-op (false).
    */
   private async dbReplaceIfTag(record: EncryptedRecord, expectedTag: string): Promise<boolean> {
-    const db = await this.openDb()
+    const db = await getSecureDatabase()
     return new Promise<boolean>((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, 'readwrite')
       const store = tx.objectStore(STORE_NAME)
@@ -179,9 +125,4 @@ export class SecureStorageAdapter implements SecureStorage {
   }
 }
 
-// ─── Internal type ───
-
-interface EncryptedRecord {
-  iv: Uint8Array
-  ciphertext: ArrayBuffer
-}
+type EncryptedRecord = EncryptedAtRest
