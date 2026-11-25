@@ -1,0 +1,717 @@
+{
+ "fees_reverse": [
+  {
+   "percentage": "0.3",
+   "mining_fee": 100,
+   "amount": 20000,
+   "recv_reverse": 19840,
+   "send_reverse": 20161,
+   "recv_forward": null,
+   "send_forward": 20160
+  },
+  {
+   "percentage": "0.3",
+   "mining_fee": 100,
+   "amount": 50000,
+   "recv_reverse": 49750,
+   "send_reverse": 50251,
+   "recv_forward": 49750,
+   "send_forward": 50250
+  },
+  {
+   "percentage": "0.3",
+   "mining_fee": 100,
+   "amount": 99700,
+   "recv_reverse": 99300,
+   "send_reverse": 100101,
+   "recv_forward": 99302,
+   "send_forward": 100100
+  },
+  {
+   "percentage": "0.3",
+   "mining_fee": 100,
+   "amount": 100000,
+   "recv_reverse": 99600,
+   "send_reverse": 100402,
+   "recv_forward": 99601,
+   "send_forward": 100400
+  },
+  {
+   "percentage": "0.3",
+   "mining_fee": 100,
+   "amount": 250000,
+   "recv_reverse": 249150,
+   "send_reverse": 250853,
+   "recv_forward": 249152,
+   "send_forward": 250850
+  },
+  {
+   "percentage": "0.3",
+   "mining_fee": 100,
+   "amount": 1000000,
+   "recv_reverse": 996900,
+   "send_reverse": 1003110,
+   "recv_forward": 996909,
+   "send_forward": 1003100
+  },
+  {
+   "percentage": "0.3",
+   "mining_fee": 150,
+   "amount": 20000,
+   "recv_reverse": 19790,
+   "send_reverse": 20211,
+   "recv_forward": null,
+   "send_forward": 20210
+  },
+  {
+   "percentage": "0.3",
+   "mining_fee": 150,
+   "amount": 50000,
+   "recv_reverse": 49700,
+   "send_reverse": 50301,
+   "recv_forward": 49700,
+   "send_forward": 50300
+  },
+  {
+   "percentage": "0.3",
+   "mining_fee": 150,
+   "amount": 99700,
+   "recv_reverse": 99250,
+   "send_reverse": 100151,
+   "recv_forward": 99252,
+   "send_forward": 100150
+  },
+  {
+   "percentage": "0.3",
+   "mining_fee": 150,
+   "amount": 100000,
+   "recv_reverse": 99550,
+   "send_reverse": 100452,
+   "recv_forward": 99551,
+   "send_forward": 100450
+  },
+  {
+   "percentage": "0.3",
+   "mining_fee": 150,
+   "amount": 250000,
+   "recv_reverse": 249100,
+   "send_reverse": 250903,
+   "recv_forward": 249102,
+   "send_forward": 250900
+  },
+  {
+   "percentage": "0.3",
+   "mining_fee": 150,
+   "amount": 1000000,
+   "recv_reverse": 996850,
+   "send_reverse": 1003160,
+   "recv_forward": 996859,
+   "send_forward": 1003150
+  },
+  {
+   "percentage": "0.3",
+   "mining_fee": 300,
+   "amount": 20000,
+   "recv_reverse": 19640,
+   "send_reverse": 20362,
+   "recv_forward": null,
+   "send_forward": 20360
+  },
+  {
+   "percentage": "0.3",
+   "mining_fee": 300,
+   "amount": 50000,
+   "recv_reverse": 49550,
+   "send_reverse": 50452,
+   "recv_forward": 49551,
+   "send_forward": 50450
+  },
+  {
+   "percentage": "0.3",
+   "mining_fee": 300,
+   "amount": 99700,
+   "recv_reverse": 99100,
+   "send_reverse": 100301,
+   "recv_forward": 99102,
+   "send_forward": 100300
+  },
+  {
+   "percentage": "0.3",
+   "mining_fee": 300,
+   "amount": 100000,
+   "recv_reverse": 99400,
+   "send_reverse": 100602,
+   "recv_forward": 99401,
+   "send_forward": 100600
+  },
+  {
+   "percentage": "0.3",
+   "mining_fee": 300,
+   "amount": 250000,
+   "recv_reverse": 248950,
+   "send_reverse": 251054,
+   "recv_forward": 248953,
+   "send_forward": 251050
+  },
+  {
+   "percentage": "0.3",
+   "mining_fee": 300,
+   "amount": 1000000,
+   "recv_reverse": 996700,
+   "send_reverse": 1003310,
+   "recv_forward": 996709,
+   "send_forward": 1003300
+  },
+  {
+   "percentage": "0.39",
+   "mining_fee": 100,
+   "amount": 20000,
+   "recv_reverse": 19822,
+   "send_reverse": 20179,
+   "recv_forward": null,
+   "send_forward": 20178
+  },
+  {
+   "percentage": "0.39",
+   "mining_fee": 100,
+   "amount": 50000,
+   "recv_reverse": 49705,
+   "send_reverse": 50297,
+   "recv_forward": 49706,
+   "send_forward": 50295
+  },
+  {
+   "percentage": "0.39",
+   "mining_fee": 100,
+   "amount": 99700,
+   "recv_reverse": 99211,
+   "send_reverse": 100191,
+   "recv_forward": 99213,
+   "send_forward": 100189
+  },
+  {
+   "percentage": "0.39",
+   "mining_fee": 100,
+   "amount": 100000,
+   "recv_reverse": 99510,
+   "send_reverse": 100492,
+   "recv_forward": 99511,
+   "send_forward": 100490
+  },
+  {
+   "percentage": "0.39",
+   "mining_fee": 100,
+   "amount": 250000,
+   "recv_reverse": 248925,
+   "send_reverse": 251080,
+   "recv_forward": 248929,
+   "send_forward": 251075
+  },
+  {
+   "percentage": "0.39",
+   "mining_fee": 100,
+   "amount": 1000000,
+   "recv_reverse": 996000,
+   "send_reverse": 1004016,
+   "recv_forward": 996015,
+   "send_forward": 1004000
+  },
+  {
+   "percentage": "0.39",
+   "mining_fee": 150,
+   "amount": 20000,
+   "recv_reverse": 19772,
+   "send_reverse": 20229,
+   "recv_forward": null,
+   "send_forward": 20228
+  },
+  {
+   "percentage": "0.39",
+   "mining_fee": 150,
+   "amount": 50000,
+   "recv_reverse": 49655,
+   "send_reverse": 50347,
+   "recv_forward": 49656,
+   "send_forward": 50345
+  },
+  {
+   "percentage": "0.39",
+   "mining_fee": 150,
+   "amount": 99700,
+   "recv_reverse": 99161,
+   "send_reverse": 100241,
+   "recv_forward": 99163,
+   "send_forward": 100239
+  },
+  {
+   "percentage": "0.39",
+   "mining_fee": 150,
+   "amount": 100000,
+   "recv_reverse": 99460,
+   "send_reverse": 100543,
+   "recv_forward": 99462,
+   "send_forward": 100540
+  },
+  {
+   "percentage": "0.39",
+   "mining_fee": 150,
+   "amount": 250000,
+   "recv_reverse": 248875,
+   "send_reverse": 251130,
+   "recv_forward": 248879,
+   "send_forward": 251125
+  },
+  {
+   "percentage": "0.39",
+   "mining_fee": 150,
+   "amount": 1000000,
+   "recv_reverse": 995950,
+   "send_reverse": 1004066,
+   "recv_forward": 995965,
+   "send_forward": 1004050
+  },
+  {
+   "percentage": "0.39",
+   "mining_fee": 300,
+   "amount": 20000,
+   "recv_reverse": 19622,
+   "send_reverse": 20380,
+   "recv_forward": null,
+   "send_forward": 20378
+  },
+  {
+   "percentage": "0.39",
+   "mining_fee": 300,
+   "amount": 50000,
+   "recv_reverse": 49505,
+   "send_reverse": 50497,
+   "recv_forward": 49506,
+   "send_forward": 50495
+  },
+  {
+   "percentage": "0.39",
+   "mining_fee": 300,
+   "amount": 99700,
+   "recv_reverse": 99011,
+   "send_reverse": 100392,
+   "recv_forward": 99013,
+   "send_forward": 100389
+  },
+  {
+   "percentage": "0.39",
+   "mining_fee": 300,
+   "amount": 100000,
+   "recv_reverse": 99310,
+   "send_reverse": 100693,
+   "recv_forward": 99312,
+   "send_forward": 100690
+  },
+  {
+   "percentage": "0.39",
+   "mining_fee": 300,
+   "amount": 250000,
+   "recv_reverse": 248725,
+   "send_reverse": 251280,
+   "recv_forward": 248729,
+   "send_forward": 251275
+  },
+  {
+   "percentage": "0.39",
+   "mining_fee": 300,
+   "amount": 1000000,
+   "recv_reverse": 995800,
+   "send_reverse": 1004217,
+   "recv_forward": 995816,
+   "send_forward": 1004200
+  },
+  {
+   "percentage": "0.5",
+   "mining_fee": 100,
+   "amount": 20000,
+   "recv_reverse": 19800,
+   "send_reverse": 20202,
+   "recv_forward": null,
+   "send_forward": 20200
+  },
+  {
+   "percentage": "0.5",
+   "mining_fee": 100,
+   "amount": 50000,
+   "recv_reverse": 49650,
+   "send_reverse": 50352,
+   "recv_forward": 49651,
+   "send_forward": 50350
+  },
+  {
+   "percentage": "0.5",
+   "mining_fee": 100,
+   "amount": 99700,
+   "recv_reverse": 99101,
+   "send_reverse": 100302,
+   "recv_forward": 99104,
+   "send_forward": 100299
+  },
+  {
+   "percentage": "0.5",
+   "mining_fee": 100,
+   "amount": 100000,
+   "recv_reverse": 99400,
+   "send_reverse": 100604,
+   "recv_forward": 99402,
+   "send_forward": 100600
+  },
+  {
+   "percentage": "0.5",
+   "mining_fee": 100,
+   "amount": 250000,
+   "recv_reverse": 248650,
+   "send_reverse": 251357,
+   "recv_forward": 248656,
+   "send_forward": 251350
+  },
+  {
+   "percentage": "0.5",
+   "mining_fee": 100,
+   "amount": 1000000,
+   "recv_reverse": 994900,
+   "send_reverse": 1005126,
+   "recv_forward": 994925,
+   "send_forward": 1005100
+  },
+  {
+   "percentage": "0.5",
+   "mining_fee": 150,
+   "amount": 20000,
+   "recv_reverse": 19750,
+   "send_reverse": 20252,
+   "recv_forward": null,
+   "send_forward": 20250
+  },
+  {
+   "percentage": "0.5",
+   "mining_fee": 150,
+   "amount": 50000,
+   "recv_reverse": 49600,
+   "send_reverse": 50403,
+   "recv_forward": 49601,
+   "send_forward": 50400
+  },
+  {
+   "percentage": "0.5",
+   "mining_fee": 150,
+   "amount": 99700,
+   "recv_reverse": 99051,
+   "send_reverse": 100352,
+   "recv_forward": 99054,
+   "send_forward": 100349
+  },
+  {
+   "percentage": "0.5",
+   "mining_fee": 150,
+   "amount": 100000,
+   "recv_reverse": 99350,
+   "send_reverse": 100654,
+   "recv_forward": 99353,
+   "send_forward": 100650
+  },
+  {
+   "percentage": "0.5",
+   "mining_fee": 150,
+   "amount": 250000,
+   "recv_reverse": 248600,
+   "send_reverse": 251408,
+   "recv_forward": 248606,
+   "send_forward": 251400
+  },
+  {
+   "percentage": "0.5",
+   "mining_fee": 150,
+   "amount": 1000000,
+   "recv_reverse": 994850,
+   "send_reverse": 1005176,
+   "recv_forward": 994875,
+   "send_forward": 1005150
+  },
+  {
+   "percentage": "0.5",
+   "mining_fee": 300,
+   "amount": 20000,
+   "recv_reverse": 19600,
+   "send_reverse": 20403,
+   "recv_forward": null,
+   "send_forward": 20400
+  },
+  {
+   "percentage": "0.5",
+   "mining_fee": 300,
+   "amount": 50000,
+   "recv_reverse": 49450,
+   "send_reverse": 50553,
+   "recv_forward": 49452,
+   "send_forward": 50550
+  },
+  {
+   "percentage": "0.5",
+   "mining_fee": 300,
+   "amount": 99700,
+   "recv_reverse": 98901,
+   "send_reverse": 100503,
+   "recv_forward": 98905,
+   "send_forward": 100499
+  },
+  {
+   "percentage": "0.5",
+   "mining_fee": 300,
+   "amount": 100000,
+   "recv_reverse": 99200,
+   "send_reverse": 100805,
+   "recv_forward": 99203,
+   "send_forward": 100800
+  },
+  {
+   "percentage": "0.5",
+   "mining_fee": 300,
+   "amount": 250000,
+   "recv_reverse": 248450,
+   "send_reverse": 251558,
+   "recv_forward": 248457,
+   "send_forward": 251550
+  },
+  {
+   "percentage": "0.5",
+   "mining_fee": 300,
+   "amount": 1000000,
+   "recv_reverse": 994700,
+   "send_reverse": 1005327,
+   "recv_forward": 994726,
+   "send_forward": 1005300
+  },
+  {
+   "percentage": "0.99",
+   "mining_fee": 100,
+   "amount": 20000,
+   "recv_reverse": 19702,
+   "send_reverse": 20301,
+   "recv_forward": null,
+   "send_forward": 20298
+  },
+  {
+   "percentage": "0.99",
+   "mining_fee": 100,
+   "amount": 50000,
+   "recv_reverse": 49405,
+   "send_reverse": 50601,
+   "recv_forward": 49410,
+   "send_forward": 50595
+  },
+  {
+   "percentage": "0.99",
+   "mining_fee": 100,
+   "amount": 99700,
+   "recv_reverse": 98612,
+   "send_reverse": 100798,
+   "recv_forward": 98623,
+   "send_forward": 100788
+  },
+  {
+   "percentage": "0.99",
+   "mining_fee": 100,
+   "amount": 100000,
+   "recv_reverse": 98910,
+   "send_reverse": 101101,
+   "recv_forward": 98920,
+   "send_forward": 101090
+  },
+  {
+   "percentage": "0.99",
+   "mining_fee": 100,
+   "amount": 250000,
+   "recv_reverse": 247425,
+   "send_reverse": 252601,
+   "recv_forward": 247450,
+   "send_forward": 252575
+  },
+  {
+   "percentage": "0.99",
+   "mining_fee": 100,
+   "amount": 1000000,
+   "recv_reverse": 990000,
+   "send_reverse": 1010100,
+   "recv_forward": 990098,
+   "send_forward": 1010000
+  },
+  {
+   "percentage": "0.99",
+   "mining_fee": 150,
+   "amount": 20000,
+   "recv_reverse": 19652,
+   "send_reverse": 20352,
+   "recv_forward": null,
+   "send_forward": 20348
+  },
+  {
+   "percentage": "0.99",
+   "mining_fee": 150,
+   "amount": 50000,
+   "recv_reverse": 49355,
+   "send_reverse": 50652,
+   "recv_forward": 49361,
+   "send_forward": 50645
+  },
+  {
+   "percentage": "0.99",
+   "mining_fee": 150,
+   "amount": 99700,
+   "recv_reverse": 98562,
+   "send_reverse": 100849,
+   "recv_forward": 98574,
+   "send_forward": 100838
+  },
+  {
+   "percentage": "0.99",
+   "mining_fee": 150,
+   "amount": 100000,
+   "recv_reverse": 98860,
+   "send_reverse": 101152,
+   "recv_forward": 98871,
+   "send_forward": 101140
+  },
+  {
+   "percentage": "0.99",
+   "mining_fee": 150,
+   "amount": 250000,
+   "recv_reverse": 247375,
+   "send_reverse": 252652,
+   "recv_forward": 247400,
+   "send_forward": 252625
+  },
+  {
+   "percentage": "0.99",
+   "mining_fee": 150,
+   "amount": 1000000,
+   "recv_reverse": 989950,
+   "send_reverse": 1010151,
+   "recv_forward": 990048,
+   "send_forward": 1010050
+  },
+  {
+   "percentage": "0.99",
+   "mining_fee": 300,
+   "amount": 20000,
+   "recv_reverse": 19502,
+   "send_reverse": 20503,
+   "recv_forward": null,
+   "send_forward": 20498
+  },
+  {
+   "percentage": "0.99",
+   "mining_fee": 300,
+   "amount": 50000,
+   "recv_reverse": 49205,
+   "send_reverse": 50803,
+   "recv_forward": 49212,
+   "send_forward": 50795
+  },
+  {
+   "percentage": "0.99",
+   "mining_fee": 300,
+   "amount": 99700,
+   "recv_reverse": 98412,
+   "send_reverse": 101000,
+   "recv_forward": 98425,
+   "send_forward": 100988
+  },
+  {
+   "percentage": "0.99",
+   "mining_fee": 300,
+   "amount": 100000,
+   "recv_reverse": 98710,
+   "send_reverse": 101303,
+   "recv_forward": 98722,
+   "send_forward": 101290
+  },
+  {
+   "percentage": "0.99",
+   "mining_fee": 300,
+   "amount": 250000,
+   "recv_reverse": 247225,
+   "send_reverse": 252803,
+   "recv_forward": 247252,
+   "send_forward": 252775
+  },
+  {
+   "percentage": "0.99",
+   "mining_fee": 300,
+   "amount": 1000000,
+   "recv_reverse": 989800,
+   "send_reverse": 1010302,
+   "recv_forward": 989899,
+   "send_forward": 1010200
+  }
+ ],
+ "fee_note": "_get_*_amount(is_reverse=True) = client reverse swap (LN out, onchain in). excludes the claim-tx onchain fee and excludes the 2*mining_fee prepayment.",
+ "swap_scripts": [
+  {
+   "network": "mainnet",
+   "locktime": 100,
+   "payment_hash": "02d449a31fbb267c8f352e9968a79e3e5fc95c1bbeaa502fd6454ebde5a4bedc",
+   "preimage": "1111111111111111111111111111111111111111111111111111111111111111",
+   "refund_pubkey": "02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27",
+   "claim_pubkey": "023c72addb4fdf09af94f0c94d7fe92a386a7e70cf8a1d85916386bb2535c7b1b1",
+   "redeem_script": "8201208763a9144d5209774e22ea63e2987579562d9a4ea3dab6238821023c72addb4fdf09af94f0c94d7fe92a386a7e70cf8a1d85916386bb2535c7b1b167750164b1752102466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f2768ac",
+   "lockup_address": "bc1q04xudy5tk2xfggt2ka0c8tdtppg2tstt45255qm42e6mqf76gqvq7qd5z0",
+   "script_ripemd160": "4d5209774e22ea63e2987579562d9a4ea3dab623"
+  },
+  {
+   "network": "mainnet",
+   "locktime": 500000,
+   "payment_hash": "02d449a31fbb267c8f352e9968a79e3e5fc95c1bbeaa502fd6454ebde5a4bedc",
+   "preimage": "1111111111111111111111111111111111111111111111111111111111111111",
+   "refund_pubkey": "02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27",
+   "claim_pubkey": "023c72addb4fdf09af94f0c94d7fe92a386a7e70cf8a1d85916386bb2535c7b1b1",
+   "redeem_script": "8201208763a9144d5209774e22ea63e2987579562d9a4ea3dab6238821023c72addb4fdf09af94f0c94d7fe92a386a7e70cf8a1d85916386bb2535c7b1b167750320a107b1752102466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f2768ac",
+   "lockup_address": "bc1q0pxutqfpf2gmn888y7j822xemyuzens3akge0m2320zvy883aj3srun4rq",
+   "script_ripemd160": "4d5209774e22ea63e2987579562d9a4ea3dab623"
+  },
+  {
+   "network": "regtest",
+   "locktime": 100,
+   "payment_hash": "02d449a31fbb267c8f352e9968a79e3e5fc95c1bbeaa502fd6454ebde5a4bedc",
+   "preimage": "1111111111111111111111111111111111111111111111111111111111111111",
+   "refund_pubkey": "02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27",
+   "claim_pubkey": "023c72addb4fdf09af94f0c94d7fe92a386a7e70cf8a1d85916386bb2535c7b1b1",
+   "redeem_script": "8201208763a9144d5209774e22ea63e2987579562d9a4ea3dab6238821023c72addb4fdf09af94f0c94d7fe92a386a7e70cf8a1d85916386bb2535c7b1b167750164b1752102466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f2768ac",
+   "lockup_address": "bcrt1q04xudy5tk2xfggt2ka0c8tdtppg2tstt45255qm42e6mqf76gqvqy33ad6",
+   "script_ripemd160": "4d5209774e22ea63e2987579562d9a4ea3dab623"
+  },
+  {
+   "network": "regtest",
+   "locktime": 500000,
+   "payment_hash": "02d449a31fbb267c8f352e9968a79e3e5fc95c1bbeaa502fd6454ebde5a4bedc",
+   "preimage": "1111111111111111111111111111111111111111111111111111111111111111",
+   "refund_pubkey": "02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27",
+   "claim_pubkey": "023c72addb4fdf09af94f0c94d7fe92a386a7e70cf8a1d85916386bb2535c7b1b1",
+   "redeem_script": "8201208763a9144d5209774e22ea63e2987579562d9a4ea3dab6238821023c72addb4fdf09af94f0c94d7fe92a386a7e70cf8a1d85916386bb2535c7b1b167750320a107b1752102466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f2768ac",
+   "lockup_address": "bcrt1q0pxutqfpf2gmn888y7j822xemyuzens3akge0m2320zvy883aj3sed0uv4",
+   "script_ripemd160": "4d5209774e22ea63e2987579562d9a4ea3dab623"
+  }
+ ],
+ "claim_tx": {
+  "network": "regtest",
+  "funding_txid": "464ebf1db11fa8dee096179a3a94b0db3309d83fff0350e5d89aac793896cb09",
+  "outpoint_n": 0,
+  "funding_value": 100000,
+  "lockup_address": "bcrt1q0pxutqfpf2gmn888y7j822xemyuzens3akge0m2320zvy883aj3sed0uv4",
+  "redeem_script": "8201208763a9144d5209774e22ea63e2987579562d9a4ea3dab6238821023c72addb4fdf09af94f0c94d7fe92a386a7e70cf8a1d85916386bb2535c7b1b167750320a107b1752102466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f2768ac",
+  "claim_privkey": "3333333333333333333333333333333333333333333333333333333333333333",
+  "preimage": "1111111111111111111111111111111111111111111111111111111111111111",
+  "locktime": 500000,
+  "dest_address": "bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080",
+  "dest_value": 99000,
+  "nsequence": 1,
+  "claim_tx_hex": "0200000000010109cb963879ac9ad8e55003ff3fd80933dbb0943a9a1796e0dea81fb11dbf4e4600000000000100000001b882010000000000160014751e76e8199196d454941c45d1b3a323f1433bd60347304402204b65d30f223737fbc0fdd3b65671152a15a228d898e6195252d0f77d262139b9022034bbea2cfc49c6ec9f3490724aca55316b43834c4b3448cc4e49388b08d44562012011111111111111111111111111111111111111111111111111111111111111116a8201208763a9144d5209774e22ea63e2987579562d9a4ea3dab6238821023c72addb4fdf09af94f0c94d7fe92a386a7e70cf8a1d85916386bb2535c7b1b167750320a107b1752102466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f2768ac00000000",
+  "funding_tx_hex": "02000000010000000000000000000000000000000000000000000000000000000000000000ffffffff00feffffff01a086010000000000220020784dc581214a91b99ce727a47528d9d9382cce11ed9197ed5153c4c21cf1eca300000000",
+  "claim_tx_txid": "bdf8d4408e9f010d5aa8effac022ba4a71ea06f964fd70b8bd719bff0c062456",
+  "extracted_preimage": "1111111111111111111111111111111111111111111111111111111111111111"
+ }
+}
