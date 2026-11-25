@@ -34,6 +34,13 @@ export interface BuiltSweepTx {
   vsize: number
 }
 
+const SWEEP_BASE_VSIZE = 105
+
+export function estimateSweepVsize(destination: string, network: PayoutNetwork): number {
+  const script = OutScript.encode(Address(payoutNetworkParams(network)).decode(destination))
+  return SWEEP_BASE_VSIZE + 8 + encodeVarInt(script.length).length + script.length
+}
+
 function encodeUint32(value: number): Uint8Array {
   const bytes = new Uint8Array(4)
   new DataView(bytes.buffer).setUint32(0, value, true)

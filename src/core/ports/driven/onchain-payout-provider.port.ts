@@ -60,10 +60,12 @@ export interface OnchainPayoutProvider {
     providerRef: JsonValue
     secrets: string
     stage: OnchainPayoutStage
+    published: boolean
   }): Promise<OnchainPayoutAdvance>
   publish(params: { providerRef: JsonValue; secrets: string }): Promise<OnchainPayoutProgress>
   status(params: {
     providerRef: JsonValue
     stage: OnchainPayoutStage
+    published: boolean
   }): Promise<OnchainPayoutProgress>
 }

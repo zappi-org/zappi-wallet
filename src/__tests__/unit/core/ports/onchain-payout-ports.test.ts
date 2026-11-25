@@ -113,6 +113,7 @@ const record = {
   ],
   payoutTxId: null,
   failureReason: null,
+  publishedAt: null,
   deadline,
   createdAt: 1,
   updatedAt: 1,

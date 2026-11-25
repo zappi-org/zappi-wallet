@@ -34,6 +34,7 @@ export interface OnchainPayoutRecord {
   payments: OnchainPayoutPayment[]
   payoutTxId: string | null
   failureReason: string | null
+  publishedAt: number | null
   deadline: OnchainPayoutDeadline
   createdAt: number
   updatedAt: number

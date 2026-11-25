@@ -31,6 +31,17 @@ export interface ChainOutspend {
   confirmedHeight: number | null
 }
 
+export interface PayoutChain {
+  tipHeight(): Promise<number>
+  findOutputs(address: string): Promise<ChainOutput[]>
+  outspend(txid: string, vout: number): Promise<ChainOutspend>
+  broadcast(hex: string): Promise<string>
+  feeRate(targetBlocks?: number): Promise<number>
+  txConfirmations(txid: string): Promise<number | null>
+  txHex(txid: string): Promise<string>
+  txFee(txid: string): Promise<{ fee: number; vsize: number }>
+}
+
 interface EsploraStatus {
   confirmed?: boolean
   block_height?: number
@@ -55,7 +66,7 @@ function transactionId(hex: string): string {
   return Transaction.fromRaw(hexToBytes(hex)).id
 }
 
-export class EsploraChainClient {
+export class EsploraChainClient implements PayoutChain {
   private readonly baseUrl: string
   private readonly fetchImpl: typeof fetch
 
@@ -165,6 +176,23 @@ export class EsploraChainClient {
     const smallest = usable.sort((a, b) => a.target - b.target)[0]
     const chosen = exact ?? nearestLower ?? smallest
     return Math.max(1, Math.ceil(chosen.rate))
+  }
+
+  async txHex(txid: string): Promise<string> {
+    const response = await this.request(`/tx/${txid}/hex`)
+    return (await response.text()).trim()
+  }
+
+  async txFee(txid: string): Promise<{ fee: number; vsize: number }> {
+    const response = await this.request(`/tx/${txid}`)
+    const body = (await response.json()) as { fee?: unknown; weight?: unknown }
+    if (typeof body.fee !== 'number' || !Number.isFinite(body.fee) || body.fee < 0) {
+      throw new Error('chain returned a malformed transaction fee')
+    }
+    if (typeof body.weight !== 'number' || !Number.isFinite(body.weight) || body.weight <= 0) {
+      throw new Error('chain returned a malformed transaction fee')
+    }
+    return { fee: body.fee, vsize: Math.ceil(body.weight / 4) }
   }
 
   async txConfirmations(txid: string): Promise<number | null> {

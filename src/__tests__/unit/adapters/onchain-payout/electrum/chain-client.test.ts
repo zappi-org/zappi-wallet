@@ -231,6 +231,30 @@ describe('chain client', () => {
     expect(await client.feeRate(1)).toBe(5)
   })
 
+  it('reads the transaction fee and virtual size', async () => {
+    const { client, fetchMock } = clientWith(
+      jsonResponse({ txid: 'tx-a', fee: 1234, weight: 545 }),
+    )
+    expect(await client.txFee('tx-a')).toEqual({ fee: 1234, vsize: 137 })
+    expect(fetchMock.mock.calls[0][0]).toBe(`${BASE}/tx/tx-a`)
+  })
+
+  it('rejects a malformed transaction weight', async () => {
+    const { client } = clientWith(jsonResponse({ txid: 'tx-a', fee: 1234 }))
+    await expect(client.txFee('tx-a')).rejects.toThrow('malformed transaction fee')
+  })
+
+  it('rejects a malformed transaction fee', async () => {
+    const { client } = clientWith(jsonResponse({ txid: 'tx-a' }))
+    await expect(client.txFee('tx-a')).rejects.toThrow('malformed transaction fee')
+  })
+
+  it('reads a raw transaction', async () => {
+    const { client, fetchMock } = clientWith(textResponse('0200deadbeef\n'))
+    expect(await client.txHex('tx-a')).toBe('0200deadbeef')
+    expect(fetchMock.mock.calls[0][0]).toBe(`${BASE}/tx/tx-a/hex`)
+  })
+
   it('counts confirmations against the tip', async () => {
     const { client } = clientWith(
       jsonResponse({ confirmed: true, block_height: 100 }),
