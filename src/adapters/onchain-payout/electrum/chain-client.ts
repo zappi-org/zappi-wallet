@@ -51,7 +51,7 @@ interface EsploraTx {
   txid: string
   status?: EsploraStatus
   vout?: {
-    n: number
+    n?: number
     value: number
     scriptpubkey_address?: string
   }[]
@@ -108,11 +108,13 @@ export class EsploraChainClient implements PayoutChain {
       const response = await this.request(path)
       const transactions = (await response.json()) as EsploraTx[]
       for (const transaction of transactions) {
-        for (const output of transaction.vout ?? []) {
+        const outputsOfTx = transaction.vout ?? []
+        for (let index = 0; index < outputsOfTx.length; index++) {
+          const output = outputsOfTx[index]
           if (output.scriptpubkey_address !== address) continue
           outputs.push({
             txid: transaction.txid,
-            vout: output.n,
+            vout: output.n ?? index,
             value: output.value,
             confirmedHeight: confirmedHeight(transaction.status),
           })

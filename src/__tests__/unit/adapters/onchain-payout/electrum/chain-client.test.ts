@@ -103,6 +103,24 @@ describe('chain client', () => {
     expect(fetchMock.mock.calls[0][0]).toBe(`${BASE}/address/bcrt1qtarget/txs`)
   })
 
+  it('falls back to the output position when the API omits n', async () => {
+    const { client } = clientWith(
+      jsonResponse([
+        {
+          txid: 'tx-a',
+          status: { confirmed: true, block_height: 800000 },
+          vout: [
+            { value: 1000, scriptpubkey_address: 'bcrt1qother' },
+            { value: 2000, scriptpubkey_address: 'bcrt1qtarget' },
+          ],
+        },
+      ]),
+    )
+    expect(await client.findOutputs('bcrt1qtarget')).toEqual([
+      { txid: 'tx-a', vout: 1, value: 2000, confirmedHeight: 800000 },
+    ])
+  })
+
   it('pages the address history until the funding output is found', async () => {
     const pages = new Map<string, Response>()
     pages.set(`${BASE}/address/bcrt1qtarget/txs`, jsonResponse(confirmedPage(0, 25)))
