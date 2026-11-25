@@ -26,7 +26,13 @@ import type {
 } from '@/core/ports/driven/onchain-payout-provider.port'
 import type { OnchainPayoutStage } from '@/core/domain/onchain-payout'
 import type { PayoutChain, ChainOutspend, ChainOutput } from './chain-client'
-import { offerLimits, rankOffers, fetchOffers, type PayoutOffer } from './offers'
+import {
+  offerLimits,
+  rankOffers,
+  fetchOffers,
+  POW_TARGET_BITS,
+  type PayoutOffer,
+} from './offers'
 import type { PayoutRelayClient } from './relay-client'
 import { DEFAULT_PAYOUT_RELAYS } from './relay-client'
 import type { PayoutNetwork } from './network'
@@ -57,6 +63,7 @@ export interface ElectrumPayoutProviderOptions {
   offerWaitMs?: number
   requestTimeoutMs?: number
   sweepTargetBlocks?: number
+  powTargetBits?: number
 }
 
 interface QuoteOfferRef {
@@ -259,6 +266,7 @@ export class ElectrumPayoutProvider implements OnchainPayoutProvider {
   private readonly offerWaitMs: number
   private readonly requestTimeoutMs: number
   private readonly sweepTargetBlocks: number
+  private readonly powTargetBits: number
 
   private cachedOffers: { fetchedAt: number; offers: PayoutOffer[] } | null = null
 
@@ -280,6 +288,7 @@ export class ElectrumPayoutProvider implements OnchainPayoutProvider {
     this.offerWaitMs = options.offerWaitMs ?? OFFER_WAIT_MS
     this.requestTimeoutMs = options.requestTimeoutMs ?? REQUEST_TIMEOUT_MS
     this.sweepTargetBlocks = options.sweepTargetBlocks ?? SWEEP_TARGET_BLOCKS
+    this.powTargetBits = options.powTargetBits ?? POW_TARGET_BITS
   }
 
   private nowMs(): number {
@@ -308,6 +317,7 @@ export class ElectrumPayoutProvider implements OnchainPayoutProvider {
       relays: this.relays,
       now: this.nowSeconds(),
       maxWaitMs: this.offerWaitMs,
+      powTarget: this.powTargetBits,
     })
     this.cachedOffers = { fetchedAt, offers }
     return offers

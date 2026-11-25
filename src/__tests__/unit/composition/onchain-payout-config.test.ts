@@ -54,6 +54,29 @@ describe('readOnchainPayoutConfig', () => {
     expect(readOnchainPayoutConfig({ VITE_ONCHAIN_PAYOUT_RELAYS: ' , ' }).relays).toBeNull()
   })
 
+  it('honours the pow target only on regtest', () => {
+    expect(
+      readOnchainPayoutConfig({
+        VITE_ONCHAIN_PAYOUT_NETWORK: 'regtest',
+        VITE_ONCHAIN_PAYOUT_CHAIN_API: 'http://127.0.0.1:3002',
+        VITE_ONCHAIN_PAYOUT_POW_BITS: '12',
+      }).powTargetBits,
+    ).toBe(12)
+    expect(
+      readOnchainPayoutConfig({
+        VITE_ONCHAIN_PAYOUT_NETWORK: 'mainnet',
+        VITE_ONCHAIN_PAYOUT_POW_BITS: '12',
+      }).powTargetBits,
+    ).toBe(30)
+    expect(
+      readOnchainPayoutConfig({
+        VITE_ONCHAIN_PAYOUT_NETWORK: 'regtest',
+        VITE_ONCHAIN_PAYOUT_CHAIN_API: 'http://127.0.0.1:3002',
+        VITE_ONCHAIN_PAYOUT_POW_BITS: 'nope',
+      }).powTargetBits,
+    ).toBe(30)
+  })
+
   it('clamps the poll interval', () => {
     expect(
       readOnchainPayoutConfig({ VITE_ONCHAIN_PAYOUT_POLL_MS: '500' }).pollIntervalMs,

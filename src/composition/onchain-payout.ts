@@ -105,6 +105,7 @@ export function createOnchainPayout(deps: CreateOnchainPayoutDeps): OnchainPayou
       chain,
       relays: config.relays ?? DEFAULT_PAYOUT_RELAYS,
       appLimits: { minAmount: config.minAmount, maxAmount: config.maxAmount },
+      powTargetBits: config.powTargetBits,
     })
   }
 

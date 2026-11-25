@@ -288,7 +288,13 @@ export function rankOffers(
 
 export async function fetchOffers(
   client: PayoutRelayClient,
-  params: { network: PayoutNetwork; relays: string[]; now: number; maxWaitMs: number },
+  params: {
+    network: PayoutNetwork
+    relays: string[]
+    now: number
+    maxWaitMs: number
+    powTarget?: number
+  },
 ): Promise<PayoutOffer[]> {
   const { network, relays, now, maxWaitMs } = params
   const events = await client.query(
@@ -301,5 +307,9 @@ export async function fetchOffers(
     },
     maxWaitMs,
   )
-  return parseOffers(events, { network, now, powTarget: POW_TARGET_BITS })
+  return parseOffers(events, {
+    network,
+    now,
+    powTarget: params.powTarget ?? POW_TARGET_BITS,
+  })
 }

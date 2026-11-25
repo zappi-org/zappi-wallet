@@ -8,6 +8,7 @@ export interface OnchainPayoutConfig {
   minAmount: number
   maxAmount: number
   pollIntervalMs: number
+  powTargetBits: number
 }
 
 export interface OnchainPayoutEnv {
@@ -16,6 +17,7 @@ export interface OnchainPayoutEnv {
   VITE_ONCHAIN_PAYOUT_CHAIN_API?: string
   VITE_ONCHAIN_PAYOUT_RELAYS?: string
   VITE_ONCHAIN_PAYOUT_POLL_MS?: string
+  VITE_ONCHAIN_PAYOUT_POW_BITS?: string
 }
 
 const NETWORKS: PayoutNetwork[] = ['mainnet', 'testnet', 'signet', 'regtest']
@@ -24,6 +26,7 @@ const MIN_AMOUNT = 20_000
 const MAX_AMOUNT = 1_000_000
 const POLL_INTERVAL_MS = 30_000
 const MIN_POLL_INTERVAL_MS = 2_000
+const DEFAULT_POW_TARGET_BITS = 30
 
 function readNetwork(value: string | undefined): PayoutNetwork | null {
   if (value === undefined || value === '') return DEFAULT_NETWORK
@@ -37,6 +40,13 @@ function readRelays(value: string | undefined): string[] | null {
     .map((relay) => relay.trim())
     .filter((relay) => relay.length > 0)
   return relays.length > 0 ? relays : null
+}
+
+function readPowTargetBits(value: string | undefined, network: PayoutNetwork): number {
+  if (network !== 'regtest') return DEFAULT_POW_TARGET_BITS
+  const parsed = Number(value)
+  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 256) return DEFAULT_POW_TARGET_BITS
+  return parsed
 }
 
 function readPollInterval(value: string | undefined): number {
@@ -60,5 +70,9 @@ export function readOnchainPayoutConfig(
     minAmount: MIN_AMOUNT,
     maxAmount: MAX_AMOUNT,
     pollIntervalMs: readPollInterval(env.VITE_ONCHAIN_PAYOUT_POLL_MS),
+    powTargetBits: readPowTargetBits(
+      env.VITE_ONCHAIN_PAYOUT_POW_BITS,
+      network ?? DEFAULT_NETWORK,
+    ),
   }
 }

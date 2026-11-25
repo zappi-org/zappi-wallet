@@ -14,6 +14,7 @@ function disabledConfig(patch: Partial<OnchainPayoutConfig> = {}): OnchainPayout
     minAmount: 20000,
     maxAmount: 1000000,
     pollIntervalMs: 30000,
+    powTargetBits: 30,
     ...patch,
   }
 }

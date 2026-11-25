@@ -297,7 +297,11 @@ function expectNoBroadcast(chain: FakeChain) {
 }
 
 describe('electrum payout provider quote', () => {
-  function mainnetProvider(relay: FakeRelay, chain = new FakeChain()) {
+  function mainnetProvider(
+    relay: FakeRelay,
+    chain = new FakeChain(),
+    options: Partial<ElectrumPayoutProviderOptions> = {},
+  ) {
     chain.rate = 2
     return new ElectrumPayoutProvider({
       network: 'mainnet',
@@ -308,6 +312,7 @@ describe('electrum payout provider quote', () => {
       now: () => 1_700_000_000_000,
       offerCacheMs: 60000,
       offerWaitMs: 1,
+      ...options,
     })
   }
 
@@ -362,6 +367,23 @@ describe('electrum payout provider quote', () => {
     await expect(
       mainnetProvider(relay).quote({ sendAmount: 100000, destination: 'not-an-address' }),
     ).rejects.toBeInstanceOf(OnchainPayoutInvalidDestinationError)
+  })
+
+  it('honours a custom pow target', async () => {
+    const relay = createFakeRelay({
+      offerEvents: [offerEvent(offersFixture.offers[0], nowSeconds - 60)],
+    })
+    const strict = mainnetProvider(relay, new FakeChain(), { powTargetBits: 54 })
+    await expect(
+      strict.quote({ sendAmount: 100000, destination: mainnetDestination }),
+    ).rejects.toBeInstanceOf(OnchainPayoutUnavailableError)
+
+    const relaxed = mainnetProvider(relay, new FakeChain(), { powTargetBits: 53 })
+    const quote = await relaxed.quote({
+      sendAmount: 100000,
+      destination: mainnetDestination,
+    })
+    expect(quote.networkFee).toBe(150)
   })
 
   it('reports unavailability without offers', async () => {
