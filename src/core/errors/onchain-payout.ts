@@ -49,3 +49,12 @@ export class OnchainPayoutQuoteExpiredError extends BaseError {
     super(message, cause)
   }
 }
+
+export class OnchainPayoutActiveError extends BaseError {
+  readonly code = 'ONCHAIN_PAYOUT_ACTIVE' as const
+  readonly isRetryable = false
+
+  constructor(message = 'An on-chain payout is still in progress', cause?: unknown) {
+    super(message, cause)
+  }
+}

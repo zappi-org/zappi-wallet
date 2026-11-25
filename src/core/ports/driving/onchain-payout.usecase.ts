@@ -23,6 +23,7 @@ export interface OnchainPayoutQuoteView {
 
 export interface OnchainPayoutView {
   id: string
+  mintUrl: string
   destination: string
   sendAmount: number
   receiveAmount: number

@@ -15,12 +15,14 @@ import { satUnit, formatSats } from '@/utils/format'
 import { toNumber } from '@/core/domain/amount'
 import { createThrottledAsync } from '@/utils/throttled-async'
 import type { ReceiveRequestUseCase } from '@/core/ports/driving/receive-request.usecase'
+import type { OnchainPayoutUseCase } from '@/core/ports/driving/onchain-payout.usecase'
 
 export interface EventStoreBridgeOptions {
   handleBalance?: boolean
   balanceRefresh?: () => Promise<void>
   receiveRequest?: Pick<ReceiveRequestUseCase, 'settleByPaymentRef'> &
     Partial<Pick<ReceiveRequestUseCase, 'findByRequestId'>>
+  getOnchainPayout?: () => OnchainPayoutUseCase | null
 }
 
 export function connectEventStoreBridge(
@@ -89,6 +91,19 @@ export function connectEventStoreBridge(
         duration: 4000,
       })
       broadcastSync('balance_changed')
+    }),
+  )
+
+  unsubscribers.push(
+    eventBus.on('onchain-payout:updated', (event) => {
+      useAppStore.getState().upsertOnchainPayout(event.payload)
+      const service = options.getOnchainPayout?.()
+      if (!service) return
+      const mintUrl = event.payload.mintUrl
+      void service
+        .inFlightAmount(mintUrl)
+        .then((amount) => useAppStore.getState().setOnchainPayoutInFlight(mintUrl, amount))
+        .catch(() => {})
     }),
   )
 

@@ -5,6 +5,7 @@ import { AnimatePresence } from 'motion/react'
 import { PageTransition } from '@/ui/components/common/PageTransition'
 import { Modal, PinInput } from '../../components/common'
 import { useAppStore } from '@/store'
+import { translateError } from '@/ui/utils/error-i18n'
 import { satUnit } from '@/utils/format'
 import { formatMintHost } from '@/utils/url'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
@@ -260,8 +261,8 @@ export function SettingsScreen({
         setLogoutError(t('settings.wrongPin'))
         setLogoutPin('')
       }
-    } catch {
-      setLogoutError(t('lock.errorOccurred'))
+    } catch (error) {
+      setLogoutError(translateError(error, t))
     } finally {
       setIsLoggingOut(false)
     }

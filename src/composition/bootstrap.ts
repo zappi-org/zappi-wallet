@@ -24,6 +24,9 @@ import { connectStoreBridges } from "./bootstrap-store-bridges";
 import { createLifecycle } from "./bootstrap-lifecycle";
 import { assembleIncomingPipeline } from "./bootstrap-incoming";
 import { assembleFacadeServices } from "./bootstrap-facades";
+import { readOnchainPayoutConfig } from "./onchain-payout-config";
+import { createOnchainPayout, type OnchainPayoutBundle } from "./onchain-payout";
+import { OnchainPayoutWatcher } from "./onchain-payout.watcher";
 
 // ─── Remaining inline wiring (P2PK, cleanup, exchange rate, diagnostics) ───
 import { CocoP2PKKeyManager } from "@/adapters/crypto/p2pk-key-manager.adapter";
@@ -130,6 +133,25 @@ export interface BootstrapResult extends ServiceRegistry {
 export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   // 1. Infrastructure
   const eventBus = createEventBus();
+  const onchainPayoutConfig = readOnchainPayoutConfig();
+  let onchainPayout: OnchainPayoutBundle | null = null;
+  let onchainPayoutWatcher: OnchainPayoutWatcher | null = null;
+  const excludeMeltOperations = async (): Promise<Set<string>> => {
+    const excluded = new Set<string>();
+    if (!onchainPayout) return excluded;
+    const records = await onchainPayout.store.listActive();
+    for (const record of records) {
+      for (const payment of record.payments) {
+        if (
+          payment.operationId &&
+          (payment.status === "prepared" || payment.status === "dispatched")
+        ) {
+          excluded.add(payment.operationId);
+        }
+      }
+    }
+    return excluded;
+  };
   const {
     txRepo,
     contactRepo,
@@ -157,6 +179,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     pendingOpRepo,
     txRepo,
     eventBus,
+    excludeMeltOperations,
   });
 
   // 4. Non-module adapters
@@ -217,12 +240,18 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   const p2pkKeyManager = new CocoP2PKKeyManager(getCashuKeyring);
 
   // 7~8. Cold-start cache + EventBus→Store / Transfer→Tx bridges
-  const { balanceRefresh, disconnectBridge, disconnectTransferBridge } = connectStoreBridges({
+  const {
+    balanceRefresh,
+    disconnectBridge,
+    disconnectTransferBridge,
+    seedOnchainPayouts,
+  } = connectStoreBridges({
     balanceCache,
     balance,
     eventBus,
     receiveRequest,
     txRepo,
+    getOnchainPayout: () => onchainPayout?.service ?? null,
   });
 
   // 8. Lifecycle (activate/onResume/onPause/dispose — definitions only, no side effects).
@@ -242,6 +271,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     getReclaim: () => reclaim,
     getNostrIncomingWatcher: () => nostrIncomingWatcher,
     getNpubcashWatcher: () => npubcashQuoteWatcher,
+    getOnchainPayoutWatcher: () => onchainPayoutWatcher,
   });
 
   // 9~11. Shared dedup store + Nostr incoming watcher + receive services
@@ -265,6 +295,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
 
   // 13. New services
   const {
+    routePaymentOperator,
     crypto,
     inputParser,
     routing,
@@ -299,6 +330,19 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     externalMnemonicRecovery,
     bip39Seed: deps.bip39Seed,
   });
+
+  onchainPayout = createOnchainPayout({
+    config: onchainPayoutConfig,
+    routePaymentOperator,
+    eventBus,
+  });
+  onchainPayoutWatcher = new OnchainPayoutWatcher({
+    service: onchainPayout.service,
+    eventBus,
+    pollIntervalMs: onchainPayoutConfig.pollIntervalMs,
+    logger: { warn: (message) => console.warn("[OnchainPayout]", message) },
+  });
+  void seedOnchainPayouts();
 
   return {
     // ─── ServiceRegistry (driving ports only) ───
@@ -336,6 +380,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     // net-counters adapter directly.
     diagnostics: { readNetCounters },
     transferLifecycle,
+    onchainPayout: onchainPayout.service,
 
     // ─── BootstrapResult extensions (MainApp only) ───
     cashuModule,
@@ -347,6 +392,8 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     onPause,
     dispose: () => {
       const stopped = disposeLifecycle();
+      onchainPayoutWatcher?.stop();
+      onchainPayout?.dispose();
       disconnectTransferBridge();
       return Promise.all([stopped, disconnectTransferBridge.waitForIdle()]).then(() => {});
     },

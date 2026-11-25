@@ -790,6 +790,7 @@ export default {
     onchainPayoutInvalidDestination: 'Dirección de Bitcoin no admitida',
     onchainPayoutProviderRejected: 'El proveedor rechazó este retiro',
     onchainPayoutQuoteExpired: 'Esta cotización de retiro ha caducado',
+    onchainPayoutActive: 'Todavía hay un retiro en cadena en curso. Cerrar sesión ahora puede hacerte perder esos fondos',
   },
 
   // Redirect

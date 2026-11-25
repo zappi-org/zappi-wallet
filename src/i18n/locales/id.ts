@@ -790,6 +790,7 @@ export default {
     onchainPayoutInvalidDestination: 'Alamat Bitcoin tidak didukung',
     onchainPayoutProviderRejected: 'Penyedia menolak penarikan ini',
     onchainPayoutQuoteExpired: 'Penawaran penarikan ini sudah kedaluwarsa',
+    onchainPayoutActive: 'Masih ada penarikan on-chain yang sedang berjalan. Keluar sekarang dapat menghilangkan dana tersebut',
   },
 
   // Redirect

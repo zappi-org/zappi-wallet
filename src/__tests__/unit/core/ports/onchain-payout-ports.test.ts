@@ -121,6 +121,7 @@ const record = {
 
 const view = {
   id: record.id,
+  mintUrl: record.mintUrl,
   destination: record.destination,
   sendAmount: record.sendAmount,
   receiveAmount: record.receiveAmount,

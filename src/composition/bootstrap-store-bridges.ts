@@ -19,6 +19,7 @@ import type { BalanceUseCase } from "@/core/ports/driving/balance.usecase";
 import type { LocalStorageBalanceCache } from "@/adapters/cache/local-storage-balance-cache.adapter";
 import type { DexieTransactionRepository } from "@/adapters/storage/dexie/dexie-transaction.repository";
 import type { ReceiveRequestFacadeService } from "@/core/services/receive-request-facade.service";
+import type { OnchainPayoutUseCase } from "@/core/ports/driving/onchain-payout.usecase";
 
 export function connectStoreBridges(deps: {
   balanceCache: LocalStorageBalanceCache;
@@ -26,6 +27,7 @@ export function connectStoreBridges(deps: {
   eventBus: EventBus;
   receiveRequest: ReceiveRequestFacadeService;
   txRepo: DexieTransactionRepository;
+  getOnchainPayout?: () => OnchainPayoutUseCase | null;
 }) {
   const { balanceCache, balance, eventBus, receiveRequest, txRepo } = deps;
 
@@ -61,7 +63,24 @@ export function connectStoreBridges(deps: {
     handleBalance: true,
     balanceRefresh,
     receiveRequest,
+    getOnchainPayout: deps.getOnchainPayout,
   });
+
+  const seedOnchainPayouts = async () => {
+    const service = deps.getOnchainPayout?.();
+    if (!service) return;
+    try {
+      const active = await service.listActive();
+      useAppStore.getState().setOnchainPayouts(active);
+      for (const mintUrl of new Set(active.map((view) => view.mintUrl))) {
+        useAppStore
+          .getState()
+          .setOnchainPayoutInFlight(mintUrl, await service.inFlightAmount(mintUrl));
+      }
+    } catch {
+      return;
+    }
+  };
 
   // Transfer → Transaction bridge (persists tx history for the TLS path)
   const disconnectTransferBridge = connectTransferTxBridge({
@@ -70,5 +89,5 @@ export function connectStoreBridges(deps: {
     triggerTxRefresh: () => useAppStore.getState().triggerTxRefresh(),
   });
 
-  return { balanceRefresh, disconnectBridge, disconnectTransferBridge };
+  return { balanceRefresh, disconnectBridge, disconnectTransferBridge, seedOnchainPayouts };
 }

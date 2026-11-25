@@ -43,6 +43,31 @@ function isActive(record: OnchainPayoutRecord): boolean {
   )
 }
 
+export async function countActiveOnchainPayouts(): Promise<number> {
+  if (!(await Dexie.exists(DATABASE_NAME))) return 0
+  const db = openDatabase()
+  try {
+    const rows = await db.payouts.toArray()
+    return rows.filter(isActive).length
+  } finally {
+    db.close()
+  }
+}
+
+export async function clearOnchainPayouts(): Promise<void> {
+  if (!(await Dexie.exists(DATABASE_NAME))) return
+  const db = openDatabase()
+  try {
+    await db.payouts.clear()
+  } finally {
+    db.close()
+  }
+}
+
+export async function deleteOnchainPayoutDatabase(): Promise<void> {
+  await Dexie.delete(DATABASE_NAME)
+}
+
 export class DexieOnchainPayoutStore implements OnchainPayoutStore {
   private readonly db = openDatabase()
 

@@ -788,6 +788,7 @@ export default {
     onchainPayoutInvalidDestination: 'サポートされていないビットコインアドレスです',
     onchainPayoutProviderRejected: 'プロバイダーがこの送金を拒否しました',
     onchainPayoutQuoteExpired: '送金の見積もりが期限切れになりました',
+    onchainPayoutActive: 'オンチェーン送金がまだ進行中です。今ログアウトすると資金を失う可能性があります',
   },
 
   // Redirect

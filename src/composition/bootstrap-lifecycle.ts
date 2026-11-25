@@ -42,6 +42,7 @@ import type { DexieIncomingReviewQueue } from "@/adapters/storage/dexie/dexie-in
 import type { TransferLifecycleService } from "@/core/services/transfer-lifecycle.service";
 import type { MintHealthFacadeService } from "@/core/services/mint-health-facade.service";
 import type { ReclaimService } from "@/core/services/reclaim.service";
+import type { OnchainPayoutWatcher } from "./onchain-payout.watcher";
 
 type NpubcashQuoteWatcher = ReturnType<typeof createNpubcashQuoteWatcher>;
 
@@ -59,6 +60,7 @@ export function createLifecycle(deps: {
   getReclaim: () => ReclaimService;
   getNostrIncomingWatcher: () => NostrIncomingWatcher;
   getNpubcashWatcher: () => NpubcashQuoteWatcher;
+  getOnchainPayoutWatcher: () => OnchainPayoutWatcher | null;
 }) {
   const {
     nostrPrivateKeyHex,
@@ -73,6 +75,7 @@ export function createLifecycle(deps: {
     getReclaim,
     getNostrIncomingWatcher,
     getNpubcashWatcher,
+    getOnchainPayoutWatcher,
   } = deps;
 
   let netCounterFlusherStop: (() => void) | null = null;
@@ -232,6 +235,8 @@ export function createLifecycle(deps: {
     if (disposed) return;
     injectDependencies(operationMap, txRepo);
 
+    getOnchainPayoutWatcher?.()?.start();
+
     // Mint quote observer (mint-op:finalized → Transaction DB record)
     const { connectMintQuoteObserver } = await import(
       "@/composition/mint-quote-observer"
@@ -332,6 +337,10 @@ export function createLifecycle(deps: {
     // immediate sweep then restarts the timer (self-stops at pending 0). Idempotent.
     startTransferMonitor();
 
+    void getOnchainPayoutWatcher?.()
+      ?.resume()
+      .catch((e) => console.warn("[Resume] payout watcher failed:", e));
+
     // Restart the Nostr incoming watcher (the key may have changed)
     getNostrIncomingWatcher().stop();
     getNostrIncomingWatcher().start(derivePublicKey(nostrPrivateKeyHex));
@@ -379,6 +388,7 @@ export function createLifecycle(deps: {
     }
     getNostrIncomingWatcher().stop();
     getNpubcashWatcher().stop();
+    getOnchainPayoutWatcher?.()?.stop();
     void nostrGateway.disconnect();
     return getNpubcashWatcher().waitForIdle();
   };

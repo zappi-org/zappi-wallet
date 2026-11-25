@@ -4,6 +4,7 @@ import { BottomSheet } from '@/ui/components/common/BottomSheet'
 import { TEST_IDS, rowAttrs } from '@/ui/lib/test-ids'
 import { hapticTap } from '@/ui/utils/haptic'
 import { useAppStore } from '@/store'
+import { spendableByMint } from '@/store/selectors'
 import { getMintBalance } from '@/utils/url'
 import { useWallet } from '@/ui/hooks/use-wallet'
 import { useMintHealth } from '@/ui/hooks/use-mint-health'
@@ -69,6 +70,11 @@ function MintSelectBottomSheetInner({
   const formatSats = useFormatSats()
   const { balance } = useWallet()
   const settings = useAppStore((state) => state.settings)
+  const onchainPayoutInFlight = useAppStore((state) => state.onchainPayoutInFlightByMint)
+  const spendable = useMemo(
+    () => spendableByMint(balance.byMint, onchainPayoutInFlight),
+    [balance.byMint, onchainPayoutInFlight],
+  )
   const { getCachedStatus } = useMintHealth()
   const mintList = mintUrls ?? settings.mints
   const { getDisplayName, getIconUrl } = useMintMetadata(mintList)
@@ -82,11 +88,11 @@ function MintSelectBottomSheetInner({
     mintList.map((url: string) => ({
       url,
       name: getDisplayName(url),
-      balance: getMintBalance(url, balance.byMint),
+      balance: getMintBalance(url, spendable),
       isOnline: getCachedStatus(url)?.isOnline !== false,
       iconUrl: getIconUrl(url),
     })),
-    [mintList, getDisplayName, balance.byMint, getCachedStatus, getIconUrl]
+    [mintList, getDisplayName, spendable, getCachedStatus, getIconUrl]
   )
 
   const filteredMints = useMemo(() =>

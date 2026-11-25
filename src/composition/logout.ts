@@ -50,6 +50,12 @@
  */
 
 import { getDatabase } from '@/adapters/storage/dexie/schema'
+import {
+  clearOnchainPayouts,
+  countActiveOnchainPayouts,
+  deleteOnchainPayoutDatabase,
+} from '@/adapters/storage/dexie/dexie-onchain-payout.store'
+import { OnchainPayoutActiveError } from '@/core/errors/onchain-payout'
 import { deleteLegacyGraceDatabase } from '@/adapters/storage/legacy-grace-cleanup'
 import { AnchorStoreAdapter } from '@/adapters/storage/anchor-store.adapter'
 import { LocalStorageBalanceCache } from '@/adapters/cache/local-storage-balance-cache.adapter'
@@ -69,9 +75,20 @@ export interface WipeAccountDeps {
   /** Remove passkey credentials + encrypted PIN (incl. legacy keys) — injected by the
    *  caller so composition doesn't import ui/services/passkey directly */
   removePasskey: () => void
+  allowActiveOnchainPayouts?: boolean
 }
 
 export async function wipeAccountData(deps: WipeAccountDeps): Promise<void> {
+  if (deps.allowActiveOnchainPayouts !== true) {
+    let active: number
+    try {
+      active = await countActiveOnchainPayouts()
+    } catch (e) {
+      console.warn('[Logout] onchain payout state is unknown — refusing to wipe:', e)
+      throw new OnchainPayoutActiveError()
+    }
+    if (active > 0) throw new OnchainPayoutActiveError()
+  }
   try {
     // Legacy grace DB (before every other step). The blob is a PIN-free decryptable
     // mnemonic copy an older build may have left — throw on failure: a half-completed
@@ -105,6 +122,17 @@ export async function wipeAccountData(deps: WipeAccountDeps): Promise<void> {
     } catch (e) {
       // Data already erased in (a) — log the degradation (empty schema shell remains) and continue
       console.warn('[Logout] zappi DB delete blocked/failed after clear (data already wiped):', e)
+    }
+
+    try {
+      await clearOnchainPayouts()
+      await withTimeout(
+        deleteOnchainPayoutDatabase(),
+        ZAPPI_DB_DELETE_TIMEOUT_MS,
+        'onchain payout DB delete'
+      )
+    } catch (e) {
+      console.warn('[Logout] onchain payout DB wipe failed (best effort):', e)
     }
 
     // ④ Encrypted wallet (mnemonic) — the last mutable step; reaching here means account data is already gone

@@ -16,6 +16,7 @@ import { PageTransition } from '@/ui/components/common/PageTransition'
 import { useNetwork } from '@/ui/hooks/use-network'
 import { useInputParser } from '@/ui/hooks/use-input-parser'
 import { useAppStore } from '@/store'
+import { spendableByMint } from '@/store/selectors'
 import { isSameMintUrl } from '@/utils/url'
 import { useTranslation } from 'react-i18next'
 import type {
@@ -363,7 +364,11 @@ export function SendFlow({
       error?: string
     } | null> => {
       try {
-        const balances = useAppStore.getState().balance.byMint
+        const store = useAppStore.getState()
+        const balances = spendableByMint(
+          store.balance.byMint,
+          store.onchainPayoutInFlightByMint,
+        )
         const privacyMode = useAppStore.getState().settings.senderPrivacyMode ?? false
         let routeSelection = planRouteSelection({
           validated,

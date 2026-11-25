@@ -22,10 +22,21 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { wipeAccountData, type WipeAccountDeps } from '@/composition/logout'
 import { useAppStore } from '@/store'
 
-const { deleteCocoDataMock, broadcastSyncMock, deleteGraceDatabaseMock, dbHolder } = vi.hoisted(() => ({
+const {
+  deleteCocoDataMock,
+  broadcastSyncMock,
+  deleteGraceDatabaseMock,
+  dbHolder,
+  countActivePayoutsMock,
+  clearPayoutsMock,
+  deletePayoutDatabaseMock,
+} = vi.hoisted(() => ({
   deleteCocoDataMock: vi.fn(),
   broadcastSyncMock: vi.fn(),
   deleteGraceDatabaseMock: vi.fn(),
+  countActivePayoutsMock: vi.fn(),
+  clearPayoutsMock: vi.fn(),
+  deletePayoutDatabaseMock: vi.fn(),
   dbHolder: {
     db: null as unknown as { tables: Array<{ clear: () => Promise<void> }>; delete: () => Promise<void> },
   },
@@ -35,6 +46,11 @@ vi.mock('@/modules/cashu', () => ({ deleteCocoData: deleteCocoDataMock }))
 vi.mock('@/utils/cross-tab-sync', () => ({ broadcastSync: broadcastSyncMock }))
 vi.mock('@/adapters/storage/dexie/schema', () => ({ getDatabase: () => dbHolder.db }))
 vi.mock('@/adapters/storage/legacy-grace-cleanup', () => ({ deleteLegacyGraceDatabase: deleteGraceDatabaseMock }))
+vi.mock('@/adapters/storage/dexie/dexie-onchain-payout.store', () => ({
+  countActiveOnchainPayouts: countActivePayoutsMock,
+  clearOnchainPayouts: clearPayoutsMock,
+  deleteOnchainPayoutDatabase: deletePayoutDatabaseMock,
+}))
 
 function makeDb(over?: { failClear?: boolean; deleteImpl?: () => Promise<void> }) {
   const tables = [
@@ -70,6 +86,9 @@ describe('wipeAccountData', () => {
     deleteCocoDataMock.mockReset().mockResolvedValue(undefined)
     broadcastSyncMock.mockReset()
     deleteGraceDatabaseMock.mockReset().mockResolvedValue(undefined)
+    countActivePayoutsMock.mockReset().mockResolvedValue(0)
+    clearPayoutsMock.mockReset().mockResolvedValue(undefined)
+    deletePayoutDatabaseMock.mockReset().mockResolvedValue(undefined)
     localStorage.clear()
   })
 
@@ -111,6 +130,82 @@ describe('wipeAccountData', () => {
     } finally {
       resetAllSpy.mockRestore()
     }
+  })
+
+  it('refuses to wipe while an on-chain payout is active', async () => {
+    const db = makeDb()
+    const deps = makeDeps()
+    countActivePayoutsMock.mockResolvedValue(2)
+
+    await expect(wipeAccountData(deps)).rejects.toMatchObject({
+      code: 'ONCHAIN_PAYOUT_ACTIVE',
+      isRetryable: false,
+    })
+    expect(deleteGraceDatabaseMock).not.toHaveBeenCalled()
+    expect(broadcastSyncMock).not.toHaveBeenCalled()
+    expect(deleteCocoDataMock).not.toHaveBeenCalled()
+    expect(db.tables[0].clear).not.toHaveBeenCalled()
+    expect(deletePayoutDatabaseMock).not.toHaveBeenCalled()
+    expect(deps.security.deleteWallet).not.toHaveBeenCalled()
+  })
+
+  it('wipes when the caller explicitly allows active payouts', async () => {
+    makeDb()
+    countActivePayoutsMock.mockResolvedValue(2)
+    await wipeAccountData({ ...makeDeps(), allowActiveOnchainPayouts: true })
+    expect(deleteCocoDataMock).toHaveBeenCalled()
+    expect(deletePayoutDatabaseMock).toHaveBeenCalled()
+  })
+
+  it('clears the payout table before deleting the database', async () => {
+    makeDb()
+    await wipeAccountData(makeDeps())
+    expect(clearPayoutsMock).toHaveBeenCalledTimes(1)
+    expect(deletePayoutDatabaseMock).toHaveBeenCalledTimes(1)
+    expect(clearPayoutsMock.mock.invocationCallOrder[0]).toBeLessThan(
+      deletePayoutDatabaseMock.mock.invocationCallOrder[0],
+    )
+  })
+
+  it('deletes the payout database best-effort even when the delete fails', async () => {
+    const db = makeDb()
+    deletePayoutDatabaseMock.mockRejectedValue(new Error('payout delete failed'))
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      await wipeAccountData(makeDeps())
+      expect(deletePayoutDatabaseMock).toHaveBeenCalled()
+      expect(deleteCocoDataMock).toHaveBeenCalled()
+      for (const table of db.tables) expect(table.clear).toHaveBeenCalled()
+    } finally {
+      warnSpy.mockRestore()
+    }
+  })
+
+  it('fails closed when the payout count cannot be read', async () => {
+    const db = makeDb()
+    const deps = makeDeps()
+    countActivePayoutsMock.mockRejectedValue(new Error('db blocked'))
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      await expect(wipeAccountData(deps)).rejects.toMatchObject({
+        code: 'ONCHAIN_PAYOUT_ACTIVE',
+      })
+      expect(deleteGraceDatabaseMock).not.toHaveBeenCalled()
+      expect(deleteCocoDataMock).not.toHaveBeenCalled()
+      expect(db.tables[0].clear).not.toHaveBeenCalled()
+      expect(deps.security.deleteWallet).not.toHaveBeenCalled()
+    } finally {
+      warnSpy.mockRestore()
+    }
+  })
+
+  it('skips the count entirely when active payouts are allowed', async () => {
+    makeDb()
+    countActivePayoutsMock.mockRejectedValue(new Error('must not be called'))
+    await wipeAccountData({ ...makeDeps(), allowActiveOnchainPayouts: true })
+    expect(countActivePayoutsMock).not.toHaveBeenCalled()
+    expect(clearPayoutsMock).toHaveBeenCalled()
+    expect(deletePayoutDatabaseMock).toHaveBeenCalled()
   })
 
   it('wipes everything including coco DB even without a registry (before bootstrap)', async () => {

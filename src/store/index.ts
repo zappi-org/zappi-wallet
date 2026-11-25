@@ -8,6 +8,7 @@ import { createSettingsSlice, type SettingsSliceState } from './slices/settings.
 import { createDebugSlice, type DebugSliceState } from './slices/debug.slice'
 import { createFiatSlice, type FiatSliceState } from './slices/fiat.slice'
 import { createPendingTransferSlice, type PendingTransferSliceState } from './slices/pending-transfer.slice'
+import { createOnchainPayoutSlice, type OnchainPayoutSliceState } from './slices/onchain-payout.slice'
 
 /**
  * Combined app store state
@@ -20,7 +21,8 @@ export interface AppState
     SettingsSliceState,
     DebugSliceState,
     FiatSliceState,
-    PendingTransferSliceState {
+    PendingTransferSliceState,
+    OnchainPayoutSliceState {
   resetAll: () => void
 }
 
@@ -38,6 +40,7 @@ export const useAppStore = create<AppState>()(
       ...createDebugSlice(...args),
       ...createFiatSlice(...args),
       ...createPendingTransferSlice(...args),
+      ...createOnchainPayoutSlice(...args),
 
       // Global reset (for logout) — delegates to each slice's own reset.
       // Since each impl follows the slice's single-source initialState, the
@@ -52,6 +55,7 @@ export const useAppStore = create<AppState>()(
         state.resetDebug()
         state.resetFiat()
         state.resetPendingTransfers()
+        state.resetOnchainPayouts()
       },
     })),
     // The `enabled` gate is required: without it, store contents (including the
@@ -69,3 +73,4 @@ export type { SettingsSliceState } from './slices/settings.slice'
 export type { DebugSliceState, GiftWrapLog } from './slices/debug.slice'
 export type { FiatSliceState } from './slices/fiat.slice'
 export type { PendingTransferSliceState } from './slices/pending-transfer.slice'
+export type { OnchainPayoutSliceState } from './slices/onchain-payout.slice'

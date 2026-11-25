@@ -58,7 +58,9 @@ const MAX_AGE_MS = 24 * 60 * 60 * 1000
 // ─── Melt Recovery ───
 
 export async function recoverPendingMelts(
-  deps: Pick<CashuRecoveryDeps, 'pendingOpRepo' | 'meltOps'>,
+  deps: Pick<CashuRecoveryDeps, 'pendingOpRepo' | 'meltOps'> & {
+    excludeMeltOperations?: () => Promise<Set<string>>
+  },
 ): Promise<{ recovered: number; failed: number }> {
   const { pendingOpRepo, meltOps } = deps
   let recovered = 0
@@ -67,7 +69,22 @@ export async function recoverPendingMelts(
 
   // 1. SDK recovery
   try {
-    const pendingOps = await meltOps.listInFlight()
+    let excluded: Set<string> | null = new Set<string>()
+    if (deps.excludeMeltOperations) {
+      try {
+        excluded = await deps.excludeMeltOperations()
+      } catch (error) {
+        logger.error('[Recovery] Failed to load excluded melt operations:', error as Error)
+        excluded = null
+      }
+    }
+    if (excluded === null) {
+      logger.warn('[Recovery] Skipping melt recovery this run — payout ownership is unknown')
+    }
+    const pendingOps =
+      excluded === null
+        ? []
+        : (await meltOps.listInFlight()).filter((op) => !excluded.has(op.id))
     logger.info(`[Recovery] Found ${pendingOps.length} pending melt operations`)
 
     for (const op of pendingOps) {

@@ -7,6 +7,33 @@ export const selectTotalBalance = (state: AppState) => state.balance.total
 export const selectBalanceByMint = (state: AppState) => state.balance.byMint
 export const selectIsLoadingBalance = (state: AppState) => state.isLoadingBalance
 
+export function spendableByMint(
+  balanceByMint: Record<string, number>,
+  inFlightByMint: Record<string, number>,
+): Record<string, number> {
+  const spendable: Record<string, number> = {}
+  for (const [mintUrl, balance] of Object.entries(balanceByMint)) {
+    spendable[mintUrl] = Math.max(0, balance - (inFlightByMint[mintUrl] ?? 0))
+  }
+  return spendable
+}
+
+export function spendableTotal(
+  balanceByMint: Record<string, number>,
+  inFlightByMint: Record<string, number>,
+): number {
+  return Object.values(spendableByMint(balanceByMint, inFlightByMint)).reduce(
+    (sum, amount) => sum + amount,
+    0,
+  )
+}
+
+export const selectOnchainPayoutInFlight = (state: AppState) =>
+  state.onchainPayoutInFlightByMint
+export const selectOnchainPayouts = (state: AppState) => state.onchainPayouts
+export const selectSpendableTotalBalance = (state: AppState) =>
+  spendableTotal(state.balance.byMint, state.onchainPayoutInFlightByMint)
+
 // ===== Network Selectors =====
 
 export const selectNetworkState = (state: AppState) => state.networkState

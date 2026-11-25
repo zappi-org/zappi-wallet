@@ -664,6 +664,7 @@ export class OnchainPayoutService implements OnchainPayoutUseCase {
   private viewOf(record: OnchainPayoutRecord): OnchainPayoutView {
     return {
       id: record.id,
+      mintUrl: record.mintUrl,
       destination: record.destination,
       sendAmount: record.sendAmount,
       receiveAmount: record.receiveAmount,
