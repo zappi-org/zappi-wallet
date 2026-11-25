@@ -438,6 +438,7 @@ describe('validatePayoutSweep', () => {
       inputValue: claim.funding_value,
       outputs: [{ address: claim.dest_address, value: claim.dest_value }],
       fee,
+      maxFee: fee,
       destination: claim.dest_address,
       fundingConfirmations: 1,
       ...patch,
@@ -499,6 +500,7 @@ describe('validatePayoutSweep', () => {
       validatePayoutSweep(
         plan({
           fee: claim.funding_value,
+          maxFee: claim.funding_value,
           outputs: [{ address: claim.dest_address, value: 0 }],
         }),
       ).ok,
@@ -510,10 +512,15 @@ describe('validatePayoutSweep', () => {
       validatePayoutSweep(
         plan({
           fee: claim.funding_value - 329,
+          maxFee: claim.funding_value - 329,
           outputs: [{ address: claim.dest_address, value: 329 }],
         }),
       ).ok,
     ).toBe(false)
+  })
+
+  it('rejects a fee above the maximum', () => {
+    expect(validatePayoutSweep(plan({ maxFee: fee - 1 })).ok).toBe(false)
   })
 
   it('accepts the smallest non-dust output', () => {
@@ -521,6 +528,7 @@ describe('validatePayoutSweep', () => {
       validatePayoutSweep(
         plan({
           fee: claim.funding_value - 330,
+          maxFee: claim.funding_value - 330,
           outputs: [{ address: claim.dest_address, value: 330 }],
         }),
       ).ok,

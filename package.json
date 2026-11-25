@@ -29,6 +29,7 @@
     "@radix-ui/react-tabs": "^1.1.13",
     "@scure/bip32": "^2.0.1",
     "@scure/bip39": "^2.0.1",
+    "@scure/btc-signer": "^2.4.1",
     "@stackflow/config": "2.0.0",
     "@stackflow/core": "2.0.1",
     "@stackflow/plugin-history-sync": "1.11.2",

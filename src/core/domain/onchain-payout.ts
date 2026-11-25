@@ -198,18 +198,20 @@ export interface PayoutSweepPlan {
   readonly inputValue: number
   readonly outputs: readonly PayoutSweepOutput[]
   readonly fee: number
+  readonly maxFee: number
   readonly destination: string
   readonly fundingConfirmations: number
 }
 
 export function validatePayoutSweep(plan: PayoutSweepPlan): Result<void, string> {
-  const { inputValue, outputs, fee, destination, fundingConfirmations } = plan
+  const { inputValue, outputs, fee, maxFee, destination, fundingConfirmations } = plan
 
   if (outputs.length !== 1) return Err('expected exactly one output')
   const [output] = outputs
   if (output.address !== destination) return Err('output address is not the destination')
   if (output.value !== inputValue - fee) return Err('output value is not input minus fee')
   if (fee <= 0) return Err('fee must be positive')
+  if (fee > maxFee) return Err('fee exceeds the maximum')
   if (output.value <= 0) return Err('output value must be positive')
   if (output.value < PAYOUT_MIN_OUTPUT_VALUE) return Err('output value is below dust')
   if (fundingConfirmations < 1) return Err('funding is not confirmed')
