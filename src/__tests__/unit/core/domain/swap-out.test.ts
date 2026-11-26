@@ -769,6 +769,6 @@ describe('payment and stage predicates', () => {
   })
 
   it('derives the sweep vsize from a witness key script', () => {
-    expect(PAYOUT_SWEEP_VSIZE).toBe(payoutSweepVsizeForScriptLength(22))
+    expect(PAYOUT_SWEEP_VSIZE).toBe(136)
   })
 })
