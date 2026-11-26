@@ -53,6 +53,13 @@ import {
 } from './provider-state'
 import { requestPayout } from './payout-request'
 import { buildSweepTx, estimateSweepVsize } from './sweep-tx'
+import {
+  bumpFloor,
+  cappedFee,
+  conflictTarget,
+  escalationTarget,
+  revealCap,
+} from './sweep-fee'
 import { validatePayoutResponse } from './validate-response'
 
 const SECRET_LENGTH = 32
@@ -89,6 +96,19 @@ function chooseFundingOutput(outputs: ChainOutput[], expectedAmount: number): Ch
   if (confirmed.length > 0) return confirmed[0]
   if (qualifying.length > 0) return qualifying[0]
   return [...outputs].sort((a, b) => b.value - a.value)[0]
+}
+
+interface SweepBump {
+  ref: ProviderRefData
+  secrets: SecretsData
+  lastSweep: SweepRecord
+  funding: ChainOutput
+  tip: number
+  feeRate: number
+  rateFee: number
+  ourTxId: string | undefined
+  cap: number
+  fundingConfirmations: number
 }
 
 interface ParsedInput {
@@ -448,6 +468,31 @@ export class ElectrumPayoutProvider implements SwapOutProvider {
     return { tip, funding, outspend: await this.chain.outspend(funding.txid, funding.vout) }
   }
 
+  private async observeSpend(
+    ref: ProviderRefData,
+    ownSweepTxids: string[],
+  ): Promise<{
+    tip: number
+    funding: ChainOutput | null
+    outspend: ChainOutspend | null
+    spend: PayoutSweepInput['spend']
+    spenderTxId: string | undefined
+  }> {
+    const { tip, funding, outspend } = await this.fundingState(ref)
+    let spend: PayoutSweepInput['spend'] = null
+    let spenderTxId: string | undefined
+    if (outspend?.spent && outspend.txid) {
+      spenderTxId = outspend.txid
+      const byUs =
+        ownSweepTxids.includes(outspend.txid) ||
+        (funding
+          ? await this.spenderRevealsPaymentHash(outspend.txid, funding, ref.paymentHash)
+          : false)
+      spend = { byUs, confirmed: outspend.confirmedHeight !== null }
+    }
+    return { tip, funding, outspend, spend, spenderTxId }
+  }
+
   private buildSweep(
     ref: ProviderRefData,
     secrets: SecretsData,
@@ -496,6 +541,137 @@ export class ElectrumPayoutProvider implements SwapOutProvider {
     }
   }
 
+  private async resumeCompleted(lastSweep: SweepRecord | undefined): Promise<SwapOutAdvance> {
+    const tip = await this.chain.tipHeight()
+    const confirmations = lastSweep ? await this.chain.txConfirmations(lastSweep.txid) : null
+    return {
+      progress: progressOf('completed', tip, {
+        payoutTxId: lastSweep?.txid,
+        confirmations: confirmations ?? undefined,
+      }),
+    }
+  }
+
+  private sweepFresh(input: {
+    ref: ProviderRefData
+    secrets: SecretsData
+    lastSweep: SweepRecord | undefined
+    funding: ChainOutput | null
+    tip: number
+    feeRate: number
+    rateFee: number
+    published: boolean
+  }): SwapOutAdvance {
+    const { ref, secrets, lastSweep, funding, tip, feeRate, rateFee, published } = input
+    if (!funding || funding.confirmedHeight === null) {
+      return { progress: progressOf('funded', tip) }
+    }
+    if (lastSweep && !published && spendsFunding(lastSweep.hex, funding)) {
+      return {
+        progress: progressOf('sweeping', tip, { payoutTxId: lastSweep.txid }),
+        prepared: { secrets: JSON.stringify(secrets), payoutTxId: lastSweep.txid },
+      }
+    }
+    if (rateFee > ref.maxSweepFee) {
+      return { progress: progressOf('funded', tip, { failureReason: 'fee_too_high' }) }
+    }
+    const sweep = this.buildSweep(
+      ref,
+      secrets,
+      funding,
+      rateFee,
+      ref.maxSweepFee,
+      feeRate,
+      tip,
+      tip - funding.confirmedHeight + 1,
+    )
+    return this.preparedAdvance(tip, secrets, sweep)
+  }
+
+  private sweepAfterReveal(bump: SweepBump): SwapOutAdvance {
+    const { ref, secrets, lastSweep, funding, tip, feeRate, rateFee } = bump
+    const { ourTxId, cap, fundingConfirmations } = bump
+    const minimum = bumpFloor(lastSweep.fee, ref.sweepVsize)
+    const fee = cappedFee(Math.max(rateFee, minimum), cap)
+    if (fee < minimum) {
+      return { progress: progressOf('sweeping', tip, { payoutTxId: ourTxId }) }
+    }
+    const sweep = this.buildSweep(
+      ref,
+      secrets,
+      funding,
+      fee,
+      cap,
+      feeRate,
+      tip,
+      fundingConfirmations,
+    )
+    return this.preparedAdvance(tip, secrets, sweep)
+  }
+
+  private async bumpConflict(bump: SweepBump, spenderTxId: string): Promise<SwapOutAdvance> {
+    const { ref, secrets, lastSweep, funding, tip, feeRate, rateFee } = bump
+    const { ourTxId, cap, fundingConfirmations } = bump
+    let conflict: { fee: number; vsize: number }
+    try {
+      conflict = await this.chain.txFee(spenderTxId)
+    } catch {
+      return { progress: progressOf('sweeping', tip, { payoutTxId: ourTxId }) }
+    }
+    const minimum = bumpFloor(lastSweep.fee, ref.sweepVsize)
+    const target = conflictTarget(rateFee, conflict.fee, conflict.vsize, ref.sweepVsize)
+    if (lastSweep.replaces === spenderTxId && lastSweep.fee >= target) {
+      return { progress: progressOf('sweeping', tip, { payoutTxId: ourTxId }) }
+    }
+    const fee = cappedFee(target, cap)
+    if (fee < minimum) {
+      return { progress: progressOf('sweeping', tip, { payoutTxId: ourTxId }) }
+    }
+    if (fee * conflict.vsize <= conflict.fee * ref.sweepVsize) {
+      return { progress: progressOf('sweeping', tip, { payoutTxId: ourTxId }) }
+    }
+    const sweep = this.buildSweep(
+      ref,
+      secrets,
+      funding,
+      fee,
+      cap,
+      feeRate,
+      tip,
+      fundingConfirmations,
+      spenderTxId,
+    )
+    return this.preparedAdvance(tip, secrets, sweep)
+  }
+
+  private escalate(bump: SweepBump): SwapOutAdvance {
+    const { ref, secrets, lastSweep, funding, tip, feeRate, rateFee } = bump
+    const { ourTxId, cap, fundingConfirmations } = bump
+    const newBlock = tip > lastSweep.createdAtHeight
+    const escalating = ref.locktime - tip <= 10 && newBlock
+    const risen = feeRate >= FEE_BUMP_RATIO * lastSweep.feeRate && newBlock
+    if (!escalating && !risen) {
+      return { progress: progressOf('sweeping', tip, { payoutTxId: ourTxId }) }
+    }
+    const minimum = bumpFloor(lastSweep.fee, ref.sweepVsize)
+    const target = escalationTarget(rateFee, lastSweep.fee, minimum)
+    const fee = cappedFee(target, cap)
+    if (fee < minimum) {
+      return { progress: progressOf('sweeping', tip, { payoutTxId: ourTxId }) }
+    }
+    const sweep = this.buildSweep(
+      ref,
+      secrets,
+      funding,
+      fee,
+      cap,
+      feeRate,
+      tip,
+      fundingConfirmations,
+    )
+    return this.preparedAdvance(tip, secrets, sweep)
+  }
+
   async resume(params: {
     providerRef: JsonValue
     secrets: string
@@ -507,31 +683,13 @@ export class ElectrumPayoutProvider implements SwapOutProvider {
     const lastSweep = secrets.sweeps[secrets.sweeps.length - 1]
 
     if (params.stage === 'completed') {
-      const tip = await this.chain.tipHeight()
-      const confirmations = lastSweep
-        ? await this.chain.txConfirmations(lastSweep.txid)
-        : null
-      return {
-        progress: progressOf('completed', tip, {
-          payoutTxId: lastSweep?.txid,
-          confirmations: confirmations ?? undefined,
-        }),
-      }
+      return this.resumeCompleted(lastSweep)
     }
 
-    const { tip, funding, outspend } = await this.fundingState(ref)
-    let spend: PayoutSweepInput['spend'] = null
-    let spenderTxId: string | undefined
-    if (outspend?.spent && outspend.txid) {
-      spenderTxId = outspend.txid
-      const bySweep = secrets.sweeps.some((sweep) => sweep.txid === outspend.txid)
-      const byUs =
-        bySweep ||
-        (funding
-          ? await this.spenderRevealsPaymentHash(outspend.txid, funding, ref.paymentHash)
-          : false)
-      spend = { byUs, confirmed: outspend.confirmedHeight !== null }
-    }
+    const { tip, funding, spend, spenderTxId } = await this.observeSpend(
+      ref,
+      secrets.sweeps.map((sweep) => sweep.txid),
+    )
 
     const revealed = params.published || (spend?.byUs ?? false)
     const decision = decidePayoutSweep({
@@ -574,126 +732,45 @@ export class ElectrumPayoutProvider implements SwapOutProvider {
     const rateFee = payoutSweepFee(feeRate, ref.sweepVsize)
 
     if (decision.action === 'sweep') {
-      if (!funding || funding.confirmedHeight === null) {
-        return { progress: progressOf('funded', tip) }
-      }
-      if (
-        lastSweep &&
-        !params.published &&
-        spendsFunding(lastSweep.hex, funding)
-      ) {
-        return {
-          progress: progressOf('sweeping', tip, { payoutTxId: lastSweep.txid }),
-          prepared: { secrets: JSON.stringify(secrets), payoutTxId: lastSweep.txid },
-        }
-      }
-      if (rateFee > ref.maxSweepFee) {
-        return { progress: progressOf('funded', tip, { failureReason: 'fee_too_high' }) }
-      }
-      const sweep = this.buildSweep(
+      return this.sweepFresh({
         ref,
         secrets,
+        lastSweep,
         funding,
-        rateFee,
-        ref.maxSweepFee,
-        feeRate,
         tip,
-        tip - funding.confirmedHeight + 1,
-      )
-      return this.preparedAdvance(tip, secrets, sweep)
+        feeRate,
+        rateFee,
+        published: params.published,
+      })
     }
 
     const ourTxId = spend?.byUs ? spenderTxId : lastSweep?.txid
     if (!funding || !lastSweep) {
       return { progress: progressOf('sweeping', tip, { payoutTxId: ourTxId }) }
     }
-    const revealCap = funding.value - PAYOUT_MIN_OUTPUT_VALUE
-    const fundingConfirmations =
-      funding.confirmedHeight === null ? 1 : tip - funding.confirmedHeight + 1
-
+    const bump: SweepBump = {
+      ref,
+      secrets,
+      lastSweep,
+      funding,
+      tip,
+      feeRate,
+      rateFee,
+      ourTxId,
+      cap: revealCap(funding.value),
+      fundingConfirmations:
+        funding.confirmedHeight === null ? 1 : tip - funding.confirmedHeight + 1,
+    }
     if (spend === null && !spendsFunding(lastSweep.hex, funding)) {
-      const minimum = lastSweep.fee + ref.sweepVsize
-      const fee = Math.min(Math.max(rateFee, minimum), revealCap)
-      if (fee < minimum) {
-        return { progress: progressOf('sweeping', tip, { payoutTxId: ourTxId }) }
-      }
-      const sweep = this.buildSweep(
-        ref,
-        secrets,
-        funding,
-        fee,
-        revealCap,
-        feeRate,
-        tip,
-        fundingConfirmations,
-      )
-      return this.preparedAdvance(tip, secrets, sweep)
+      return this.sweepAfterReveal(bump)
     }
-
     if (spend && !spend.byUs && !spend.confirmed && spenderTxId) {
-      let conflict: { fee: number; vsize: number }
-      try {
-        conflict = await this.chain.txFee(spenderTxId)
-      } catch {
-        return { progress: progressOf('sweeping', tip, { payoutTxId: ourTxId }) }
-      }
-      const minimum = lastSweep.fee + ref.sweepVsize
-      const target = Math.max(
-        rateFee,
-        conflict.fee + ref.sweepVsize,
-        Math.ceil((conflict.fee * ref.sweepVsize) / conflict.vsize) + ref.sweepVsize,
-      )
-      if (lastSweep.replaces === spenderTxId && lastSweep.fee >= target) {
-        return { progress: progressOf('sweeping', tip, { payoutTxId: ourTxId }) }
-      }
-      const fee = Math.min(target, revealCap)
-      if (fee < minimum) {
-        return { progress: progressOf('sweeping', tip, { payoutTxId: ourTxId }) }
-      }
-      if (fee * conflict.vsize <= conflict.fee * ref.sweepVsize) {
-        return { progress: progressOf('sweeping', tip, { payoutTxId: ourTxId }) }
-      }
-      const sweep = this.buildSweep(
-        ref,
-        secrets,
-        funding,
-        fee,
-        revealCap,
-        feeRate,
-        tip,
-        fundingConfirmations,
-        spenderTxId,
-      )
-      return this.preparedAdvance(tip, secrets, sweep)
+      return this.bumpConflict(bump, spenderTxId)
     }
-
     if (spend?.confirmed) {
       return { progress: progressOf('sweeping', tip, { payoutTxId: ourTxId }) }
     }
-
-    const newBlock = tip > lastSweep.createdAtHeight
-    const escalating = ref.locktime - tip <= 10 && newBlock
-    const risen = feeRate >= FEE_BUMP_RATIO * lastSweep.feeRate && newBlock
-    if (!escalating && !risen) {
-      return { progress: progressOf('sweeping', tip, { payoutTxId: ourTxId }) }
-    }
-    const minimum = lastSweep.fee + ref.sweepVsize
-    const target = Math.max(rateFee, Math.ceil(lastSweep.fee * 1.5), minimum)
-    const fee = Math.min(target, revealCap)
-    if (fee < minimum) {
-      return { progress: progressOf('sweeping', tip, { payoutTxId: ourTxId }) }
-    }
-    const sweep = this.buildSweep(
-      ref,
-      secrets,
-      funding,
-      fee,
-      revealCap,
-      feeRate,
-      tip,
-      fundingConfirmations,
-    )
-    return this.preparedAdvance(tip, secrets, sweep)
+    return this.escalate(bump)
   }
 
   async publish(params: { providerRef: JsonValue; secrets: string }): Promise<SwapOutProgress> {
@@ -711,14 +788,7 @@ export class ElectrumPayoutProvider implements SwapOutProvider {
     published: boolean
   }): Promise<SwapOutProgress> {
     const ref = parseProviderRef(params.providerRef)
-    const { tip, funding, outspend } = await this.fundingState(ref)
-    let spend: PayoutSweepInput['spend'] = null
-    if (outspend?.spent && outspend.txid) {
-      const byUs = funding
-        ? await this.spenderRevealsPaymentHash(outspend.txid, funding, ref.paymentHash)
-        : false
-      spend = { byUs, confirmed: outspend.confirmedHeight !== null }
-    }
+    const { tip, funding, outspend, spend } = await this.observeSpend(ref, [])
     const revealed = params.published || (spend?.byUs ?? false)
     const decision = decidePayoutSweep({
       expectedAmount: ref.onchainAmount,
