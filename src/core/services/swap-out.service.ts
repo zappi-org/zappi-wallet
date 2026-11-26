@@ -115,6 +115,9 @@ export class SwapOutService implements SwapOutUseCase {
     try {
       return Ok(await this.provider.listOffers())
     } catch (error) {
+      this.logger?.warn(
+        `payout offers failed: ${error instanceof Error ? error.message : ''}`,
+      )
       return Err(
         error instanceof BaseError
           ? error
@@ -150,6 +153,9 @@ export class SwapOutService implements SwapOutUseCase {
         destination: params.destination,
       })
     } catch (error) {
+      this.logger?.warn(
+        `payout quote failed: ${error instanceof Error ? error.message : ''}`,
+      )
       return Err(
         error instanceof BaseError
           ? error

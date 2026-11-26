@@ -432,6 +432,7 @@ function setup(
   const clock = { now: NOW }
   let counter = 0
   const txRepo = new FakeTxRepo()
+  const warnings: string[] = []
   const service = new SwapOutService({
     provider: providerKit.provider,
     store,
@@ -442,7 +443,7 @@ function setup(
     now: () => clock.now,
     newId: () => `id-${++counter}`,
     statusTimeoutMs: options.statusTimeoutMs ?? 50,
-    logger: { warn: () => {} },
+    logger: { warn: (message) => warnings.push(message) },
   })
   return {
     service,
@@ -455,6 +456,7 @@ function setup(
     events,
     clock,
     txRepo,
+    warnings,
   }
 }
 
@@ -678,10 +680,11 @@ describe('swap-out service offers', () => {
   })
 
   it('wraps an unknown provider failure', async () => {
-    const { service, control } = setup()
+    const { service, control, warnings } = setup()
     control.listOffersError = new Error('relay down')
     const result = await service.listOffers()
     expect(!result.ok && result.error).toBeInstanceOf(SwapOutUnavailableError)
+    expect(warnings).toEqual(['payout offers failed: relay down'])
   })
 })
 
@@ -711,7 +714,7 @@ describe('swap-out service quote', () => {
   })
 
   it('passes provider errors through', async () => {
-    const { service, control } = setup()
+    const { service, control, warnings } = setup()
     control.quoteError = new SwapOutUnavailableError('no provider')
     const result = await service.quote({
       offerId: OFFER_ID,
@@ -720,6 +723,7 @@ describe('swap-out service quote', () => {
       mintUrl: MINT,
     })
     expect(!result.ok && result.error).toBeInstanceOf(SwapOutUnavailableError)
+    expect(warnings).toEqual(['payout quote failed: no provider'])
   })
 
   it('passes an unknown offer error through', async () => {

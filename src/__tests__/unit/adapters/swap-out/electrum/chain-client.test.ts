@@ -220,6 +220,20 @@ describe('chain client', () => {
     await expect(client.feeRate()).rejects.toThrow('chain request failed: 500')
   })
 
+  it('calls the global fetch without a bound receiver', async () => {
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = function (this: unknown) {
+      if (this !== undefined && this !== globalThis) throw new TypeError('Illegal invocation')
+      return Promise.resolve(jsonResponse({ '2': 5 }))
+    } as typeof fetch
+    try {
+      const client = new EsploraChainClient({ baseUrl: BASE })
+      expect(await client.feeRate()).toBe(5)
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
   it('picks the fee estimate for the target', async () => {
     const first = clientWith(jsonResponse({ '1': 10.2, '2': 6.1, '6': 2 }))
     expect(await first.client.feeRate()).toBe(7)

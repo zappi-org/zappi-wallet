@@ -72,7 +72,8 @@ export class EsploraChainClient implements PayoutChain {
 
   constructor(options: { baseUrl: string; fetch?: typeof fetch }) {
     this.baseUrl = options.baseUrl.replace(/\/+$/, '')
-    this.fetchImpl = options.fetch ?? fetch
+    this.fetchImpl =
+      options.fetch ?? ((input, init) => globalThis.fetch(input, init))
   }
 
   private async request(path: string, init?: RequestInit): Promise<Response> {
