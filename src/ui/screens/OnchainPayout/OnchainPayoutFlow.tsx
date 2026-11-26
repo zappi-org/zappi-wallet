@@ -1,30 +1,35 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronRight } from 'lucide-react'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { Button } from '@/ui/components/common/Button'
-import { NumericKeypad } from '@/ui/components/common/NumericKeypad'
 import { CountdownTimer } from '@/ui/components/common/CountdownTimer'
 import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
+import { ProviderMark } from '@/ui/components/payment/ProviderMark'
 import { useFormatSats } from '@/utils/format'
 import { useAppStore } from '@/store'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { useOnchainPayout } from '@/ui/hooks/use-onchain-payout'
 import { translateError } from '@/ui/utils/error-i18n'
 import { spendableByMint } from '@/store/selectors'
-import type { OnchainPayoutQuoteView, OnchainPayoutView } from '@/core/ports/driving/onchain-payout.usecase'
+import type { BaseError } from '@/core/errors/base'
+import type {
+  OnchainPayoutOffer,
+  OnchainPayoutQuoteView,
+  OnchainPayoutView,
+} from '@/core/ports/driving/onchain-payout.usecase'
 import { OnchainPayoutProgressView } from './OnchainPayoutProgress'
+import { OnchainPayoutProviderStep } from './OnchainPayoutProviderStep'
+import { OnchainPayoutAmountStep } from './OnchainPayoutAmountStep'
+import { shortenIdentifier, type PayoutFormValues } from './payout-form'
 import {
   isOnchainPayoutTerminalStage,
   onchainPayoutStageLabel,
 } from '@/ui/utils/onchain-payout-labels'
 
-const MIN_AMOUNT = 20000
-
-type FlowStep = 'amount' | 'confirm' | 'progress'
+type FlowStep = 'provider' | 'amount' | 'confirm' | 'progress'
 
 export interface OnchainPayoutFlowProps {
-  address: string
+  address?: string
   amountSats?: number
   onClose: () => void
 }
@@ -42,7 +47,7 @@ export function OnchainPayoutFlow({ address, amountSats, onClose }: OnchainPayou
   const inFlight = useAppStore((state) => state.onchainPayoutInFlightByMint ?? {})
   const addToast = useAppStore((state) => state.addToast)
   const payouts = useAppStore((state) => state.onchainPayouts ?? [])
-  const { quote: quotePayout, start: startPayout, get } = useOnchainPayout()
+  const { listOffers, quote: quotePayout, start: startPayout, get } = useOnchainPayout()
   const { getDisplayName, getIconUrl } = useMintMetadata(settings.mints)
 
   const spendable = useMemo(
@@ -54,10 +59,19 @@ export function OnchainPayoutFlow({ address, amountSats, onClose }: OnchainPayou
     [settings.mints, spendable],
   )
 
-  const [step, setStep] = useState<FlowStep>('amount')
-  const [amount, setAmount] = useState(() => (amountSats && amountSats > 0 ? String(amountSats) : ''))
+  const [step, setStep] = useState<FlowStep>('provider')
+  const [offers, setOffers] = useState<OnchainPayoutOffer[] | null>(null)
+  const [offersLoading, setOffersLoading] = useState(true)
+  const [offersError, setOffersError] = useState<BaseError | null>(null)
+  const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null)
+  const [formValues, setFormValues] = useState<PayoutFormValues>(() => ({
+    amountText: amountSats && amountSats > 0 ? String(amountSats) : '',
+    amountSide: 'send',
+    address: address ?? '',
+  }))
   const [mintUrl, setMintUrl] = useState<string | null>(mintUrls[0] ?? settings.mints[0] ?? null)
   const [mintSheetOpen, setMintSheetOpen] = useState(false)
+  const [quoteRequest, setQuoteRequest] = useState<{ sendAmount: number; destination: string } | null>(null)
   const [quote, setQuote] = useState<OnchainPayoutQuoteView | null>(null)
   const [payout, setPayout] = useState<OnchainPayoutView | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -65,62 +79,81 @@ export function OnchainPayoutFlow({ address, amountSats, onClose }: OnchainPayou
   const [starting, setStarting] = useState(false)
   const [quoteExpired, setQuoteExpired] = useState(false)
   const startLockRef = useRef(false)
+  const offersEpochRef = useRef(0)
+  const quoteEpochRef = useRef(0)
 
-  const numericAmount = Number(amount || '0')
   const selectedBalance = mintUrl ? spendable[mintUrl] ?? 0 : 0
-  const amountTooHigh = numericAmount > selectedBalance
+  const selectedOffer = offers?.find((offer) => offer.offerId === selectedOfferId) ?? null
 
-  const handleKey = useCallback((key: string) => {
-    setError(null)
-    setAmount((previous) => {
-      if (key === 'delete') return previous.slice(0, -1)
-      if (previous.length >= 9) return previous
-      if (key === '0' && previous === '') return previous
-      return `${previous}${key}`
-    })
-  }, [])
-
-  const requestQuote = useCallback(async () => {
-    if (!mintUrl || startLockRef.current) return
-    setQuoting(true)
-    setError(null)
-    const result = await quotePayout({
-      sendAmount: numericAmount,
-      destination: address,
-      mintUrl,
-    })
-    setQuoting(false)
-    if (startLockRef.current) return
+  const fetchOffers = useCallback(async () => {
+    const epoch = ++offersEpochRef.current
+    const result = await listOffers()
+    if (epoch !== offersEpochRef.current) return
+    setOffersLoading(false)
     if (!result.ok) {
-      const cause = result.error
-      if ('minAmount' in cause && 'maxAmount' in cause) {
-        setError(
-          t('onchainPayout.outOfRange', {
-            min: formatSats(Number(cause.minAmount)),
-            max: formatSats(Number(cause.maxAmount)),
-          }),
-        )
-      } else {
-        setError(translateError(cause, t))
-      }
+      setOffersError(result.error)
       return
     }
-    setQuote(result.value)
-    setQuoteExpired(false)
-    setStep('confirm')
-  }, [mintUrl, numericAmount, address, quotePayout, t, formatSats])
+    const next = result.value
+    setOffersError(null)
+    setOffers(next)
+    setSelectedOfferId((current) =>
+      current !== null && next.some((offer) => offer.offerId === current)
+        ? current
+        : next[0]?.offerId ?? null,
+    )
+  }, [listOffers])
 
-  const handleAmountNext = useCallback(async () => {
-    if (numericAmount < MIN_AMOUNT) {
-      setError(t('onchainPayout.minAmount', { amount: formatSats(MIN_AMOUNT) }))
-      return
-    }
-    if (!Number.isSafeInteger(numericAmount) || amountTooHigh) {
-      setError(t('onchainPayout.insufficientBalance'))
-      return
-    }
-    await requestQuote()
-  }, [numericAmount, amountTooHigh, requestQuote, t, formatSats])
+  useEffect(() => {
+    void fetchOffers()
+  }, [fetchOffers])
+
+  const handleRetryOffers = useCallback(() => {
+    setOffersLoading(true)
+    setOffersError(null)
+    void fetchOffers()
+  }, [fetchOffers])
+
+  const requestQuote = useCallback(
+    async (request: { sendAmount: number; destination: string }) => {
+      if (!mintUrl || !selectedOfferId || startLockRef.current) return
+      const epoch = ++quoteEpochRef.current
+      setQuoteRequest(request)
+      setQuoting(true)
+      setError(null)
+      const result = await quotePayout({
+        offerId: selectedOfferId,
+        sendAmount: request.sendAmount,
+        destination: request.destination,
+        mintUrl,
+      })
+      if (epoch !== quoteEpochRef.current) return
+      setQuoting(false)
+      if (startLockRef.current) return
+      if (!result.ok) {
+        const cause = result.error
+        if ('minAmount' in cause && 'maxAmount' in cause) {
+          setError(
+            t('onchainPayout.outOfRange', {
+              min: formatSats(Number(cause.minAmount)),
+              max: formatSats(Number(cause.maxAmount)),
+            }),
+          )
+        } else {
+          setError(translateError(cause, t))
+        }
+        return
+      }
+      setQuote(result.value)
+      setQuoteExpired(false)
+      setStep('confirm')
+    },
+    [mintUrl, selectedOfferId, quotePayout, t, formatSats],
+  )
+
+  const handleRequote = useCallback(() => {
+    if (quoteRequest) void requestQuote(quoteRequest)
+  }, [quoteRequest, requestQuote])
 
   const handleConfirm = useCallback(async () => {
     if (!quote || !mintUrl || startLockRef.current || quoteExpired) return
@@ -143,10 +176,17 @@ export function OnchainPayoutFlow({ address, amountSats, onClose }: OnchainPayou
 
   const handleQuoteExpired = useCallback(() => setQuoteExpired(true), [])
 
+  const invalidatePendingQuote = useCallback(() => {
+    quoteEpochRef.current += 1
+    setQuoting(false)
+  }, [])
+
   const handleConfirmBack = useCallback(() => {
     if (startLockRef.current) return
+    invalidatePendingQuote()
+    setError(null)
     setStep('amount')
-  }, [])
+  }, [invalidatePendingQuote])
 
   const livePayout = payout
     ? payouts.find((candidate) => candidate.id === payout.id) ?? payout
@@ -164,53 +204,45 @@ export function OnchainPayoutFlow({ address, amountSats, onClose }: OnchainPayou
 
   return (
     <div className="fixed inset-0 z-50 bg-background flex flex-col" data-testid="onchain-payout-flow">
-      {step === 'amount' && (
+      {step === 'provider' && (
+        <OnchainPayoutProviderStep
+          offers={offers}
+          loading={offersLoading}
+          error={offersError ? translateError(offersError, t) : null}
+          selectedOfferId={selectedOfferId}
+          onSelect={setSelectedOfferId}
+          onRetry={handleRetryOffers}
+          onNext={() => {
+            setError(null)
+            setStep('amount')
+          }}
+          onBack={onClose}
+        />
+      )}
+
+      {step === 'amount' && selectedOffer && (
         <>
-          <ScreenHeader title={t('onchainPayout.title')} onBack={onClose} />
-          <div className="flex-1 flex flex-col px-5">
-            <div className="flex-1 flex flex-col items-center justify-center gap-2">
-              <span className="text-caption text-foreground-muted">
-                {t('onchainPayout.amountToSend')}
-              </span>
-              <span className="text-display font-bold text-foreground">
-                {formatSats(numericAmount)}
-              </span>
-              <span className="text-label text-foreground-muted">
-                {t('onchainPayout.destination')} · {shorten(address)}
-              </span>
-              {error && (
-                <span className="text-label text-accent-danger text-center" data-testid="onchain-payout-error">
-                  {error}
-                </span>
-              )}
-              <button
-                type="button"
-                onClick={() => setMintSheetOpen(true)}
-                className="mt-3 flex items-center gap-2 rounded-xl bg-foreground/[0.04] px-3 py-2"
-              >
-                {mintUrl && <img src={getIconUrl(mintUrl)} alt="" className="w-5 h-5 rounded-full" />}
-                <span className="text-label font-medium text-foreground">
-                  {mintUrl ? getDisplayName(mintUrl) : t('onchainPayout.selectMint')}
-                </span>
-                <span className="text-label text-foreground-muted">{formatSats(selectedBalance)}</span>
-                <ChevronRight className="w-4 h-4 text-foreground-muted" />
-              </button>
-              <span className="text-caption text-foreground-muted mt-2 text-center">
-                {t('onchainPayout.minAmount', { amount: formatSats(MIN_AMOUNT) })}
-              </span>
-            </div>
-            <Button
-              variant="primary"
-              size="lg"
-              loading={quoting}
-              disabled={numericAmount <= 0 || quoting}
-              onClick={handleAmountNext}
-              className="mb-3"
-            >
-              {t('common.confirm')}
-            </Button>
-            <NumericKeypad onKeyPress={handleKey} deleteAriaLabel={t('common.delete')} />
-          </div>
+          <OnchainPayoutAmountStep
+            offer={selectedOffer}
+            values={formValues}
+            onChange={(values) => {
+              setError(null)
+              setFormValues(values)
+            }}
+            mintUrl={mintUrl}
+            mintName={mintUrl ? getDisplayName(mintUrl) : null}
+            mintIconUrl={mintUrl ? getIconUrl(mintUrl) ?? null : null}
+            spendable={selectedBalance}
+            onOpenMintSelect={() => setMintSheetOpen(true)}
+            quoting={quoting}
+            error={error}
+            onQuote={(request) => void requestQuote(request)}
+            onBack={() => {
+              invalidatePendingQuote()
+              setError(null)
+              setStep('provider')
+            }}
+          />
           <MintSelectBottomSheet
             isOpen={mintSheetOpen}
             onClose={() => setMintSheetOpen(false)}
@@ -230,7 +262,16 @@ export function OnchainPayoutFlow({ address, amountSats, onClose }: OnchainPayou
           <ScreenHeader title={t('onchainPayout.confirm')} onBack={handleConfirmBack} />
           <div className="flex-1 flex flex-col px-5 overflow-y-auto">
             <div className="flex flex-col gap-3 py-4">
-              <Row label={t('onchainPayout.destination')} value={shorten(address)} mono />
+              <div className="flex items-center justify-between gap-3" data-testid="onchain-payout-confirm-provider">
+                <span className="text-label text-foreground-muted">{t('onchainPayout.providers.provider')}</span>
+                <span className="flex items-center gap-2 min-w-0">
+                  <ProviderMark identifier={quote.identifier} width={24} />
+                  <span className="text-label font-medium font-mono text-foreground truncate">
+                    {shortenIdentifier(quote.identifier)}
+                  </span>
+                </span>
+              </div>
+              <Row label={t('onchainPayout.destination')} value={shorten(quote.destination)} mono />
               <Row label={t('onchainPayout.youReceive')} value={formatSats(quote.receiveAmount)} strong />
               <Row label={t('onchainPayout.serviceFee')} value={formatSats(quote.serviceFee)} />
               <Row label={t('onchainPayout.networkFee')} value={formatSats(quote.networkFee)} />
@@ -269,7 +310,7 @@ export function OnchainPayoutFlow({ address, amountSats, onClose }: OnchainPayou
               variant={quoteExpired && !starting ? 'primary' : 'ghost'}
               loading={quoting}
               disabled={starting || quoting}
-              onClick={requestQuote}
+              onClick={handleRequote}
             >
               {t('onchainPayout.requote')}
             </Button>

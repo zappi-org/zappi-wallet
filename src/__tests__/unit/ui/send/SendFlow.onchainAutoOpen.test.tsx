@@ -165,4 +165,32 @@ describe('SendFlow on-chain payout auto-open', () => {
     const { queryByTestId } = render(<SendFlow {...baseProps} />)
     expect(queryByTestId('onchain-payout-flow')).toHaveTextContent(ADDRESS)
   })
+
+  it('opens the payout flow without an address from the visible Send entry', () => {
+    payoutFlag.enabled = true
+    const { queryByTestId } = render(<SendFlow {...baseProps} validatedData={undefined} />)
+    expect(queryByTestId('onchain-payout-flow')).not.toBeInTheDocument()
+    expect(capturedInput!.onOnchainPayout).toBeTypeOf('function')
+
+    act(() => {
+      capturedInput!.onOnchainPayout!()
+    })
+    expect(queryByTestId('onchain-payout-flow')).toBeInTheDocument()
+    expect(payoutFlowProps.at(-1)!.address).toBeUndefined()
+  })
+
+  it('prefills the address when an address is entered in Send', () => {
+    payoutFlag.enabled = true
+    const { queryByTestId } = render(<SendFlow {...baseProps} validatedData={undefined} />)
+    act(() => {
+      capturedInput!.onBitcoinAddress!({ address: ADDRESS, amountSats: 7000 })
+    })
+    expect(queryByTestId('onchain-payout-flow')).toHaveTextContent(ADDRESS)
+    expect(payoutFlowProps.at(-1)).toMatchObject({ address: ADDRESS, amountSats: 7000 })
+  })
+
+  it('does not offer the Send entry while the feature is off', () => {
+    render(<SendFlow {...baseProps} validatedData={undefined} />)
+    expect(capturedInput!.onOnchainPayout).toBeUndefined()
+  })
 })

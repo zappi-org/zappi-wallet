@@ -5,6 +5,7 @@ import { ServiceContext } from '@/ui/hooks/service-context-value'
 import { Err } from '@/core/domain/result'
 import { OnchainPayoutUnavailableError } from '@/core/errors/onchain-payout'
 import type {
+  OnchainPayoutOffer,
   OnchainPayoutQuoteView,
   OnchainPayoutView,
 } from '@/core/ports/driving/onchain-payout.usecase'
@@ -15,7 +16,9 @@ export interface UseOnchainPayout {
   isEnabled: boolean
   payouts: OnchainPayoutView[]
   inFlightByMint: Record<string, number>
+  listOffers(): Promise<Result<OnchainPayoutOffer[], BaseError>>
   quote(params: {
+    offerId: string
     sendAmount: number
     destination: string
     mintUrl: string
@@ -33,8 +36,15 @@ export function useOnchainPayout(): UseOnchainPayout {
   const inFlightByMint = useAppStore((state) => state.onchainPayoutInFlightByMint ?? {})
   const service = registry?.onchainPayout ?? null
 
+  const listOffers = useCallback(async () => {
+    if (!service) {
+      return Err(new OnchainPayoutUnavailableError('on-chain payout is unavailable'))
+    }
+    return service.listOffers()
+  }, [service])
+
   const quote = useCallback(
-    async (params: { sendAmount: number; destination: string; mintUrl: string }) => {
+    async (params: { offerId: string; sendAmount: number; destination: string; mintUrl: string }) => {
       if (!service) {
         return Err(new OnchainPayoutUnavailableError('on-chain payout is unavailable'))
       }
@@ -62,6 +72,7 @@ export function useOnchainPayout(): UseOnchainPayout {
     isEnabled: service?.isEnabled() ?? false,
     payouts,
     inFlightByMint,
+    listOffers,
     quote,
     start,
     get,

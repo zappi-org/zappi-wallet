@@ -275,8 +275,13 @@ export function SendFlow({
     setOnchainTarget(input)
   }, [])
 
+  const handleOpenOnchainPayout = useCallback(() => {
+    destinationEditedRef.current = true
+    setOnchainTarget({})
+  }, [])
+
   const [onchainTarget, setOnchainTarget] = useState<{
-    address: string
+    address?: string
     amountSats?: number
   } | null>(
     initialValidatedData?.type === 'bitcoin-address' && onchainPayoutEnabled
@@ -1107,6 +1112,7 @@ export function SendFlow({
                     onRequestMintSelection={handleRequestMintSelection}
                     onDirectTransfer={handleDirectTransfer}
                     onBitcoinAddress={handleBitcoinAddress}
+                    onOnchainPayout={onchainPayoutEnabled ? handleOpenOnchainPayout : undefined}
                     onDestinationEdit={markDestinationEdited}
                   />
                 </motion.div>

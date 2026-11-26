@@ -48,7 +48,7 @@ export interface OnchainPayoutUseCase {
   isEnabled(): boolean
   listOffers(): Promise<Result<OnchainPayoutOffer[], BaseError>>
   quote(params: {
-    offerId?: string
+    offerId: string
     sendAmount: number
     destination: string
     mintUrl: string

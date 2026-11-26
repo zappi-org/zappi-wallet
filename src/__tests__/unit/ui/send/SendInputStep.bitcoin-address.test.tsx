@@ -74,7 +74,7 @@ const defaultProps = {
   mintUrl: 'https://mint.example.com',
 }
 
-function renderStep(overrides: Partial<typeof defaultProps> = {}) {
+function renderStep(overrides: Partial<typeof defaultProps> & { onOnchainPayout?: () => void } = {}) {
   return render(
     <ServiceProvider registry={mockRegistry}>
       <SendInputStep {...defaultProps} {...overrides} />
@@ -133,5 +133,24 @@ describe('SendInputStep bitcoin address', () => {
     await act(async () => { nextButton.click(); await vi.runAllTimersAsync() })
     expect(defaultProps.onBitcoinAddress).toHaveBeenCalledWith({ address: ADDRESS, amountSats: 50000 })
     expect(defaultProps.onNext).not.toHaveBeenCalled()
+  })
+
+  it('offers a visible entry to send to a bitcoin address while the input is empty', () => {
+    const onOnchainPayout = vi.fn()
+    renderStep({ onOnchainPayout })
+    const entry = screen.getByTestId('send-onchain-payout-entry')
+    expect(entry).toHaveTextContent('onchainPayout.entry')
+    act(() => { entry.click() })
+    expect(onOnchainPayout).toHaveBeenCalledTimes(1)
+  })
+
+  it('hides the entry once a destination is typed or when the feature is off', () => {
+    const onOnchainPayout = vi.fn()
+    const { unmount } = renderStep({ onOnchainPayout })
+    typeIntoInput('someone@example.com')
+    expect(screen.queryByTestId('send-onchain-payout-entry')).not.toBeInTheDocument()
+    unmount()
+    renderStep()
+    expect(screen.queryByTestId('send-onchain-payout-entry')).not.toBeInTheDocument()
   })
 })

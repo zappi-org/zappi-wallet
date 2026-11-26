@@ -39,6 +39,10 @@ vi.mock('motion/react', () => ({
   },
 }))
 
+vi.mock('@/ui/screens/OnchainPayout/OnchainPayoutFlow', () => ({
+  OnchainPayoutFlow: () => null,
+}))
+
 vi.mock('@/ui/screens/Send/steps/SendInputStep', () => ({
   SendInputStep: (props: SendInputStepProps) => {
     capturedInput = props

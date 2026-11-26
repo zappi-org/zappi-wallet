@@ -7,7 +7,6 @@ import { Err, Ok, type Result } from '@/core/domain/result'
 import { BaseError, UnknownError } from '@/core/errors/base'
 import {
   OnchainPayoutAmountOutOfRangeError,
-  OnchainPayoutOfferUnavailableError,
   OnchainPayoutProviderRejectedError,
   OnchainPayoutQuoteExpiredError,
   OnchainPayoutUnavailableError,
@@ -117,16 +116,13 @@ export class OnchainPayoutService implements OnchainPayoutUseCase {
   }
 
   async quote(params: {
-    offerId?: string
+    offerId: string
     sendAmount: number
     destination: string
     mintUrl: string
   }): Promise<Result<OnchainPayoutQuoteView, BaseError>> {
     if (!this.enabled()) {
       return Err(new OnchainPayoutUnavailableError('onchain payout is disabled'))
-    }
-    if (params.offerId === undefined || params.offerId.length === 0) {
-      return Err(new OnchainPayoutOfferUnavailableError('no payout provider was chosen'))
     }
     if (!Number.isSafeInteger(params.sendAmount) || params.sendAmount <= 0) {
       return Err(

@@ -46,6 +46,7 @@ describe('createOnchainPayout', () => {
     try {
       expect(bundle.service.isEnabled()).toBe(false)
       const quote = await bundle.service.quote({
+        offerId: 'offer-1',
         sendAmount: 100000,
         destination: 'bcrt1qdestination',
         mintUrl: 'https://mint.example.com',

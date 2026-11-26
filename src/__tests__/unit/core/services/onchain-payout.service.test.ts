@@ -651,17 +651,6 @@ describe('onchain payout service quote', () => {
     expect(!result.ok && result.error).toBeInstanceOf(OnchainPayoutUnavailableError)
   })
 
-  it('requires a chosen offer', async () => {
-    const { service } = setup()
-    const result = await service.quote({
-      sendAmount: 100000,
-      destination: 'bcrt1qdestination',
-      mintUrl: MINT,
-    })
-    expect(result.ok).toBe(false)
-    expect(!result.ok && result.error).toBeInstanceOf(OnchainPayoutOfferUnavailableError)
-  })
-
   it('rejects a non-positive amount', async () => {
     const { service } = setup()
     const result = await service.quote({
@@ -684,6 +673,18 @@ describe('onchain payout service quote', () => {
       mintUrl: MINT,
     })
     expect(!result.ok && result.error).toBeInstanceOf(OnchainPayoutUnavailableError)
+  })
+
+  it('passes an unknown offer error through', async () => {
+    const { service, control } = setup()
+    control.quoteError = new OnchainPayoutOfferUnavailableError('offer gone')
+    const result = await service.quote({
+      offerId: 'unknown-offer',
+      sendAmount: 100000,
+      destination: 'bcrt1qdestination',
+      mintUrl: MINT,
+    })
+    expect(!result.ok && result.error).toBeInstanceOf(OnchainPayoutOfferUnavailableError)
   })
 
   it('expires quotes, rejects a mint mismatch and allows a single start', async () => {
