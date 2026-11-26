@@ -1043,6 +1043,313 @@ describe('electrum payout provider resume', () => {
     ).rejects.toThrow()
     expectNoBroadcast(chain)
   })
+
+  it('keeps the stale unpublished sweep instead of signing another', async () => {
+    const { chain, provider, providerRef, secrets } = await prepared()
+    chain.outputs = [fundingOutput()]
+    chain.rate = 2
+    const first = await provider.resume({ providerRef, secrets, stage: 'funded', published: false })
+    const again = await provider.resume({
+      providerRef,
+      secrets: first.prepared?.secrets ?? '',
+      stage: 'funded',
+      published: false,
+    })
+    const sweeps = JSON.parse(again.prepared?.secrets ?? '{}').sweeps
+    expect(sweeps).toHaveLength(1)
+    expect(sweeps[0].fee).toBe(272)
+    expect(again.prepared?.secrets).toBe(first.prepared?.secrets)
+    expect(again.progress.payoutTxId).toBe(first.progress.payoutTxId)
+    expectNoBroadcast(chain)
+  })
+
+  it('keeps sweeping when a reveal arrives without funding', async () => {
+    const { chain, provider, providerRef, secrets } = await prepared()
+    chain.outputs = []
+    chain.rate = 2
+    const advance = await provider.resume({
+      providerRef,
+      secrets,
+      stage: 'sweeping',
+      published: true,
+    })
+    expect(advance.progress.stage).toBe('sweeping')
+    expect(advance.progress.payoutTxId).toBeUndefined()
+    expect(advance.prepared).toBeUndefined()
+  })
+
+  it('keeps sweeping when a reveal arrives before any sweep was signed', async () => {
+    const { chain, provider, providerRef, secrets } = await prepared()
+    chain.outputs = [fundingOutput()]
+    chain.rate = 2
+    const advance = await provider.resume({
+      providerRef,
+      secrets,
+      stage: 'sweeping',
+      published: true,
+    })
+    expect(advance.progress).toEqual({ stage: 'sweeping', currentHeight: 129 })
+    expect(advance.prepared).toBeUndefined()
+    expectNoBroadcast(chain)
+  })
+
+  it('stops when the reward cannot pay the bump floor', async () => {
+    const { chain, provider, providerRef, secrets } = await prepared()
+    chain.outputs = [fundingOutput()]
+    chain.rate = 2
+    const stale = sweepSecrets(secrets, [
+      { txid: 'stale-tx', hex: '00', fee: 76600, feeRate: 2, createdAtHeight: 120 },
+    ])
+    const advance = await provider.resume({
+      providerRef,
+      secrets: stale,
+      stage: 'sweeping',
+      published: true,
+    })
+    expect(advance.progress).toEqual({
+      stage: 'sweeping',
+      currentHeight: 129,
+      payoutTxId: 'stale-tx',
+    })
+    expect(advance.prepared).toBeUndefined()
+  })
+
+  it('builds a fresh post-reveal sweep above the pre-reveal fee cap', async () => {
+    const { chain, provider, providerRef, secrets } = await prepared()
+    chain.outputs = [fundingOutput()]
+    chain.rate = 60
+    const stale = sweepSecrets(secrets, [
+      { txid: 'stale-tx', hex: '00', fee: 272, feeRate: 2, createdAtHeight: 120 },
+    ])
+    const advance = await provider.resume({
+      providerRef,
+      secrets: stale,
+      stage: 'sweeping',
+      published: true,
+    })
+    const sweeps = JSON.parse(advance.prepared?.secrets ?? '{}').sweeps
+    expect(sweeps).toHaveLength(2)
+    expect(sweeps[1].fee).toBe(8160)
+    expect(sweeps[1].fee).toBeGreaterThan(7700)
+    expect(advance.progress.payoutTxId).toBe(sweeps[1].txid)
+  })
+
+  it('keeps sweeping when the conflict fee is unknown', async () => {
+    const { chain, provider, providerRef, secrets } = await prepared()
+    chain.outputs = [fundingOutput()]
+    chain.rate = 2
+    const first = await provider.resume({ providerRef, secrets, stage: 'funded', published: false })
+    chain.spends.set(`${FUNDING_TXID}:0`, {
+      spent: true,
+      txid: 'provider-tx',
+      confirmedHeight: null,
+    })
+    const advance = await provider.resume({
+      providerRef,
+      secrets: first.prepared?.secrets ?? '',
+      stage: 'sweeping',
+      published: true,
+    })
+    expect(advance.prepared).toBeUndefined()
+    expect(advance.progress.payoutTxId).toBe(first.progress.payoutTxId)
+  })
+
+  it('refuses a conflict bump that cannot clear the floor', async () => {
+    const { chain, provider, providerRef, secrets } = await prepared()
+    chain.outputs = [fundingOutput()]
+    chain.rate = 2
+    chain.spends.set(`${FUNDING_TXID}:0`, {
+      spent: true,
+      txid: 'provider-tx',
+      confirmedHeight: null,
+    })
+    chain.fees.set('provider-tx', { fee: 6400, vsize: 128 })
+    const stale = sweepSecrets(secrets, [
+      { txid: 'stale-tx', hex: '00', fee: 76600, feeRate: 2, createdAtHeight: 120 },
+    ])
+    const advance = await provider.resume({
+      providerRef,
+      secrets: stale,
+      stage: 'sweeping',
+      published: true,
+    })
+    expect(advance.prepared).toBeUndefined()
+    expect(advance.progress).toEqual({
+      stage: 'sweeping',
+      currentHeight: 129,
+      payoutTxId: 'stale-tx',
+    })
+  })
+
+  it('refuses a conflict bump that does not raise the fee rate', async () => {
+    const { chain, provider, providerRef, secrets } = await prepared()
+    chain.outputs = [fundingOutput({ value: 7130 })]
+    chain.rate = 2
+    chain.spends.set(`${FUNDING_TXID}:0`, {
+      spent: true,
+      txid: 'provider-tx',
+      confirmedHeight: null,
+    })
+    chain.fees.set('provider-tx', { fee: 6400, vsize: 128 })
+    const cheap = sweepSecrets(secrets, [
+      { txid: 'stale-tx', hex: '00', fee: 100, feeRate: 2, createdAtHeight: 120 },
+    ])
+    const advance = await provider.resume({
+      providerRef,
+      secrets: cheap,
+      stage: 'sweeping',
+      published: true,
+    })
+    expect(advance.prepared).toBeUndefined()
+    expect(advance.progress.payoutTxId).toBe('stale-tx')
+  })
+
+  it('does not bump without a new block', async () => {
+    const { chain, provider, providerRef, secrets } = await prepared()
+    chain.outputs = [fundingOutput()]
+    chain.rate = 2
+    const first = await provider.resume({ providerRef, secrets, stage: 'funded', published: false })
+    chain.rate = 10
+    const advance = await provider.resume({
+      providerRef,
+      secrets: first.prepared?.secrets ?? '',
+      stage: 'sweeping',
+      published: true,
+    })
+    expect(advance.prepared).toBeUndefined()
+    expect(advance.progress.payoutTxId).toBe(first.progress.payoutTxId)
+  })
+
+  it('escalates by half the last fee when nothing else is higher', async () => {
+    const { chain, provider, providerRef, secrets } = await prepared()
+    chain.outputs = [fundingOutput()]
+    chain.rate = 2
+    const first = await provider.resume({ providerRef, secrets, stage: 'funded', published: false })
+    const firstSweep = JSON.parse(first.prepared?.secrets ?? '{}').sweeps[0]
+    chain.tip = swapCase.timeoutBlockHeight - 10
+    const raised = sweepSecrets(first.prepared?.secrets ?? '', [
+      {
+        txid: firstSweep.txid,
+        hex: firstSweep.hex,
+        fee: 1000,
+        feeRate: 2,
+        createdAtHeight: 100,
+      },
+    ])
+    const advance = await provider.resume({
+      providerRef,
+      secrets: raised,
+      stage: 'sweeping',
+      published: true,
+    })
+    const sweeps = JSON.parse(advance.prepared?.secrets ?? '{}').sweeps
+    expect(sweeps).toHaveLength(2)
+    expect(sweeps[1].fee).toBe(1500)
+  })
+
+  it('escalates an odd last fee to the next whole satoshi', async () => {
+    const { chain, provider, providerRef, secrets } = await prepared()
+    chain.outputs = [fundingOutput()]
+    chain.rate = 2
+    const first = await provider.resume({ providerRef, secrets, stage: 'funded', published: false })
+    const firstSweep = JSON.parse(first.prepared?.secrets ?? '{}').sweeps[0]
+    chain.tip = swapCase.timeoutBlockHeight - 10
+    const raised = sweepSecrets(first.prepared?.secrets ?? '', [
+      {
+        txid: firstSweep.txid,
+        hex: firstSweep.hex,
+        fee: 1001,
+        feeRate: 2,
+        createdAtHeight: 100,
+      },
+    ])
+    const advance = await provider.resume({
+      providerRef,
+      secrets: raised,
+      stage: 'sweeping',
+      published: true,
+    })
+    const sweeps = JSON.parse(advance.prepared?.secrets ?? '{}').sweeps
+    expect(sweeps).toHaveLength(2)
+    expect(sweeps[1].fee).toBe(1502)
+  })
+
+  it('refuses an escalation that cannot clear the floor', async () => {
+    const { chain, provider, providerRef, secrets } = await prepared()
+    chain.outputs = [fundingOutput()]
+    chain.rate = 2
+    const first = await provider.resume({ providerRef, secrets, stage: 'funded', published: false })
+    const firstSweep = JSON.parse(first.prepared?.secrets ?? '{}').sweeps[0]
+    chain.tip = swapCase.timeoutBlockHeight - 10
+    const rich = sweepSecrets(first.prepared?.secrets ?? '', [
+      {
+        txid: firstSweep.txid,
+        hex: firstSweep.hex,
+        fee: 76600,
+        feeRate: 2,
+        createdAtHeight: 100,
+      },
+    ])
+    const advance = await provider.resume({
+      providerRef,
+      secrets: rich,
+      stage: 'sweeping',
+      published: true,
+    })
+    expect(advance.prepared).toBeUndefined()
+    expect(advance.progress.payoutTxId).toBe(firstSweep.txid)
+  })
+
+  it('completes straight from a completed stage', async () => {
+    const { chain, provider, providerRef, secrets } = await prepared()
+    chain.outputs = []
+    chain.confirmations.set('our-tx', 4)
+    const withSweep = sweepSecrets(secrets, [
+      { txid: 'our-tx', hex: '00', fee: 272, feeRate: 2, createdAtHeight: 120 },
+    ])
+    const advance = await provider.resume({
+      providerRef,
+      secrets: withSweep,
+      stage: 'completed',
+      published: true,
+    })
+    expect(advance.progress).toEqual({
+      stage: 'completed',
+      currentHeight: 129,
+      payoutTxId: 'our-tx',
+      confirmations: 4,
+    })
+    const bare = await provider.resume({
+      providerRef,
+      secrets,
+      stage: 'completed',
+      published: true,
+    })
+    expect(bare.progress.stage).toBe('completed')
+    expect(bare.progress.payoutTxId).toBeUndefined()
+    expect(bare.progress.confirmations).toBeUndefined()
+  })
+
+  it('refunds an unconfirmed provider spend', async () => {
+    const { chain, provider, providerRef, secrets } = await prepared()
+    chain.outputs = [fundingOutput()]
+    chain.spends.set(`${FUNDING_TXID}:0`, {
+      spent: true,
+      txid: 'provider-tx',
+      confirmedHeight: null,
+    })
+    const advance = await provider.resume({
+      providerRef,
+      secrets,
+      stage: 'funded',
+      published: false,
+    })
+    expect(advance.progress).toEqual({
+      stage: 'refunded',
+      currentHeight: 129,
+      failureReason: 'spent_by_provider',
+    })
+  })
 })
 
 describe('electrum payout provider publish and status', () => {
@@ -1166,5 +1473,74 @@ describe('electrum payout provider publish and status', () => {
     })
     const progress = await provider.status({ providerRef, stage: 'sweeping', published: true })
     expect(progress).toMatchObject({ stage: 'refunded', failureReason: 'spent_by_provider' })
+  })
+
+  it('completes once our revealed spend confirms', async () => {
+    const { chain, provider, providerRef } = await prepared()
+    const funding = fundingOutput()
+    const revealed = buildSweepTx({
+      fundingTxId: funding.txid,
+      fundingVout: funding.vout,
+      fundingValue: funding.value,
+      script: hexToBytes(swapCase.redeemScript),
+      secret: secretBytes,
+      claimSecretKey: claimKeyBytes,
+      destination: regtestDestination,
+      fee: 272,
+      maxFee: 7700,
+      fundingConfirmations: 1,
+      network: 'regtest',
+    })
+    chain.spends.set(`${FUNDING_TXID}:0`, {
+      spent: true,
+      txid: revealed.txid,
+      confirmedHeight: 120,
+    })
+    chain.hexes.set(revealed.txid, revealed.hex)
+    chain.confirmations.set(revealed.txid, 4)
+    const progress = await provider.status({ providerRef, stage: 'sweeping', published: true })
+    expect(progress).toEqual({
+      stage: 'completed',
+      currentHeight: 129,
+      payoutTxId: revealed.txid,
+      confirmations: 4,
+    })
+  })
+
+  it('aborts once the locktime passed', async () => {
+    const { chain, provider, providerRef } = await prepared()
+    chain.outputs = []
+    chain.tip = swapCase.timeoutBlockHeight
+    const progress = await provider.status({ providerRef, stage: 'paying', published: false })
+    expect(progress).toEqual({
+      stage: 'aborted',
+      currentHeight: swapCase.timeoutBlockHeight,
+      failureReason: 'expired',
+    })
+  })
+
+  it('reports funded near the locktime', async () => {
+    const { chain, provider, providerRef } = await prepared()
+    chain.tip = swapCase.timeoutBlockHeight - 10
+    const progress = await provider.status({ providerRef, stage: 'funded', published: false })
+    expect(progress).toEqual({
+      stage: 'funded',
+      currentHeight: swapCase.timeoutBlockHeight - 10,
+      failureReason: 'too_close_to_locktime',
+    })
+  })
+
+  it('reports paying while nothing is funded', async () => {
+    const { chain, provider, providerRef } = await prepared()
+    chain.outputs = []
+    const progress = await provider.status({ providerRef, stage: 'paying', published: false })
+    expect(progress).toEqual({ stage: 'paying', currentHeight: 129 })
+  })
+
+  it('ignores a completed stage and reports the chain state', async () => {
+    const { chain, provider, providerRef } = await prepared()
+    chain.outputs = []
+    const progress = await provider.status({ providerRef, stage: 'completed', published: false })
+    expect(progress).toEqual({ stage: 'paying', currentHeight: 129 })
   })
 })
