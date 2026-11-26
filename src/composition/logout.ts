@@ -51,11 +51,11 @@
 
 import { getDatabase } from '@/adapters/storage/dexie/schema'
 import {
-  clearOnchainPayouts,
-  countActiveOnchainPayouts,
-  deleteOnchainPayoutDatabase,
-} from '@/adapters/storage/dexie/dexie-onchain-payout.store'
-import { OnchainPayoutActiveError } from '@/core/errors/onchain-payout'
+  clearSwapOuts,
+  countActiveSwapOuts,
+  deleteSwapOutDatabase,
+} from '@/adapters/storage/dexie/dexie-swap-out.store'
+import { SwapOutActiveError } from '@/core/errors/swap-out'
 import { deleteLegacyGraceDatabase } from '@/adapters/storage/legacy-grace-cleanup'
 import { AnchorStoreAdapter } from '@/adapters/storage/anchor-store.adapter'
 import { LocalStorageBalanceCache } from '@/adapters/cache/local-storage-balance-cache.adapter'
@@ -75,27 +75,27 @@ export interface WipeAccountDeps {
   /** Remove passkey credentials + encrypted PIN (incl. legacy keys) — injected by the
    *  caller so composition doesn't import ui/services/passkey directly */
   removePasskey: () => void
-  allowActiveOnchainPayouts?: boolean
+  allowActiveSwapOuts?: boolean
 }
 
-export type WipeAccountOptions = Pick<WipeAccountDeps, 'allowActiveOnchainPayouts'>
+export type WipeAccountOptions = Pick<WipeAccountDeps, 'allowActiveSwapOuts'>
 
 export function bindWipeAccount(
-  deps: Omit<WipeAccountDeps, 'allowActiveOnchainPayouts'>,
+  deps: Omit<WipeAccountDeps, 'allowActiveSwapOuts'>,
 ): (options?: WipeAccountOptions) => Promise<void> {
   return (options) => wipeAccountData({ ...deps, ...options })
 }
 
 export async function wipeAccountData(deps: WipeAccountDeps): Promise<void> {
-  if (deps.allowActiveOnchainPayouts !== true) {
+  if (deps.allowActiveSwapOuts !== true) {
     let active: number
     try {
-      active = await countActiveOnchainPayouts()
+      active = await countActiveSwapOuts()
     } catch (e) {
-      console.warn('[Logout] onchain payout state is unknown — refusing to wipe:', e)
-      throw new OnchainPayoutActiveError()
+      console.warn('[Logout] swap-out state is unknown — refusing to wipe:', e)
+      throw new SwapOutActiveError()
     }
-    if (active > 0) throw new OnchainPayoutActiveError()
+    if (active > 0) throw new SwapOutActiveError()
   }
   try {
     // Legacy grace DB (before every other step). The blob is a PIN-free decryptable
@@ -133,14 +133,14 @@ export async function wipeAccountData(deps: WipeAccountDeps): Promise<void> {
     }
 
     try {
-      await clearOnchainPayouts()
+      await clearSwapOuts()
       await withTimeout(
-        deleteOnchainPayoutDatabase(),
+        deleteSwapOutDatabase(),
         ZAPPI_DB_DELETE_TIMEOUT_MS,
-        'onchain payout DB delete'
+        'swap-out DB delete'
       )
     } catch (e) {
-      console.warn('[Logout] onchain payout DB wipe failed (best effort):', e)
+      console.warn('[Logout] swap-out DB wipe failed (best effort):', e)
     }
 
     // ④ Encrypted wallet (mnemonic) — the last mutable step; reaching here means account data is already gone

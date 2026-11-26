@@ -24,9 +24,9 @@ import { connectStoreBridges } from "./bootstrap-store-bridges";
 import { createLifecycle } from "./bootstrap-lifecycle";
 import { assembleIncomingPipeline } from "./bootstrap-incoming";
 import { assembleFacadeServices } from "./bootstrap-facades";
-import { readOnchainPayoutConfig } from "./onchain-payout-config";
-import { createOnchainPayout, type OnchainPayoutBundle } from "./onchain-payout";
-import { OnchainPayoutWatcher } from "./onchain-payout.watcher";
+import { readSwapOutConfig } from "./swap-out-config";
+import { createSwapOut, type SwapOutBundle } from "./swap-out";
+import { SwapOutWatcher } from "./swap-out.watcher";
 
 // ─── Remaining inline wiring (P2PK, cleanup, exchange rate, diagnostics) ───
 import { CocoP2PKKeyManager } from "@/adapters/crypto/p2pk-key-manager.adapter";
@@ -133,13 +133,13 @@ export interface BootstrapResult extends ServiceRegistry {
 export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   // 1. Infrastructure
   const eventBus = createEventBus();
-  const onchainPayoutConfig = readOnchainPayoutConfig();
-  let onchainPayout: OnchainPayoutBundle | null = null;
-  let onchainPayoutWatcher: OnchainPayoutWatcher | null = null;
+  const swapOutConfig = readSwapOutConfig();
+  let swapOut: SwapOutBundle | null = null;
+  let swapOutWatcher: SwapOutWatcher | null = null;
   const excludeMeltOperations = async (): Promise<Set<string>> => {
     const excluded = new Set<string>();
-    if (!onchainPayout) return excluded;
-    const records = await onchainPayout.store.listActive();
+    if (!swapOut) return excluded;
+    const records = await swapOut.store.listActive();
     for (const record of records) {
       for (const payment of record.payments) {
         if (
@@ -244,15 +244,15 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     balanceRefresh,
     disconnectBridge,
     disconnectTransferBridge,
-    seedOnchainPayouts,
-    refreshOnchainPayoutInFlight,
+    seedSwapOuts,
+    refreshSwapOutInFlight,
   } = connectStoreBridges({
     balanceCache,
     balance,
     eventBus,
     receiveRequest,
     txRepo,
-    getOnchainPayout: () => onchainPayout?.service ?? null,
+    getSwapOut: () => swapOut?.service ?? null,
   });
 
   // 8. Lifecycle (activate/onResume/onPause/dispose — definitions only, no side effects).
@@ -272,7 +272,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     getReclaim: () => reclaim,
     getNostrIncomingWatcher: () => nostrIncomingWatcher,
     getNpubcashWatcher: () => npubcashQuoteWatcher,
-    getOnchainPayoutWatcher: () => onchainPayoutWatcher,
+    getSwapOutWatcher: () => swapOutWatcher,
   });
 
   // 9~11. Shared dedup store + Nostr incoming watcher + receive services
@@ -332,19 +332,19 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     bip39Seed: deps.bip39Seed,
   });
 
-  onchainPayout = createOnchainPayout({
-    config: onchainPayoutConfig,
+  swapOut = createSwapOut({
+    config: swapOutConfig,
     routePaymentOperator,
     eventBus,
   });
-  onchainPayoutWatcher = new OnchainPayoutWatcher({
-    service: onchainPayout.service,
+  swapOutWatcher = new SwapOutWatcher({
+    service: swapOut.service,
     eventBus,
-    pollIntervalMs: onchainPayoutConfig.pollIntervalMs,
-    refreshInFlight: refreshOnchainPayoutInFlight,
-    logger: { warn: (message) => console.warn("[OnchainPayout]", message) },
+    pollIntervalMs: swapOutConfig.pollIntervalMs,
+    refreshInFlight: refreshSwapOutInFlight,
+    logger: { warn: (message) => console.warn("[SwapOut]", message) },
   });
-  void seedOnchainPayouts();
+  void seedSwapOuts();
 
   return {
     // ─── ServiceRegistry (driving ports only) ───
@@ -382,7 +382,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     // net-counters adapter directly.
     diagnostics: { readNetCounters },
     transferLifecycle,
-    onchainPayout: onchainPayout.service,
+    swapOut: swapOut.service,
 
     // ─── BootstrapResult extensions (MainApp only) ───
     cashuModule,
@@ -394,8 +394,8 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     onPause,
     dispose: () => {
       const stopped = disposeLifecycle();
-      onchainPayoutWatcher?.stop();
-      onchainPayout?.dispose();
+      swapOutWatcher?.stop();
+      swapOut?.dispose();
       disconnectTransferBridge();
       return Promise.all([stopped, disconnectTransferBridge.waitForIdle()]).then(() => {});
     },

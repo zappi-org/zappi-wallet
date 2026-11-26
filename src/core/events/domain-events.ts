@@ -1,6 +1,6 @@
 import type { Amount } from '@/core/domain/amount'
 import type { PendingTransfer } from '@/core/domain/pending-transfer'
-import type { OnchainPayoutView } from '@/core/ports/driving/onchain-payout.usecase'
+import type { SwapOutView } from '@/core/ports/driving/swap-out.usecase'
 
 export type DomainEvent =
   | PaymentCompletedEvent
@@ -25,7 +25,7 @@ export type DomainEvent =
   | IncomingTransferProcessedEvent
   | IncomingTransferReceivedEvent
   | TransferNeedsPollingEvent
-  | OnchainPayoutUpdatedEvent
+  | SwapOutUpdatedEvent
 
 export interface PaymentCompletedEvent {
   type: 'payment:completed'
@@ -214,7 +214,7 @@ export interface TransferNeedsPollingEvent {
   payload: { transfer: PendingTransfer }
 }
 
-export interface OnchainPayoutUpdatedEvent {
-  type: 'onchain-payout:updated'
-  payload: OnchainPayoutView
+export interface SwapOutUpdatedEvent {
+  type: 'swap-out:updated'
+  payload: SwapOutView
 }

@@ -12,16 +12,16 @@ import { hapticTap } from "@/ui/utils/haptic";
 import { MintCard, resolveMintColor } from "../../components/wallet/MintCard";
 import { HomeRecentCard } from "../../components/wallet/HomeRecentCard";
 import {
-  onchainPayoutToRecentRow,
+  swapOutToRecentRow,
   pendingItemToRecentRow,
   toRecentRow,
 } from "../../components/wallet/homeRecentRow";
-import { OnchainPayoutProgressModal } from "@/ui/screens/OnchainPayout/OnchainPayoutProgress";
+import { SwapOutProgressModal } from "@/ui/screens/SwapOut/SwapOutProgress";
 import { useWallet, useMintHealth, useMintMetadata } from "@/ui/hooks";
 import { visibleMintUrls } from "@/utils/visible-mint-urls";
 import { useAllPendingItems, type PendingItem } from "@/ui/hooks/usePendingItems";
 import { useAppStore } from "@/store";
-import { selectPendingOnchainPayouts } from "@/store/selectors";
+import { selectPendingSwapOuts } from "@/store/selectors";
 import { useSatUnit, useFormatFiat } from "@/utils/format";
 import { getMintBalance, isSameMintUrl } from "@/utils/url";
 import type { MintInfo } from "@/core/types";
@@ -140,7 +140,7 @@ export function HomeScreen({
   // list (filteredTransactions excludes it once its pending row has loaded)
   // so it isn't shown twice.
   const { items: pendingItemsRaw } = useAllPendingItems(settings.mints);
-  const onchainPayouts = useAppStore(selectPendingOnchainPayouts);
+  const swapOuts = useAppStore(selectPendingSwapOuts);
   const [selectedPayoutId, setSelectedPayoutId] = useState<string | null>(null);
 
   // The sent-token pending item's id equals the tx's id (composition/pending-items.ts) —
@@ -187,16 +187,16 @@ export function HomeScreen({
   // entry, so a pending item takes the card instead of stacking above it.
   const activePayout = useMemo(() => {
     const selectedMint = mints[clampedMintIndex];
-    if (!selectedMint) return onchainPayouts[0] ?? null;
+    if (!selectedMint) return swapOuts[0] ?? null;
     return (
-      onchainPayouts.find((payout) => isSameMintUrl(payout.mintUrl, selectedMint.url)) ?? null
+      swapOuts.find((payout) => isSameMintUrl(payout.mintUrl, selectedMint.url)) ?? null
     );
-  }, [onchainPayouts, mints, clampedMintIndex]);
+  }, [swapOuts, mints, clampedMintIndex]);
 
   const recent = useMemo(() => {
     if (activePayout) {
       return {
-        row: onchainPayoutToRecentRow(activePayout, t),
+        row: swapOutToRecentRow(activePayout, t),
         onPress: () => setSelectedPayoutId(activePayout.id),
       };
     }
@@ -427,7 +427,7 @@ export function HomeScreen({
         )}
       />
 
-      <OnchainPayoutProgressModal
+      <SwapOutProgressModal
         payoutId={selectedPayoutId}
         onClose={() => setSelectedPayoutId(null)}
       />

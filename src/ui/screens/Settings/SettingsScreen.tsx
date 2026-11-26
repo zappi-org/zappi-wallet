@@ -50,7 +50,7 @@ export interface SettingsScreenProps {
   onBackupMnemonic: (password: string) => Promise<string | null>
   onLogout: (
     password: string,
-    options?: { allowActiveOnchainPayouts?: boolean },
+    options?: { allowActiveSwapOuts?: boolean },
   ) => Promise<boolean>
   onVerifyPin: (pin: string) => Promise<boolean>
   onSaveSettings: (settings: Record<string, unknown>) => Promise<void>
@@ -267,7 +267,7 @@ export function SettingsScreen({
         setLogoutPin('')
       }
     } catch (error) {
-      if (error instanceof Error && 'code' in error && error.code === 'ONCHAIN_PAYOUT_ACTIVE') {
+      if (error instanceof Error && 'code' in error && error.code === 'SWAP_OUT_ACTIVE') {
         setPayoutActiveConfirm(true)
         return
       }
@@ -282,7 +282,7 @@ export function SettingsScreen({
     setIsLoggingOut(true)
     setLogoutError('')
     try {
-      const success = await onLogout(logoutPin, { allowActiveOnchainPayouts: true })
+      const success = await onLogout(logoutPin, { allowActiveSwapOuts: true })
       if (!success) {
         setLogoutError(t('settings.wrongPin'))
         setLogoutPin('')
@@ -729,9 +729,9 @@ export function SettingsScreen({
         isOpen={payoutActiveConfirm}
         onClose={() => setPayoutActiveConfirm(false)}
         onConfirm={handleLogoutAnyway}
-        title={t('onchainPayout.logoutActiveTitle')}
-        description={t('onchainPayout.logoutActiveMessage')}
-        confirmLabel={t('onchainPayout.logoutAnyway')}
+        title={t('swapOut.logoutActiveTitle')}
+        description={t('swapOut.logoutActiveMessage')}
+        confirmLabel={t('swapOut.logoutAnyway')}
         cancelLabel={t('common.cancel')}
       />
 

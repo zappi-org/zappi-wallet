@@ -41,8 +41,8 @@ vi.mock('motion/react', () => ({
   },
 }))
 
-vi.mock('@/ui/screens/OnchainPayout/OnchainPayoutFlow', () => ({
-  OnchainPayoutFlow: () => null,
+vi.mock('@/ui/screens/SwapOut/SwapOutFlow', () => ({
+  SwapOutFlow: () => null,
 }))
 
 vi.mock('@/ui/screens/Send/steps/SendInputStep', () => ({

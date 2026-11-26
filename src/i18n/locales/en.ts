@@ -724,7 +724,7 @@ export default {
     },
   },
 
-  onchainPayout: {
+  swapOut: {
     title: 'Send on-chain',
     destination: 'Bitcoin address',
     youReceive: 'You receive',
@@ -851,13 +851,13 @@ export default {
     transferStateInvalid: 'This transfer can no longer be processed',
     receiveRequestInvalid: 'Invalid receive request',
     supportTicketResolved: 'This support ticket is already resolved',
-    onchainPayoutUnavailable: 'On-chain payout is unavailable right now',
-    onchainPayoutAmountOutOfRange: 'Amount is outside the supported range',
-    onchainPayoutInvalidDestination: 'Unsupported Bitcoin address',
-    onchainPayoutProviderRejected: 'The provider rejected this payout',
-    onchainPayoutQuoteExpired: 'This payout quote has expired',
-    onchainPayoutOfferUnavailable: 'The chosen provider is no longer available',
-    onchainPayoutActive: 'An on-chain payout is still in progress. Logging out now can lose those funds',
+    swapOutUnavailable: 'On-chain payout is unavailable right now',
+    swapOutAmountOutOfRange: 'Amount is outside the supported range',
+    swapOutInvalidDestination: 'Unsupported Bitcoin address',
+    swapOutProviderRejected: 'The provider rejected this payout',
+    swapOutQuoteExpired: 'This payout quote has expired',
+    swapOutOfferUnavailable: 'The chosen provider is no longer available',
+    swapOutActive: 'An on-chain payout is still in progress. Logging out now can lose those funds',
   },
 
   // Redirect

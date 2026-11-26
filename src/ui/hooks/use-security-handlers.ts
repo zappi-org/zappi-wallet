@@ -10,7 +10,7 @@ export interface UseSecurityHandlersDeps {
    * MainApp injects a closure already bound to registry and removePasskey so the
    * hook never imports composition directly (ui/hooks depend only on core ports).
    */
-  wipeAccount: (options?: { allowActiveOnchainPayouts?: boolean }) => Promise<void>
+  wipeAccount: (options?: { allowActiveSwapOuts?: boolean }) => Promise<void>
 }
 
 export interface SecurityHandlers {
@@ -32,7 +32,7 @@ export interface SecurityHandlers {
    */
   handleLogout: (
     password: string,
-    options?: { allowActiveOnchainPayouts?: boolean },
+    options?: { allowActiveSwapOuts?: boolean },
   ) => Promise<boolean>
 }
 
@@ -91,7 +91,7 @@ export function useSecurityHandlers(deps: UseSecurityHandlersDeps): SecurityHand
 
   const handleLogout = useCallback(async (
     password: string,
-    options?: { allowActiveOnchainPayouts?: boolean },
+    options?: { allowActiveSwapOuts?: boolean },
   ): Promise<boolean> => {
     const result = await security.verifyPassword(password)
     // NO_WALLET = half-wiped state where a past wipe stopped after deleting the

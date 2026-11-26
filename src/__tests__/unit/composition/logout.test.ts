@@ -50,10 +50,10 @@ vi.mock('@/modules/cashu', () => ({ deleteCocoData: deleteCocoDataMock }))
 vi.mock('@/utils/cross-tab-sync', () => ({ broadcastSync: broadcastSyncMock }))
 vi.mock('@/adapters/storage/dexie/schema', () => ({ getDatabase: () => dbHolder.db }))
 vi.mock('@/adapters/storage/legacy-grace-cleanup', () => ({ deleteLegacyGraceDatabase: deleteGraceDatabaseMock }))
-vi.mock('@/adapters/storage/dexie/dexie-onchain-payout.store', () => ({
-  countActiveOnchainPayouts: countActivePayoutsMock,
-  clearOnchainPayouts: clearPayoutsMock,
-  deleteOnchainPayoutDatabase: deletePayoutDatabaseMock,
+vi.mock('@/adapters/storage/dexie/dexie-swap-out.store', () => ({
+  countActiveSwapOuts: countActivePayoutsMock,
+  clearSwapOuts: clearPayoutsMock,
+  deleteSwapOutDatabase: deletePayoutDatabaseMock,
 }))
 
 function makeDb(over?: { failClear?: boolean; deleteImpl?: () => Promise<void> }) {
@@ -142,7 +142,7 @@ describe('wipeAccountData', () => {
     countActivePayoutsMock.mockResolvedValue(2)
 
     await expect(wipeAccountData(deps)).rejects.toMatchObject({
-      code: 'ONCHAIN_PAYOUT_ACTIVE',
+      code: 'SWAP_OUT_ACTIVE',
       isRetryable: false,
     })
     expect(deleteGraceDatabaseMock).not.toHaveBeenCalled()
@@ -156,7 +156,7 @@ describe('wipeAccountData', () => {
   it('wipes when the caller explicitly allows active payouts', async () => {
     makeDb()
     countActivePayoutsMock.mockResolvedValue(2)
-    await wipeAccountData({ ...makeDeps(), allowActiveOnchainPayouts: true })
+    await wipeAccountData({ ...makeDeps(), allowActiveSwapOuts: true })
     expect(deleteCocoDataMock).toHaveBeenCalled()
     expect(deletePayoutDatabaseMock).toHaveBeenCalled()
   })
@@ -192,7 +192,7 @@ describe('wipeAccountData', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     try {
       await expect(wipeAccountData(deps)).rejects.toMatchObject({
-        code: 'ONCHAIN_PAYOUT_ACTIVE',
+        code: 'SWAP_OUT_ACTIVE',
       })
       expect(deleteGraceDatabaseMock).not.toHaveBeenCalled()
       expect(deleteCocoDataMock).not.toHaveBeenCalled()
@@ -206,7 +206,7 @@ describe('wipeAccountData', () => {
   it('skips the count entirely when active payouts are allowed', async () => {
     makeDb()
     countActivePayoutsMock.mockRejectedValue(new Error('must not be called'))
-    await wipeAccountData({ ...makeDeps(), allowActiveOnchainPayouts: true })
+    await wipeAccountData({ ...makeDeps(), allowActiveSwapOuts: true })
     expect(countActivePayoutsMock).not.toHaveBeenCalled()
     expect(clearPayoutsMock).toHaveBeenCalled()
     expect(deletePayoutDatabaseMock).toHaveBeenCalled()
@@ -439,14 +439,14 @@ describe('bindWipeAccount', () => {
   it('refuses to wipe an active payout when no option is passed', async () => {
     makeDb()
     const deps = makeDeps()
-    await expect(bindWipeAccount(deps)()).rejects.toMatchObject({ code: 'ONCHAIN_PAYOUT_ACTIVE' })
+    await expect(bindWipeAccount(deps)()).rejects.toMatchObject({ code: 'SWAP_OUT_ACTIVE' })
     expect(deps.security.deleteWallet).not.toHaveBeenCalled()
   })
 
-  it('forwards allowActiveOnchainPayouts into wipeAccountData', async () => {
+  it('forwards allowActiveSwapOuts into wipeAccountData', async () => {
     makeDb()
     const deps = makeDeps()
-    await bindWipeAccount(deps)({ allowActiveOnchainPayouts: true })
+    await bindWipeAccount(deps)({ allowActiveSwapOuts: true })
     expect(countActivePayoutsMock).not.toHaveBeenCalled()
     expect(deps.security.deleteWallet).toHaveBeenCalledTimes(1)
   })
@@ -470,11 +470,11 @@ describe('bindWipeAccount', () => {
         useSecurityHandlers({ security, wipeAccount: bindWipeAccount(deps) }),
       )
       await expect(result.current.handleLogout('123456')).rejects.toMatchObject({
-        code: 'ONCHAIN_PAYOUT_ACTIVE',
+        code: 'SWAP_OUT_ACTIVE',
       })
       expect(deps.security.deleteWallet).not.toHaveBeenCalled()
       await expect(
-        result.current.handleLogout('123456', { allowActiveOnchainPayouts: true }),
+        result.current.handleLogout('123456', { allowActiveSwapOuts: true }),
       ).resolves.toBe(true)
       expect(deps.security.deleteWallet).toHaveBeenCalledTimes(1)
       expect(reload).toHaveBeenCalledTimes(1)

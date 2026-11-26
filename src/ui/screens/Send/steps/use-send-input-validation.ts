@@ -17,7 +17,7 @@ import { translateError } from '@/ui/utils/error-i18n'
 import { useInputParser } from '@/ui/hooks/use-input-parser'
 import { useContacts } from '@/ui/hooks/use-contacts'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
-import { useOnchainPayout } from '@/ui/hooks/use-onchain-payout'
+import { useSwapOut } from '@/ui/hooks/use-swap-out'
 import type { InputType, ValidatedData } from '@/core/domain/input-types'
 import { resolveFlowTarget } from '@/core/domain/resolve-flow-target'
 import { resolveSendRoute, SEND_ROUTE_ERROR_I18N, type DirectPaymentResolution, type SendRouteError } from '@/core/domain/send-route-resolution'
@@ -117,7 +117,7 @@ export function useSendInputValidation({
   const addToast = useAppStore((s) => s.addToast)
   const inputParser = useInputParser()
   const { nostrDirectPayment } = useServiceRegistry()
-  const { isEnabled: onchainPayoutEnabled } = useOnchainPayout()
+  const { isEnabled: swapOutEnabled } = useSwapOut()
 
   const [destination, setDestination] = useState(initialDestination)
   // Bumped when a failed replacement resets state. setDestination is a no-op for
@@ -265,7 +265,7 @@ export function useSendInputValidation({
 
       if (detected.type === 'bitcoin-address') {
         setIsPreValidating(false)
-        setPreValidationError(onchainPayoutEnabled ? null : t('onchainPayout.unavailable'))
+        setPreValidationError(swapOutEnabled ? null : t('swapOut.unavailable'))
         return
       }
 
@@ -352,7 +352,7 @@ export function useSendInputValidation({
     }, 500)
 
     return () => clearTimeout(detectTimeoutRef.current)
-  }, [destination, detectNonce, inputParser, t, onNext, onRedirect, addToast, findContactDisplayName, onchainPayoutEnabled])
+  }, [destination, detectNonce, inputParser, t, onNext, onRedirect, addToast, findContactDisplayName, swapOutEnabled])
 
   // Cleanup auto-advance timer on unmount
   useEffect(() => () => clearTimeout(autoAdvanceTimerRef.current), [])
@@ -408,8 +408,8 @@ export function useSendInputValidation({
         detectedTypes: hasInitialDisplayName ? [] : ['bitcoin-address'],
         isPreValidating: false,
       })
-      if (!onchainPayoutEnabled) {
-        setPreValidationError(t('onchainPayout.unavailable'))
+      if (!swapOutEnabled) {
+        setPreValidationError(t('swapOut.unavailable'))
         return 'handled-error'
       }
       onBitcoinAddress?.({
@@ -619,7 +619,7 @@ export function useSendInputValidation({
       return 'auto-advanced'
     }
     return true
-  }, [onNext, inputParser, onRouteValidated, applyDestinationState, onRequestMintSelection, onBitcoinAddress, onchainPayoutEnabled, settings.mints, mintUrl, nostrDirectPayment, getDisplayName, t, findContactDisplayName])
+  }, [onNext, inputParser, onRouteValidated, applyDestinationState, onRequestMintSelection, onBitcoinAddress, swapOutEnabled, settings.mints, mintUrl, nostrDirectPayment, getDisplayName, t, findContactDisplayName])
 
   // Validating state for loading indicator on next button
   const [isValidating, setIsValidating] = useState(false)

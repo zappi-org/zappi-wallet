@@ -14,16 +14,16 @@ import { useAppStore } from "@/store";
 import { connectEventStoreBridge } from "./event-store-bridge";
 import { connectTransferTxBridge } from "./transfer-tx-bridge";
 import {
-  beginOnchainPayoutInFlightWrite,
-  writeOnchainPayoutInFlight,
-} from "./onchain-payout-inflight";
+  beginSwapOutInFlightWrite,
+  writeSwapOutInFlight,
+} from "./swap-out-inflight";
 
 import type { EventBus } from "@/core/events/event-bus";
 import type { BalanceUseCase } from "@/core/ports/driving/balance.usecase";
 import type { LocalStorageBalanceCache } from "@/adapters/cache/local-storage-balance-cache.adapter";
 import type { DexieTransactionRepository } from "@/adapters/storage/dexie/dexie-transaction.repository";
 import type { ReceiveRequestFacadeService } from "@/core/services/receive-request-facade.service";
-import type { OnchainPayoutUseCase } from "@/core/ports/driving/onchain-payout.usecase";
+import type { SwapOutUseCase } from "@/core/ports/driving/swap-out.usecase";
 
 export function connectStoreBridges(deps: {
   balanceCache: LocalStorageBalanceCache;
@@ -31,7 +31,7 @@ export function connectStoreBridges(deps: {
   eventBus: EventBus;
   receiveRequest: ReceiveRequestFacadeService;
   txRepo: DexieTransactionRepository;
-  getOnchainPayout?: () => OnchainPayoutUseCase | null;
+  getSwapOut?: () => SwapOutUseCase | null;
 }) {
   const { balanceCache, balance, eventBus, receiveRequest, txRepo } = deps;
 
@@ -67,36 +67,36 @@ export function connectStoreBridges(deps: {
     handleBalance: true,
     balanceRefresh,
     receiveRequest,
-    getOnchainPayout: deps.getOnchainPayout,
+    getSwapOut: deps.getSwapOut,
   });
 
-  const refreshOnchainPayoutInFlight = async () => {
-    const service = deps.getOnchainPayout?.();
+  const refreshSwapOutInFlight = async () => {
+    const service = deps.getSwapOut?.();
     if (!service) return;
-    const token = beginOnchainPayoutInFlightWrite();
+    const token = beginSwapOutInFlightWrite();
     try {
       const active = await service.listActive();
-      const known = Object.keys(useAppStore.getState().onchainPayoutInFlightByMint);
+      const known = Object.keys(useAppStore.getState().swapOutInFlightByMint);
       const amounts: Record<string, number> = {};
       for (const mintUrl of known) amounts[mintUrl] = 0;
       for (const mintUrl of new Set(active.map((view) => view.mintUrl))) {
         amounts[mintUrl] = await service.inFlightAmount(mintUrl);
       }
-      writeOnchainPayoutInFlight(token, amounts);
+      writeSwapOutInFlight(token, amounts);
     } catch {
       return;
     }
   };
 
-  const seedOnchainPayouts = async () => {
-    const service = deps.getOnchainPayout?.();
+  const seedSwapOuts = async () => {
+    const service = deps.getSwapOut?.();
     if (!service) return;
     try {
-      useAppStore.getState().setOnchainPayouts(await service.listActive());
+      useAppStore.getState().setSwapOuts(await service.listActive());
     } catch {
       return;
     }
-    await refreshOnchainPayoutInFlight();
+    await refreshSwapOutInFlight();
   };
 
   // Transfer → Transaction bridge (persists tx history for the TLS path)
@@ -110,7 +110,7 @@ export function connectStoreBridges(deps: {
     balanceRefresh,
     disconnectBridge,
     disconnectTransferBridge,
-    seedOnchainPayouts,
-    refreshOnchainPayoutInFlight,
+    seedSwapOuts,
+    refreshSwapOutInFlight,
   };
 }

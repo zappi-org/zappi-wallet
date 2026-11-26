@@ -15,11 +15,11 @@ const stableStore = { settings: { mints: [] }, addToast: stableAddToast }
 const mockFindByAddress = vi.fn(async () => null)
 const mockContacts: never[] = []
 const mockNostrDirectPayment = { resolve: vi.fn() }
-const onchainPayoutEnabled = { value: false }
-const mockOnchainPayout = { isEnabled: () => onchainPayoutEnabled.value }
+const swapOutEnabled = { value: false }
+const mockSwapOut = { isEnabled: () => swapOutEnabled.value }
 const mockRegistry = {
   nostrDirectPayment: mockNostrDirectPayment,
-  onchainPayout: mockOnchainPayout,
+  swapOut: mockSwapOut,
 } as unknown as ServiceRegistry
 
 vi.mock('@/ui/hooks/use-input-parser', () => ({
@@ -74,7 +74,7 @@ const defaultProps = {
   mintUrl: 'https://mint.example.com',
 }
 
-function renderStep(overrides: Partial<typeof defaultProps> & { onOnchainPayout?: () => void } = {}) {
+function renderStep(overrides: Partial<typeof defaultProps> & { onSwapOut?: () => void } = {}) {
   return render(
     <ServiceProvider registry={mockRegistry}>
       <SendInputStep {...defaultProps} {...overrides} />
@@ -111,22 +111,22 @@ describe('SendInputStep bitcoin address', () => {
   })
 
   it('shows an inline unavailable message and stays on the input step when the feature is off', async () => {
-    onchainPayoutEnabled.value = false
+    swapOutEnabled.value = false
     renderStep()
     typeIntoInput(ADDRESS)
     await act(async () => { vi.advanceTimersByTime(600) })
-    expect(screen.getByText('onchainPayout.unavailable')).toBeInTheDocument()
+    expect(screen.getByText('swapOut.unavailable')).toBeInTheDocument()
     expect(screen.queryByText('send.destination.unrecognized')).not.toBeInTheDocument()
     expect(defaultProps.onBitcoinAddress).not.toHaveBeenCalled()
     expect(defaultProps.onNext).not.toHaveBeenCalled()
   })
 
   it('hands the address to the payout flow when the feature is on', async () => {
-    onchainPayoutEnabled.value = true
+    swapOutEnabled.value = true
     renderStep()
     typeIntoInput(ADDRESS)
     await act(async () => { vi.advanceTimersByTime(600) })
-    expect(screen.queryByText('onchainPayout.unavailable')).not.toBeInTheDocument()
+    expect(screen.queryByText('swapOut.unavailable')).not.toBeInTheDocument()
     expect(screen.queryByText('send.destination.unrecognized')).not.toBeInTheDocument()
     const nextButton = screen.getByRole('button', { name: 'send.next' })
     expect(nextButton).not.toBeDisabled()
@@ -136,21 +136,21 @@ describe('SendInputStep bitcoin address', () => {
   })
 
   it('offers a visible entry to send to a bitcoin address while the input is empty', () => {
-    const onOnchainPayout = vi.fn()
-    renderStep({ onOnchainPayout })
-    const entry = screen.getByTestId('send-onchain-payout-entry')
-    expect(entry).toHaveTextContent('onchainPayout.entry')
+    const onSwapOut = vi.fn()
+    renderStep({ onSwapOut })
+    const entry = screen.getByTestId('send-swap-out-entry')
+    expect(entry).toHaveTextContent('swapOut.entry')
     act(() => { entry.click() })
-    expect(onOnchainPayout).toHaveBeenCalledTimes(1)
+    expect(onSwapOut).toHaveBeenCalledTimes(1)
   })
 
   it('hides the entry once a destination is typed or when the feature is off', () => {
-    const onOnchainPayout = vi.fn()
-    const { unmount } = renderStep({ onOnchainPayout })
+    const onSwapOut = vi.fn()
+    const { unmount } = renderStep({ onSwapOut })
     typeIntoInput('someone@example.com')
-    expect(screen.queryByTestId('send-onchain-payout-entry')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('send-swap-out-entry')).not.toBeInTheDocument()
     unmount()
     renderStep()
-    expect(screen.queryByTestId('send-onchain-payout-entry')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('send-swap-out-entry')).not.toBeInTheDocument()
   })
 })

@@ -62,8 +62,8 @@ import { SendCompleteStep } from './steps/SendCompleteStep'
 import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
 import { planRouteSelection } from './sendRouteHelpers'
 import { DirectReceiptStep } from './steps/DirectReceiptStep'
-import { OnchainPayoutFlow } from '@/ui/screens/OnchainPayout/OnchainPayoutFlow'
-import { useOnchainPayout } from '@/ui/hooks/use-onchain-payout'
+import { SwapOutFlow } from '@/ui/screens/SwapOut/SwapOutFlow'
+import { useSwapOut } from '@/ui/hooks/use-swap-out'
 
 // ============= Types =============
 
@@ -260,11 +260,11 @@ export function SendFlow({
     [reduceMotion],
   )
 
-  const { isEnabled: onchainPayoutEnabled } = useOnchainPayout()
+  const { isEnabled: swapOutEnabled } = useSwapOut()
 
   const destinationEditedRef = useRef(false)
   const onchainAutoOpenSettledRef = useRef(
-    initialValidatedData?.type !== 'bitcoin-address' || onchainPayoutEnabled,
+    initialValidatedData?.type !== 'bitcoin-address' || swapOutEnabled,
   )
   const markDestinationEdited = useCallback(() => {
     destinationEditedRef.current = true
@@ -275,7 +275,7 @@ export function SendFlow({
     setOnchainTarget(input)
   }, [])
 
-  const handleOpenOnchainPayout = useCallback(() => {
+  const handleOpenSwapOut = useCallback(() => {
     destinationEditedRef.current = true
     setOnchainTarget({})
   }, [])
@@ -284,7 +284,7 @@ export function SendFlow({
     address?: string
     amountSats?: number
   } | null>(
-    initialValidatedData?.type === 'bitcoin-address' && onchainPayoutEnabled
+    initialValidatedData?.type === 'bitcoin-address' && swapOutEnabled
       ? { address: initialValidatedData.address, amountSats: initialValidatedData.amountSats }
       : null,
   )
@@ -363,12 +363,12 @@ export function SendFlow({
   const [mintSelection, setMintSelection] = useState<MintSelectionRequest | null>(null)
 
   useEffect(() => {
-    if (onchainAutoOpenSettledRef.current || !onchainPayoutEnabled) return
+    if (onchainAutoOpenSettledRef.current || !swapOutEnabled) return
     onchainAutoOpenSettledRef.current = true
     if (initialValidatedData?.type !== 'bitcoin-address') return
     if (destinationEditedRef.current || onchainTarget || mintSelection || state.step !== 'destination') return
     setOnchainTarget({ address: initialValidatedData.address, amountSats: initialValidatedData.amountSats })
-  }, [onchainPayoutEnabled, initialValidatedData, onchainTarget, mintSelection, state.step])
+  }, [swapOutEnabled, initialValidatedData, onchainTarget, mintSelection, state.step])
 
   // Prevent double-tap
   const isProcessingRef = useRef(false)
@@ -408,7 +408,7 @@ export function SendFlow({
         const store = useAppStore.getState()
         const balances = spendableByMint(
           store.balance.byMint,
-          store.onchainPayoutInFlightByMint ?? {},
+          store.swapOutInFlightByMint ?? {},
         )
         const privacyMode = useAppStore.getState().settings.senderPrivacyMode ?? false
         let routeSelection = planRouteSelection({
@@ -1112,7 +1112,7 @@ export function SendFlow({
                     onRequestMintSelection={handleRequestMintSelection}
                     onDirectTransfer={handleDirectTransfer}
                     onBitcoinAddress={handleBitcoinAddress}
-                    onOnchainPayout={onchainPayoutEnabled ? handleOpenOnchainPayout : undefined}
+                    onSwapOut={swapOutEnabled ? handleOpenSwapOut : undefined}
                     onDestinationEdit={markDestinationEdited}
                   />
                 </motion.div>
@@ -1239,7 +1239,7 @@ export function SendFlow({
       />
 
       {onchainTarget && (
-        <OnchainPayoutFlow
+        <SwapOutFlow
           address={onchainTarget.address}
           amountSats={onchainTarget.amountSats}
           onClose={() => {

@@ -726,7 +726,7 @@ export default {
     },
   },
 
-  onchainPayout: {
+  swapOut: {
     title: 'オンチェーン送金',
     destination: 'ビットコインアドレス',
     youReceive: '受け取る金額',
@@ -853,13 +853,13 @@ export default {
     transferStateInvalid: 'この送金はこれ以上処理できません',
     receiveRequestInvalid: '無効な受取リクエストです',
     supportTicketResolved: 'このお問い合わせはすでに解決済みです',
-    onchainPayoutUnavailable: 'オンチェーン送金は現在利用できません',
-    onchainPayoutAmountOutOfRange: 'サポート範囲外の金額です',
-    onchainPayoutInvalidDestination: 'サポートされていないビットコインアドレスです',
-    onchainPayoutProviderRejected: 'プロバイダーがこの送金を拒否しました',
-    onchainPayoutQuoteExpired: '送金の見積もりが期限切れになりました',
-    onchainPayoutOfferUnavailable: '選択したプロバイダーは利用できなくなりました',
-    onchainPayoutActive: 'オンチェーン送金がまだ進行中です。今ログアウトすると資金を失う可能性があります',
+    swapOutUnavailable: 'オンチェーン送金は現在利用できません',
+    swapOutAmountOutOfRange: 'サポート範囲外の金額です',
+    swapOutInvalidDestination: 'サポートされていないビットコインアドレスです',
+    swapOutProviderRejected: 'プロバイダーがこの送金を拒否しました',
+    swapOutQuoteExpired: '送金の見積もりが期限切れになりました',
+    swapOutOfferUnavailable: '選択したプロバイダーは利用できなくなりました',
+    swapOutActive: 'オンチェーン送金がまだ進行中です。今ログアウトすると資金を失う可能性があります',
   },
 
   // Redirect

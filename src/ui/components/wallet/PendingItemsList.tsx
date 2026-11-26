@@ -4,8 +4,8 @@ import { useFormatSats, getLocaleCode } from '@/utils/format'
 import { cn } from '@/ui/lib/utils'
 import { formatMD } from '@/ui/utils/dateFilter'
 import type { PendingItem } from '@/ui/hooks/usePendingItems'
-import type { OnchainPayoutView } from '@/core/ports/driving/onchain-payout.usecase'
-import { onchainPayoutStageLabel } from '@/ui/utils/onchain-payout-labels'
+import type { SwapOutView } from '@/core/ports/driving/swap-out.usecase'
+import { swapOutStageLabel } from '@/ui/utils/swap-out-labels'
 
 interface PendingItemsListProps {
   items: PendingItem[]
@@ -14,8 +14,8 @@ interface PendingItemsListProps {
   /** Gutterless rows — for lists whose siblings manage their own inset. */
   flush?: boolean
   onItemClick?: (item: PendingItem) => void
-  payouts?: OnchainPayoutView[]
-  onPayoutClick?: (payout: OnchainPayoutView) => void
+  payouts?: SwapOutView[]
+  onPayoutClick?: (payout: SwapOutView) => void
 }
 
 function getItemTypeLabel(item: PendingItem, t: TFunction): string {
@@ -67,8 +67,8 @@ export function PendingItemsList({
       {displayedPayouts.map((payout) => {
         const expiryStr = formatExpiry(payout.deadline.estimatedAt)
         const subtitle = expiryStr
-          ? `${onchainPayoutStageLabel(payout.stage, t)} · ${t('mintDetail.pendingExpiry')} ${expiryStr}`
-          : onchainPayoutStageLabel(payout.stage, t)
+          ? `${swapOutStageLabel(payout.stage, t)} · ${t('mintDetail.pendingExpiry')} ${expiryStr}`
+          : swapOutStageLabel(payout.stage, t)
         return (
           <button
             key={`payout-${payout.id}`}
@@ -80,7 +80,7 @@ export function PendingItemsList({
           >
             <div className="flex flex-col gap-0.5 text-left min-w-0 flex-1 mr-4">
               <span className="text-body font-semibold text-foreground leading-normal truncate">
-                {t('onchainPayout.pendingTitle')}
+                {t('swapOut.pendingTitle')}
               </span>
               <span className="text-label font-medium text-foreground-muted leading-normal truncate">
                 {subtitle}

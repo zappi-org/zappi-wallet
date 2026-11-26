@@ -15,18 +15,18 @@ import { satUnit, formatSats } from '@/utils/format'
 import { toNumber } from '@/core/domain/amount'
 import { createThrottledAsync } from '@/utils/throttled-async'
 import type { ReceiveRequestUseCase } from '@/core/ports/driving/receive-request.usecase'
-import type { OnchainPayoutUseCase } from '@/core/ports/driving/onchain-payout.usecase'
+import type { SwapOutUseCase } from '@/core/ports/driving/swap-out.usecase'
 import {
-  beginOnchainPayoutInFlightWrite,
-  writeOnchainPayoutInFlight,
-} from './onchain-payout-inflight'
+  beginSwapOutInFlightWrite,
+  writeSwapOutInFlight,
+} from './swap-out-inflight'
 
 export interface EventStoreBridgeOptions {
   handleBalance?: boolean
   balanceRefresh?: () => Promise<void>
   receiveRequest?: Pick<ReceiveRequestUseCase, 'settleByPaymentRef'> &
     Partial<Pick<ReceiveRequestUseCase, 'findByRequestId'>>
-  getOnchainPayout?: () => OnchainPayoutUseCase | null
+  getSwapOut?: () => SwapOutUseCase | null
 }
 
 export function connectEventStoreBridge(
@@ -99,15 +99,15 @@ export function connectEventStoreBridge(
   )
 
   unsubscribers.push(
-    eventBus.on('onchain-payout:updated', (event) => {
-      useAppStore.getState().upsertOnchainPayout(event.payload)
-      const service = options.getOnchainPayout?.()
+    eventBus.on('swap-out:updated', (event) => {
+      useAppStore.getState().upsertSwapOut(event.payload)
+      const service = options.getSwapOut?.()
       if (!service) return
       const mintUrl = event.payload.mintUrl
-      const token = beginOnchainPayoutInFlightWrite()
+      const token = beginSwapOutInFlightWrite()
       void service
         .inFlightAmount(mintUrl)
-        .then((amount) => writeOnchainPayoutInFlight(token, { [mintUrl]: amount }))
+        .then((amount) => writeSwapOutInFlight(token, { [mintUrl]: amount }))
         .catch(() => {})
     }),
   )

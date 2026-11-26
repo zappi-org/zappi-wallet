@@ -70,10 +70,10 @@ function MintSelectBottomSheetInner({
   const formatSats = useFormatSats()
   const { balance } = useWallet()
   const settings = useAppStore((state) => state.settings)
-  const onchainPayoutInFlight = useAppStore((state) => state.onchainPayoutInFlightByMint ?? {})
+  const swapOutInFlight = useAppStore((state) => state.swapOutInFlightByMint ?? {})
   const spendable = useMemo(
-    () => spendableByMint(balance.byMint, onchainPayoutInFlight),
-    [balance.byMint, onchainPayoutInFlight],
+    () => spendableByMint(balance.byMint, swapOutInFlight),
+    [balance.byMint, swapOutInFlight],
   )
   const { getCachedStatus } = useMintHealth()
   const mintList = mintUrls ?? settings.mints

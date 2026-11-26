@@ -3,8 +3,8 @@ import type { Transaction } from '@/core/domain/transaction'
 import { getTransactionType, getTxMeta, getTotalCost } from '@/core/domain/transaction'
 import { toNumber } from '@/core/domain/amount'
 import type { PendingItem } from '@/ui/hooks/usePendingItems'
-import type { OnchainPayoutView } from '@/core/ports/driving/onchain-payout.usecase'
-import { onchainPayoutStageLabel } from '@/ui/utils/onchain-payout-labels'
+import type { SwapOutView } from '@/core/ports/driving/swap-out.usecase'
+import { swapOutStageLabel } from '@/ui/utils/swap-out-labels'
 import { getTypeLabel } from './transactionHelpers'
 
 /** The one-line home row, sourced from either the ledger or a pending item —
@@ -49,12 +49,12 @@ export function pendingItemToRecentRow(item: PendingItem, t: TFunction): HomeRec
   }
 }
 
-export function onchainPayoutToRecentRow(
-  payout: OnchainPayoutView,
+export function swapOutToRecentRow(
+  payout: SwapOutView,
   t: TFunction,
 ): HomeRecentRow {
   return {
-    title: `${t('onchainPayout.pendingTitle')} · ${onchainPayoutStageLabel(payout.stage, t)}`,
+    title: `${t('swapOut.pendingTitle')} · ${swapOutStageLabel(payout.stage, t)}`,
     createdAt: payout.createdAt,
     amountSats: payout.sendAmount,
     isReceive: false,

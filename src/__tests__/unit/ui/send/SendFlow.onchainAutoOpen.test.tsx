@@ -4,14 +4,14 @@ import { SendFlow } from '@/ui/screens/Send/SendFlow'
 
 import type { ComponentProps, ReactNode } from 'react'
 import type { SendInputStep as SendInputStepComponent } from '@/ui/screens/Send/steps/SendInputStep'
-import type { OnchainPayoutFlow as OnchainPayoutFlowComponent } from '@/ui/screens/OnchainPayout/OnchainPayoutFlow'
+import type { SwapOutFlow as SwapOutFlowComponent } from '@/ui/screens/SwapOut/SwapOutFlow'
 
 type SendInputStepProps = ComponentProps<typeof SendInputStepComponent>
-type OnchainPayoutFlowProps = ComponentProps<typeof OnchainPayoutFlowComponent>
+type SwapOutFlowProps = ComponentProps<typeof SwapOutFlowComponent>
 
 const payoutFlag = vi.hoisted(() => ({ enabled: false }))
 let capturedInput: SendInputStepProps | null = null
-let payoutFlowProps: OnchainPayoutFlowProps[] = []
+let payoutFlowProps: SwapOutFlowProps[] = []
 
 const SOURCE = 'https://mint.example.com'
 const ADDRESS = 'bcrt1qautoopenaddress'
@@ -53,15 +53,15 @@ vi.mock('@/ui/components/payment/MintSelectBottomSheet', () => ({
   MintSelectBottomSheet: () => null,
 }))
 
-vi.mock('@/ui/screens/OnchainPayout/OnchainPayoutFlow', () => ({
-  OnchainPayoutFlow: (props: OnchainPayoutFlowProps) => {
+vi.mock('@/ui/screens/SwapOut/SwapOutFlow', () => ({
+  SwapOutFlow: (props: SwapOutFlowProps) => {
     payoutFlowProps.push(props)
-    return <div data-testid="onchain-payout-flow">{props.address}</div>
+    return <div data-testid="swap-out-flow">{props.address}</div>
   },
 }))
 
-vi.mock('@/ui/hooks/use-onchain-payout', () => ({
-  useOnchainPayout: () => ({ isEnabled: payoutFlag.enabled }),
+vi.mock('@/ui/hooks/use-swap-out', () => ({
+  useSwapOut: () => ({ isEnabled: payoutFlag.enabled }),
 }))
 
 vi.mock('@/ui/hooks/use-network', () => ({
@@ -126,13 +126,13 @@ describe('SendFlow on-chain payout auto-open', () => {
 
   it('opens the payout flow once the feature becomes available after mount', () => {
     const { rerender, queryByTestId } = render(<SendFlow {...baseProps} />)
-    expect(queryByTestId('onchain-payout-flow')).not.toBeInTheDocument()
+    expect(queryByTestId('swap-out-flow')).not.toBeInTheDocument()
     expect(capturedInput).not.toBeNull()
 
     payoutFlag.enabled = true
     rerender(<SendFlow {...baseProps} />)
 
-    expect(queryByTestId('onchain-payout-flow')).toHaveTextContent(ADDRESS)
+    expect(queryByTestId('swap-out-flow')).toHaveTextContent(ADDRESS)
     expect(payoutFlowProps.at(-1)).toMatchObject({ address: ADDRESS, amountSats: 5000 })
   })
 
@@ -140,13 +140,13 @@ describe('SendFlow on-chain payout auto-open', () => {
     const { rerender, queryByTestId } = render(<SendFlow {...baseProps} />)
     payoutFlag.enabled = true
     rerender(<SendFlow {...baseProps} />)
-    expect(queryByTestId('onchain-payout-flow')).toBeInTheDocument()
+    expect(queryByTestId('swap-out-flow')).toBeInTheDocument()
 
     act(() => {
       payoutFlowProps.at(-1)!.onClose()
     })
     rerender(<SendFlow {...baseProps} />)
-    expect(queryByTestId('onchain-payout-flow')).not.toBeInTheDocument()
+    expect(queryByTestId('swap-out-flow')).not.toBeInTheDocument()
   })
 
   it('stays on the input step when the user edited the destination before the feature became available', () => {
@@ -157,25 +157,25 @@ describe('SendFlow on-chain payout auto-open', () => {
 
     payoutFlag.enabled = true
     rerender(<SendFlow {...baseProps} />)
-    expect(queryByTestId('onchain-payout-flow')).not.toBeInTheDocument()
+    expect(queryByTestId('swap-out-flow')).not.toBeInTheDocument()
   })
 
   it('opens immediately when the feature is already available at mount', () => {
     payoutFlag.enabled = true
     const { queryByTestId } = render(<SendFlow {...baseProps} />)
-    expect(queryByTestId('onchain-payout-flow')).toHaveTextContent(ADDRESS)
+    expect(queryByTestId('swap-out-flow')).toHaveTextContent(ADDRESS)
   })
 
   it('opens the payout flow without an address from the visible Send entry', () => {
     payoutFlag.enabled = true
     const { queryByTestId } = render(<SendFlow {...baseProps} validatedData={undefined} />)
-    expect(queryByTestId('onchain-payout-flow')).not.toBeInTheDocument()
-    expect(capturedInput!.onOnchainPayout).toBeTypeOf('function')
+    expect(queryByTestId('swap-out-flow')).not.toBeInTheDocument()
+    expect(capturedInput!.onSwapOut).toBeTypeOf('function')
 
     act(() => {
-      capturedInput!.onOnchainPayout!()
+      capturedInput!.onSwapOut!()
     })
-    expect(queryByTestId('onchain-payout-flow')).toBeInTheDocument()
+    expect(queryByTestId('swap-out-flow')).toBeInTheDocument()
     expect(payoutFlowProps.at(-1)!.address).toBeUndefined()
   })
 
@@ -185,12 +185,12 @@ describe('SendFlow on-chain payout auto-open', () => {
     act(() => {
       capturedInput!.onBitcoinAddress!({ address: ADDRESS, amountSats: 7000 })
     })
-    expect(queryByTestId('onchain-payout-flow')).toHaveTextContent(ADDRESS)
+    expect(queryByTestId('swap-out-flow')).toHaveTextContent(ADDRESS)
     expect(payoutFlowProps.at(-1)).toMatchObject({ address: ADDRESS, amountSats: 7000 })
   })
 
   it('does not offer the Send entry while the feature is off', () => {
     render(<SendFlow {...baseProps} validatedData={undefined} />)
-    expect(capturedInput!.onOnchainPayout).toBeUndefined()
+    expect(capturedInput!.onSwapOut).toBeUndefined()
   })
 })

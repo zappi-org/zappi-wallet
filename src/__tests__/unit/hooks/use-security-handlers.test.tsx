@@ -120,10 +120,10 @@ describe('useSecurityHandlers — Result discriminant (.ok) semantics', () => {
   })
 
   describe('handleLogout', () => {
-    it('forwards allowActiveOnchainPayouts to the wipe', async () => {
+    it('forwards allowActiveSwapOuts to the wipe', async () => {
       const { handlers, wipeAccount } = render(createSecurityMock())
-      await handlers.handleLogout('123456', { allowActiveOnchainPayouts: true })
-      expect(wipeAccount).toHaveBeenCalledWith({ allowActiveOnchainPayouts: true })
+      await handlers.handleLogout('123456', { allowActiveSwapOuts: true })
+      expect(wipeAccount).toHaveBeenCalledWith({ allowActiveSwapOuts: true })
     })
 
     it('Ok(true) → wipe + reload + true', async () => {

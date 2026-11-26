@@ -59,7 +59,7 @@ interface SendDestinationStepProps {
     infoText?: string
   }) => void
   onBitcoinAddress?: (input: { address: string; amountSats?: number }) => void
-  onOnchainPayout?: () => void
+  onSwapOut?: () => void
   onDestinationEdit?: () => void
 }
 
@@ -76,7 +76,7 @@ export function SendInputStep({
   onRouteValidated,
   onRequestMintSelection,
   onBitcoinAddress,
-  onOnchainPayout,
+  onSwapOut,
   onDestinationEdit,
 }: SendDestinationStepProps) {
   const { t } = useTranslation()
@@ -298,23 +298,23 @@ export function SendInputStep({
           {preValidationError && <p className="text-label text-accent-danger">{preValidationError}</p>}
         </div>
 
-        {onOnchainPayout && !hasDestination && (
+        {onSwapOut && !hasDestination && (
           <button
             type="button"
             onClick={() => {
               hapticTap()
               inputRef.current?.blur()
-              onOnchainPayout()
+              onSwapOut()
             }}
-            data-testid="send-onchain-payout-entry"
+            data-testid="send-swap-out-entry"
             className="w-full mt-2 flex items-center gap-3 rounded-card border border-border/60 bg-background-card px-4 py-3 text-left active:bg-foreground/[0.03] transition-colors"
           >
             <span className="w-9 h-9 rounded-full bg-foreground/[0.04] flex items-center justify-center shrink-0">
               <Bitcoin className="w-5 h-5 text-foreground-muted" />
             </span>
             <span className="flex-1 min-w-0">
-              <span className="block text-body font-medium text-foreground truncate">{t('onchainPayout.entry')}</span>
-              <span className="block text-label text-foreground-muted truncate">{t('onchainPayout.entryHint')}</span>
+              <span className="block text-body font-medium text-foreground truncate">{t('swapOut.entry')}</span>
+              <span className="block text-label text-foreground-muted truncate">{t('swapOut.entryHint')}</span>
             </span>
             <ChevronRight className="w-4 h-4 text-foreground-muted shrink-0" />
           </button>

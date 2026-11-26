@@ -38,10 +38,10 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
   const mintUrls = useAppStore((s) => s.settings.mints)
   const mintColors = useAppStore((s) => s.settings.mintColors)
   const balance = useAppStore((s) => s.balance)
-  const onchainPayoutInFlight = useAppStore((s) => s.onchainPayoutInFlightByMint ?? {})
+  const swapOutInFlight = useAppStore((s) => s.swapOutInFlightByMint ?? {})
   const spendable = useMemo(
-    () => spendableByMint(balance.byMint, onchainPayoutInFlight),
-    [balance.byMint, onchainPayoutInFlight],
+    () => spendableByMint(balance.byMint, swapOutInFlight),
+    [balance.byMint, swapOutInFlight],
   )
   const { getDisplayName, getIconUrl } = useMintMetadata(mintUrls)
   const { mintSwap, isProcessingPayment } = usePayment()

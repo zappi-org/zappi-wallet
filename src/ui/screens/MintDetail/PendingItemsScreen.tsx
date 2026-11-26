@@ -15,8 +15,8 @@ import { hapticTap } from '@/ui/utils/haptic'
 import { useAllPendingItems } from '@/ui/hooks/usePendingItems'
 import type { PendingItem } from '@/ui/hooks/usePendingItems'
 import { useAvailableMints, getMintFilterLabel } from '@/ui/hooks/useAvailableMints'
-import { OnchainPayoutProgressModal } from '@/ui/screens/OnchainPayout/OnchainPayoutProgress'
-import { selectPendingOnchainPayouts } from '@/store/selectors'
+import { SwapOutProgressModal } from '@/ui/screens/SwapOut/SwapOutProgress'
+import { selectPendingSwapOuts } from '@/store/selectors'
 
 type Tab = 'all' | 'request' | 'token'
 
@@ -56,16 +56,16 @@ export function PendingItemsScreen({ onBack, onItemClick, initialMintUrls }: Pen
   const closeSheet = useCallback(() => setOpenSheet(null), [])
 
   const { availableMints, getDisplayName } = useAvailableMints()
-  const onchainPayouts = useAppStore(selectPendingOnchainPayouts)
+  const swapOuts = useAppStore(selectPendingSwapOuts)
   const [selectedPayoutId, setSelectedPayoutId] = useState<string | null>(null)
   const visiblePayouts = useMemo(
     () =>
-      onchainPayouts.filter((payout) =>
+      swapOuts.filter((payout) =>
         selectedMintUrls.size === 0
           ? true
           : [...selectedMintUrls].some((mintUrl) => mintUrlKey(mintUrl) === mintUrlKey(payout.mintUrl)),
       ),
-    [onchainPayouts, selectedMintUrls],
+    [swapOuts, selectedMintUrls],
   )
 
   const handleItemClick = useCallback((item: PendingItem) => {
@@ -203,9 +203,9 @@ export function PendingItemsScreen({ onBack, onItemClick, initialMintUrls }: Pen
       {/* Content */}
       <main className="flex-1 overflow-y-auto px-4 pb-app">
         {visiblePayouts.length > 0 && (
-          <div data-testid="onchain-payout-pending">
+          <div data-testid="swap-out-pending">
             <h3 className="text-body font-bold text-foreground pt-5 pb-2 px-1">
-              {t('onchainPayout.pendingTitle')}
+              {t('swapOut.pendingTitle')}
             </h3>
             <PendingItemsList
               items={[]}
@@ -231,7 +231,7 @@ export function PendingItemsScreen({ onBack, onItemClick, initialMintUrls }: Pen
         )}
       </main>
 
-      <OnchainPayoutProgressModal
+      <SwapOutProgressModal
         payoutId={selectedPayoutId}
         onClose={() => setSelectedPayoutId(null)}
       />

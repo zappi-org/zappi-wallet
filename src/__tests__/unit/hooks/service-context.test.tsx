@@ -131,7 +131,7 @@ function createMockRegistry(): ServiceRegistry {
       claimIncomingTransfer: vi.fn(),
       recoverTransfers: vi.fn(),
     } as unknown as ServiceRegistry['transferLifecycle'],
-    onchainPayout: {} as ServiceRegistry['onchainPayout'],
+    swapOut: {} as ServiceRegistry['swapOut'],
   }
 }
 

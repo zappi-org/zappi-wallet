@@ -728,7 +728,7 @@ export default {
     },
   },
 
-  onchainPayout: {
+  swapOut: {
     title: 'Enviar en cadena',
     destination: 'Dirección de Bitcoin',
     youReceive: 'Recibes',
@@ -855,13 +855,13 @@ export default {
     transferStateInvalid: 'Esta transferencia ya no se puede procesar',
     receiveRequestInvalid: 'Solicitud de recepción no válida',
     supportTicketResolved: 'Esta consulta ya está resuelta',
-    onchainPayoutUnavailable: 'El retiro en cadena no está disponible ahora',
-    onchainPayoutAmountOutOfRange: 'El importe está fuera del rango admitido',
-    onchainPayoutInvalidDestination: 'Dirección de Bitcoin no admitida',
-    onchainPayoutProviderRejected: 'El proveedor rechazó este retiro',
-    onchainPayoutQuoteExpired: 'Esta cotización de retiro ha caducado',
-    onchainPayoutOfferUnavailable: 'El proveedor elegido ya no está disponible',
-    onchainPayoutActive: 'Todavía hay un retiro en cadena en curso. Cerrar sesión ahora puede hacerte perder esos fondos',
+    swapOutUnavailable: 'El retiro en cadena no está disponible ahora',
+    swapOutAmountOutOfRange: 'El importe está fuera del rango admitido',
+    swapOutInvalidDestination: 'Dirección de Bitcoin no admitida',
+    swapOutProviderRejected: 'El proveedor rechazó este retiro',
+    swapOutQuoteExpired: 'Esta cotización de retiro ha caducado',
+    swapOutOfferUnavailable: 'El proveedor elegido ya no está disponible',
+    swapOutActive: 'Todavía hay un retiro en cadena en curso. Cerrar sesión ahora puede hacerte perder esos fondos',
   },
 
   // Redirect
