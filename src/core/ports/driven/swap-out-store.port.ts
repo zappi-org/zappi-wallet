@@ -1,14 +1,9 @@
 import type { JsonValue } from '@/core/domain/json'
-import type { SwapOutStage } from '@/core/domain/swap-out'
+import type { SwapOutStage, SwapOutPaymentStatus } from '@/core/domain/swap-out'
 import type { TransferPhase } from '@/core/domain/pending-transfer'
 import type { SwapOutDeadline } from './swap-out-provider.port'
 
-export type SwapOutPaymentStatus =
-  | 'prepared'
-  | 'dispatched'
-  | 'paid'
-  | 'failed'
-  | 'rolled_back'
+export type { SwapOutPaymentStatus }
 
 export interface SwapOutPayment {
   request: string

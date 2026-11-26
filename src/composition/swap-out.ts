@@ -18,7 +18,7 @@ import type {
   SwapOutStartResult,
 } from '@/core/ports/driven/swap-out-provider.port'
 import type { SwapOutStore } from '@/core/ports/driven/swap-out-store.port'
-import type { RoutePaymentOperator } from '@/core/ports/driven/route-payment-operator.port'
+import type { SwapOutMeltOperations } from '@/core/ports/driven/route-payment-operator.port'
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
 import type { SwapOutStage } from '@/core/domain/swap-out'
 import type { JsonValue } from '@/core/domain/json'
@@ -26,8 +26,6 @@ import type { SwapOutProgress, SwapOutAdvance } from '@/core/ports/driven/swap-o
 import type { SwapOutUseCase } from '@/core/ports/driving/swap-out.usecase'
 import { SwapOutService } from '@/core/services/swap-out.service'
 import type { SwapOutConfig } from './swap-out-config'
-
-const STATUS_TIMEOUT_MS = 15_000
 
 class LazyPayoutProvider implements SwapOutProvider {
   readonly id = 'electrum'
@@ -91,15 +89,7 @@ export interface SwapOutBundle {
 
 export interface CreateSwapOutDeps {
   config: SwapOutConfig
-  routePaymentOperator: Pick<
-    RoutePaymentOperator,
-    | 'prepareMelt'
-    | 'executeMelt'
-    | 'rollbackMelt'
-    | 'refreshMelt'
-    | 'checkMeltSettlement'
-    | 'heldAmounts'
-  >
+  routePaymentOperator: SwapOutMeltOperations
   eventBus: EventBus
   txRepo: Pick<TransactionRepository, 'save' | 'getById' | 'update'>
   store?: WipeableSwapOutStore
@@ -134,7 +124,6 @@ export function createSwapOut(deps: CreateSwapOutDeps): SwapOutBundle {
     enabled: () => config.enabled,
     now: () => Date.now(),
     newId: () => crypto.randomUUID(),
-    statusTimeoutMs: STATUS_TIMEOUT_MS,
     logger: { warn: (message) => console.warn('[SwapOut]', message) },
   })
 

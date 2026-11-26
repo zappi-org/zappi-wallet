@@ -8,6 +8,7 @@ import {
   PAYOUT_MIN_OUTPUT_VALUE,
   payoutReceiveAmount,
   payoutSweepFee,
+  payoutUpfrontAmount,
   type PayoutSweepInput,
 } from '@/core/domain/swap-out'
 import type { JsonValue } from '@/core/domain/json'
@@ -40,11 +41,20 @@ import {
 import type { PayoutRelayClient } from './relay-client'
 import { DEFAULT_PAYOUT_RELAYS } from './relay-client'
 import type { PayoutNetwork } from './network'
+import {
+  parseProviderRef,
+  parseQuoteOfferRef,
+  parseSecrets,
+  toJsonValue,
+  VERSION,
+  type ProviderRefData,
+  type SecretsData,
+  type SweepRecord,
+} from './provider-state'
 import { requestPayout } from './payout-request'
 import { buildSweepTx, estimateSweepVsize } from './sweep-tx'
 import { validatePayoutResponse } from './validate-response'
 
-const VERSION = 1
 const SECRET_LENGTH = 32
 const BLOCK_INTERVAL_MS = 600_000
 const QUOTE_TTL_MS = 60_000
@@ -68,141 +78,6 @@ export interface ElectrumPayoutProviderOptions {
   requestTimeoutMs?: number
   sweepTargetBlocks?: number
   powTargetBits?: number
-}
-
-interface QuoteOfferRef {
-  pubkey: string
-  feePercent: number
-  networkFee: number
-  relays: string[]
-  feeRate: number
-  sweepVsize: number
-}
-
-interface ProviderRefData {
-  v: number
-  network: PayoutNetwork
-  serverPubkey: string
-  serverId: string
-  destination: string
-  lockupAddress: string
-  redeemScriptHex: string
-  locktime: number
-  onchainAmount: number
-  paymentHash: string
-  sweepVsize: number
-  maxSweepFee: number
-}
-
-interface SweepRecord {
-  txid: string
-  hex: string
-  fee: number
-  feeRate: number
-  createdAtHeight: number
-  replaces?: string
-}
-
-interface SecretsData {
-  v: number
-  secret: string
-  claimKey: string
-  sweeps: SweepRecord[]
-}
-
-function toJsonValue(value: unknown): JsonValue {
-  return JSON.parse(JSON.stringify(value)) as JsonValue
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-function readString(body: Record<string, unknown>, key: string): string {
-  const value = body[key]
-  if (typeof value !== 'string') throw new Error(`payout reference is missing ${key}`)
-  return value
-}
-
-function readNumber(body: Record<string, unknown>, key: string): number {
-  const value = body[key]
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
-    throw new Error(`payout reference is missing ${key}`)
-  }
-  return value
-}
-
-function readNetwork(value: unknown): PayoutNetwork {
-  if (value === 'mainnet' || value === 'testnet' || value === 'signet' || value === 'regtest') {
-    return value
-  }
-  throw new Error('payout reference has an unknown network')
-}
-
-function parseProviderRef(value: unknown): ProviderRefData {
-  if (!isRecord(value) || readNumber(value, 'v') !== VERSION) {
-    throw new Error('payout reference has an unknown version')
-  }
-  return {
-    v: VERSION,
-    network: readNetwork(value.network),
-    serverPubkey: readString(value, 'serverPubkey'),
-    serverId: readString(value, 'serverId'),
-    destination: readString(value, 'destination'),
-    lockupAddress: readString(value, 'lockupAddress'),
-    redeemScriptHex: readString(value, 'redeemScriptHex'),
-    locktime: readNumber(value, 'locktime'),
-    onchainAmount: readNumber(value, 'onchainAmount'),
-    paymentHash: readString(value, 'paymentHash'),
-    sweepVsize: readNumber(value, 'sweepVsize'),
-    maxSweepFee: readNumber(value, 'maxSweepFee'),
-  }
-}
-
-function parseSecrets(secrets: string): SecretsData {
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(secrets)
-  } catch {
-    throw new Error('payout secrets are not valid json')
-  }
-  if (!isRecord(parsed) || readNumber(parsed, 'v') !== VERSION) {
-    throw new Error('payout secrets have an unknown version')
-  }
-  const sweeps = parsed.sweeps
-  if (!Array.isArray(sweeps)) throw new Error('payout secrets are missing sweeps')
-  return {
-    v: VERSION,
-    secret: readString(parsed, 'secret'),
-    claimKey: readString(parsed, 'claimKey'),
-    sweeps: sweeps.map((entry) => {
-      if (!isRecord(entry)) throw new Error('payout sweep record is malformed')
-      return {
-        txid: readString(entry, 'txid'),
-        hex: readString(entry, 'hex'),
-        fee: readNumber(entry, 'fee'),
-        feeRate: readNumber(entry, 'feeRate'),
-        createdAtHeight: readNumber(entry, 'createdAtHeight'),
-        ...(typeof entry.replaces === 'string' ? { replaces: entry.replaces } : {}),
-      }
-    }),
-  }
-}
-
-function parseQuoteOfferRef(value: JsonValue): QuoteOfferRef {
-  if (!isRecord(value)) throw new Error('payout quote has no offer reference')
-  const relays = value.relays
-  if (!Array.isArray(relays) || !relays.every((relay) => typeof relay === 'string')) {
-    throw new Error('payout quote offer relays are malformed')
-  }
-  return {
-    pubkey: readString(value, 'pubkey'),
-    feePercent: readNumber(value, 'feePercent'),
-    networkFee: readNumber(value, 'networkFee'),
-    relays: relays as string[],
-    feeRate: readNumber(value, 'feeRate'),
-    sweepVsize: readNumber(value, 'sweepVsize'),
-  }
 }
 
 function chooseFundingOutput(outputs: ChainOutput[], expectedAmount: number): ChainOutput | null {
@@ -467,7 +342,7 @@ export class ElectrumPayoutProvider implements SwapOutProvider {
         claimPubkey,
         invoiceAmount: quote.sendAmount,
         expectedOnchainAmount,
-        maxUpfrontAmount: 2 * offer.networkFee,
+        maxUpfrontAmount: payoutUpfrontAmount(offer.networkFee),
         feeRateSatPerVb: offer.feeRate,
         currentHeight: tip,
         now: this.nowSeconds(),

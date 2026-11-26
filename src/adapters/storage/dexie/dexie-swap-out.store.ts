@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie'
-import { isPayoutStageTerminal } from '@/core/domain/swap-out'
+import { isOpenSwapOutPayment, isPayoutStageTerminal } from '@/core/domain/swap-out'
 import type {
   SwapOutPayment,
   SwapOutRecord,
@@ -38,9 +38,7 @@ function toRecord(row: SwapOutRow): SwapOutRecord {
 
 function isActive(record: SwapOutRecord): boolean {
   if (!isPayoutStageTerminal(record.stage)) return true
-  return record.payments.some(
-    (payment) => payment.status === 'prepared' || payment.status === 'dispatched',
-  )
+  return record.payments.some((payment) => isOpenSwapOutPayment(payment.status))
 }
 
 export async function countActiveSwapOuts(): Promise<number> {

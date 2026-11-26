@@ -4,8 +4,11 @@ import {
   advancePayoutStage,
   decidePayoutSweep,
   estimatePayout,
+  isOpenSwapOutPayment,
   isPayoutAmountInRange,
   isPayoutStageTerminal,
+  isSwapOutStageResumable,
+  PAYOUT_SWEEP_VSIZE,
   payoutPhase,
   payoutReceiveAmount,
   payoutSendAmount,
@@ -743,5 +746,29 @@ describe('validatePayoutSweep', () => {
         }),
       ).ok,
     ).toBe(true)
+  })
+})
+
+describe('payment and stage predicates', () => {
+  it('treats prepared and dispatched payments as open', () => {
+    expect(isOpenSwapOutPayment('prepared')).toBe(true)
+    expect(isOpenSwapOutPayment('dispatched')).toBe(true)
+    expect(isOpenSwapOutPayment('paid')).toBe(false)
+    expect(isOpenSwapOutPayment('failed')).toBe(false)
+    expect(isOpenSwapOutPayment('rolled_back')).toBe(false)
+  })
+
+  it('treats paying, funded and sweeping stages as resumable', () => {
+    expect(isSwapOutStageResumable('paying')).toBe(true)
+    expect(isSwapOutStageResumable('funded')).toBe(true)
+    expect(isSwapOutStageResumable('sweeping')).toBe(true)
+    expect(isSwapOutStageResumable('quoted')).toBe(false)
+    expect(isSwapOutStageResumable('completed')).toBe(false)
+    expect(isSwapOutStageResumable('refunded')).toBe(false)
+    expect(isSwapOutStageResumable('aborted')).toBe(false)
+  })
+
+  it('derives the sweep vsize from a witness key script', () => {
+    expect(PAYOUT_SWEEP_VSIZE).toBe(payoutSweepVsizeForScriptLength(22))
   })
 })

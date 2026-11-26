@@ -47,3 +47,13 @@ export interface RoutePaymentOperator {
   executeTokenSend(operationId: string, options?: { memo?: string }): Promise<{ token: string }>
   rollbackTokenSend(operationId: string): Promise<void>
 }
+
+export type SwapOutMeltOperations = Pick<
+  RoutePaymentOperator,
+  | 'prepareMelt'
+  | 'executeMelt'
+  | 'rollbackMelt'
+  | 'refreshMelt'
+  | 'checkMeltSettlement'
+  | 'heldAmounts'
+>

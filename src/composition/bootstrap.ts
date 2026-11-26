@@ -58,6 +58,7 @@ import type {
   RouteExecutionResult,
 } from "@/core/domain/routing";
 import type { Result } from "@/core/domain/result";
+import { isOpenSwapOutPayment } from "@/core/domain/swap-out";
 import type { BaseError } from "@/core/errors";
 
 export type RouteResult = Result<RouteExecutionResult, BaseError>;
@@ -142,10 +143,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     const records = await swapOut.store.listActive();
     for (const record of records) {
       for (const payment of record.payments) {
-        if (
-          payment.operationId &&
-          (payment.status === "prepared" || payment.status === "dispatched")
-        ) {
+        if (payment.operationId && isOpenSwapOutPayment(payment.status)) {
           excluded.add(payment.operationId);
         }
       }

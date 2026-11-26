@@ -6,8 +6,6 @@ import {
 } from './pending-transfer'
 import { Err, Ok, type Result } from './result'
 
-export const PAYOUT_SWEEP_VSIZE = 136
-
 const PAYOUT_SWEEP_BASE_VSIZE = 105
 const PAYOUT_SWEEP_VALUE_BYTES = 8
 const PAYOUT_LARGEST_SWEEP_SCRIPT_LENGTH = 34
@@ -51,6 +49,10 @@ export function payoutSweepVsizeForDestination(destination: string): number {
   return payoutSweepVsizeForScriptLength(payoutSweepScriptLength(destination))
 }
 
+export const PAYOUT_SWEEP_VSIZE = payoutSweepVsizeForScriptLength(
+  PAYOUT_WITNESS_KEY_SCRIPT_LENGTH,
+)
+
 export const PAYOUT_LOCKTIME_SAFETY_BLOCKS = 30
 
 export const PAYOUT_MIN_OUTPUT_VALUE = 330
@@ -90,6 +92,21 @@ export function advancePayoutStage(
 
 export function isPayoutStageTerminal(stage: SwapOutStage): boolean {
   return stage === 'completed' || stage === 'refunded' || stage === 'aborted'
+}
+
+export function isSwapOutStageResumable(stage: SwapOutStage): boolean {
+  return stage === 'paying' || stage === 'funded' || stage === 'sweeping'
+}
+
+export type SwapOutPaymentStatus =
+  | 'prepared'
+  | 'dispatched'
+  | 'paid'
+  | 'failed'
+  | 'rolled_back'
+
+export function isOpenSwapOutPayment(status: SwapOutPaymentStatus): boolean {
+  return status === 'prepared' || status === 'dispatched'
 }
 
 function assertNonNegativeInteger(name: string, value: number): void {

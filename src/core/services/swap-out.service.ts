@@ -1,12 +1,13 @@
 import {
   advancePayoutStage,
+  isOpenSwapOutPayment,
   isPayoutStageTerminal,
+  isSwapOutStageResumable,
   type SwapOutStage,
 } from '@/core/domain/swap-out'
+import { SwapOutRecordWriter } from '@/core/services/swap-out-record-writer'
 import type { PendingTransfer, TransferPhase } from '@/core/domain/pending-transfer'
 import { Err, Ok, type Result } from '@/core/domain/result'
-import { sat } from '@/core/domain/amount'
-import type { Transaction, TransactionStatus } from '@/core/domain/transaction'
 import { BaseError, UnknownError } from '@/core/errors/base'
 import {
   SwapOutAmountOutOfRangeError,
@@ -29,7 +30,7 @@ import type {
 } from '@/core/ports/driven/swap-out-store.port'
 import type {
   ExecutedRouteMelt,
-  RoutePaymentOperator,
+  SwapOutMeltOperations,
 } from '@/core/ports/driven/route-payment-operator.port'
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
 import type {
@@ -38,9 +39,7 @@ import type {
   SwapOutView,
 } from '@/core/ports/driving/swap-out.usecase'
 
-const MAX_UPDATE_TRIES = 5
 const DEFAULT_STATUS_TIMEOUT_MS = 15_000
-const RESUMABLE_STAGES: SwapOutStage[] = ['paying', 'funded', 'sweeping']
 
 export interface SwapOutServiceLogger {
   warn(message: string): void
@@ -49,15 +48,7 @@ export interface SwapOutServiceLogger {
 export interface SwapOutServiceDeps {
   provider: SwapOutProvider
   store: SwapOutStore
-  payments: Pick<
-    RoutePaymentOperator,
-    | 'prepareMelt'
-    | 'executeMelt'
-    | 'rollbackMelt'
-    | 'refreshMelt'
-    | 'checkMeltSettlement'
-    | 'heldAmounts'
-  >
+  payments: SwapOutMeltOperations
   txRepo: Pick<TransactionRepository, 'save' | 'getById' | 'update'>
   eventBus: EventBus
   enabled: () => boolean
@@ -77,7 +68,7 @@ export class SwapOutService implements SwapOutUseCase {
   private readonly provider: SwapOutProvider
   private readonly store: SwapOutStore
   private readonly payments: SwapOutServiceDeps['payments']
-  private readonly txRepo: SwapOutServiceDeps['txRepo']
+  private readonly writer: SwapOutRecordWriter
   private readonly eventBus: EventBus
   private readonly enabled: () => boolean
   private readonly now: () => number
@@ -95,7 +86,14 @@ export class SwapOutService implements SwapOutUseCase {
     this.provider = deps.provider
     this.store = deps.store
     this.payments = deps.payments
-    this.txRepo = deps.txRepo
+    this.writer = new SwapOutRecordWriter({
+      store: deps.store,
+      txRepo: deps.txRepo,
+      eventBus: deps.eventBus,
+      now: deps.now,
+      emit: (record) => this.emit(record),
+      logger: deps.logger,
+    })
     this.eventBus = deps.eventBus
     this.enabled = deps.enabled
     this.now = deps.now
@@ -280,7 +278,7 @@ export class SwapOutService implements SwapOutUseCase {
           record.mintUrl,
           record.payments[index].request,
         )
-        const stored = await this.persist(id, (current) =>
+        const stored = await this.writer.persist(id, (current) =>
           current.stage === 'quoted'
             ? {
                 payments: current.payments.map((payment, paymentIndex) =>
@@ -312,7 +310,7 @@ export class SwapOutService implements SwapOutUseCase {
       }
     }
 
-    const dispatched = await this.persist(id, (current) =>
+    const dispatched = await this.writer.persist(id, (current) =>
       current.stage === 'quoted'
         ? {
             payments: current.payments.map((payment) => ({
@@ -378,7 +376,7 @@ export class SwapOutService implements SwapOutUseCase {
       if (mintUrl !== undefined && record.mintUrl !== mintUrl) continue
       const open = perMint.get(record.mintUrl) ?? []
       for (const payment of record.payments) {
-        if (payment.status !== 'prepared' && payment.status !== 'dispatched') continue
+        if (!isOpenSwapOutPayment(payment.status)) continue
         open.push(payment)
       }
       perMint.set(record.mintUrl, open)
@@ -420,7 +418,7 @@ export class SwapOutService implements SwapOutUseCase {
     const settle: string[] = []
     for (const record of records) {
       if (this.starting.has(record.id)) continue
-      if (RESUMABLE_STAGES.includes(record.stage)) settle.push(record.id)
+      if (isSwapOutStageResumable(record.stage)) settle.push(record.id)
       try {
         await this.resumeRecord(record)
       } catch (error) {
@@ -438,7 +436,7 @@ export class SwapOutService implements SwapOutUseCase {
     let repaired = true
     for (const record of await this.store.list()) {
       if (!isPayoutStageTerminal(record.stage)) continue
-      if (!(await this.syncTransaction(record))) repaired = false
+      if (!(await this.writer.syncTransaction(record))) repaired = false
     }
     this.repairedTransactions = repaired
   }
@@ -448,7 +446,7 @@ export class SwapOutService implements SwapOutUseCase {
       await this.rollbackPrepared(record)
       return
     }
-    if (RESUMABLE_STAGES.includes(record.stage)) {
+    if (isSwapOutStageResumable(record.stage)) {
       await this.resumeProvider(record)
       return
     }
@@ -473,7 +471,7 @@ export class SwapOutService implements SwapOutUseCase {
 
   private async settleRecordPayments(id: string): Promise<void> {
     const record = await this.store.get(id)
-    if (!record || !RESUMABLE_STAGES.includes(record.stage)) return
+    if (!record || !isSwapOutStageResumable(record.stage)) return
     await Promise.allSettled(
       record.payments.map(async (payment, index) => {
         if (payment.status !== 'dispatched') return
@@ -536,14 +534,14 @@ export class SwapOutService implements SwapOutUseCase {
     record: SwapOutRecord,
     prepared: { secrets: string; payoutTxId: string },
   ): Promise<void> {
-    const swept = await this.writeOnce(record, record.version, {
+    const swept = await this.writer.writeOnce(record, record.version, {
       secrets: prepared.secrets,
       stage: 'sweeping',
       phase: this.phaseFor(record, 'sweeping'),
       payoutTxId: prepared.payoutTxId,
     })
     if (!swept) return
-    const published = await this.writeOnce(swept, swept.version, {
+    const published = await this.writer.writeOnce(swept, swept.version, {
       publishedAt: this.now(),
     })
     if (!published) return
@@ -580,7 +578,7 @@ export class SwapOutService implements SwapOutUseCase {
     error: BaseError,
   ): Promise<Result<SwapOutView, BaseError>> {
     const rolledBack = await this.rollbackOperations(operations, 'prepare_failed')
-    await this.persist(id, (current) => ({
+    await this.writer.persist(id, (current) => ({
       stage: 'aborted',
       phase: this.phaseFor(current, 'aborted'),
       failureReason: 'prepare_failed',
@@ -594,7 +592,7 @@ export class SwapOutService implements SwapOutUseCase {
   }
 
   private async rollbackPrepared(record: SwapOutRecord): Promise<void> {
-    const aborted = await this.persist(record.id, (current) =>
+    const aborted = await this.writer.persist(record.id, (current) =>
       this.canAbortUnpaid(current)
         ? {
             stage: 'aborted',
@@ -627,7 +625,7 @@ export class SwapOutService implements SwapOutUseCase {
   }
 
   private async applyProgress(id: string, progress: SwapOutProgress): Promise<void> {
-    await this.persist(id, (current) => {
+    await this.writer.persist(id, (current) => {
       if (current.phase === 'settled' && progress.stage !== 'completed') {
         this.logger?.warn(`payout stage regression ignored: ${id}`)
         return null
@@ -753,7 +751,7 @@ export class SwapOutService implements SwapOutUseCase {
     index: number,
     patch: (payment: SwapOutPayment) => Partial<SwapOutPayment>,
   ): Promise<void> {
-    await this.persist(id, (current) => {
+    await this.writer.persist(id, (current) => {
       const payment = current.payments[index]
       if (!payment) return null
       if (payment.status === 'paid' || payment.status === 'rolled_back') return null
@@ -764,160 +762,6 @@ export class SwapOutService implements SwapOutUseCase {
         ),
       }
     })
-  }
-
-  private async writeOnce(
-    record: SwapOutRecord,
-    expectedVersion: number,
-    changes: SwapOutUpdate,
-  ): Promise<SwapOutRecord | null> {
-    const updatedAt = this.now()
-    const applied = await this.store.update(record.id, expectedVersion, {
-      ...changes,
-      updatedAt,
-    })
-    if (!applied) return null
-    const { secrets: _secrets, ...persisted } = changes
-    const next: SwapOutRecord = {
-      ...record,
-      ...persisted,
-      updatedAt,
-      version: expectedVersion + 1,
-    }
-    await this.syncTransaction(next)
-    this.emit(next)
-    return next
-  }
-
-  private async persist(
-    id: string,
-    mutate: (record: SwapOutRecord) => SwapOutUpdate | null,
-  ): Promise<SwapOutRecord | null> {
-    for (let attempt = 0; attempt < MAX_UPDATE_TRIES; attempt++) {
-      const record = await this.store.get(id)
-      if (!record) return null
-      const changes = mutate(record)
-      if (!changes) return null
-      const updatedAt = this.now()
-      const applied = await this.store.update(id, record.version, {
-        ...changes,
-        updatedAt,
-      })
-      if (!applied) continue
-      const { secrets: _secrets, ...persisted } = changes
-      const next: SwapOutRecord = {
-        ...record,
-        ...persisted,
-        updatedAt,
-        version: record.version + 1,
-      }
-      await this.syncTransaction(next)
-      this.emit(next)
-      return next
-    }
-    this.logger?.warn(`payout update gave up: ${id}`)
-    return null
-  }
-
-  private async syncTransaction(record: SwapOutRecord): Promise<boolean> {
-    if (!this.reachedDispatch(record)) return true
-    try {
-      const existing = await this.txRepo.getById(record.id)
-      const transaction = this.transactionFor(record, existing)
-      if (this.isRecorded(existing, transaction)) return true
-      if (existing === null) {
-        await this.txRepo.save(transaction)
-      } else {
-        await this.txRepo.update(record.id, transaction)
-      }
-      this.eventBus.emit({
-        type: 'transactions:changed',
-        payload: { reason: 'swap-out', txId: record.id },
-      })
-      return true
-    } catch (error) {
-      this.logger?.warn(
-        `payout transaction record failed: ${record.id} ${error instanceof Error ? error.message : ''}`,
-      )
-      return false
-    }
-  }
-
-  private reachedDispatch(record: SwapOutRecord): boolean {
-    if (record.dispatchedAt != null) return true
-    if (RESUMABLE_STAGES.includes(record.stage)) return true
-    if (record.stage === 'completed' || record.stage === 'refunded') return true
-    return record.payments.some((payment) => payment.status === 'paid')
-  }
-
-  private isRecorded(existing: Transaction | null, next: Transaction): boolean {
-    if (existing === null) return false
-    if (next.status === 'pending') return true
-    return (
-      existing.status === next.status &&
-      existing.amount.value === next.amount.value &&
-      existing.completedAt === next.completedAt &&
-      (existing.fee?.effective ?? existing.fee?.quoted)?.value ===
-        (next.fee?.effective ?? next.fee?.quoted)?.value &&
-      existing.metadata?.payoutTxId === next.metadata?.payoutTxId
-    )
-  }
-
-  private transactionFor(
-    record: SwapOutRecord,
-    existing: Transaction | null,
-  ): Transaction {
-    const paid = record.payments.filter((payment) => payment.status === 'paid')
-    const fixedFee = record.sendAmount - record.receiveAmount
-    const quoted =
-      fixedFee +
-      record.payments.reduce((sum, payment) => sum + payment.feeReserve, 0)
-    const status: TransactionStatus =
-      record.stage === 'completed'
-        ? 'settled'
-        : isPayoutStageTerminal(record.stage)
-          ? 'failed'
-          : 'pending'
-    const paidFees = paid.reduce((sum, payment) => sum + (payment.feePaid ?? 0), 0)
-    const amount =
-      status === 'failed'
-        ? paid.reduce((sum, payment) => sum + payment.amount, 0)
-        : record.receiveAmount
-    const effective = record.stage === 'completed' ? fixedFee + paidFees : paidFees
-    const metadata: Record<string, unknown> = {
-      sendAmount: record.sendAmount,
-      receiveAmount: record.receiveAmount,
-      destination: record.destination,
-      identifier: record.identifier,
-      offerId: record.offerId,
-    }
-    if (record.payoutTxId !== null) metadata.payoutTxId = record.payoutTxId
-    if (record.failureReason !== null) metadata.failureReason = record.failureReason
-    const transaction: Transaction = {
-      id: record.id,
-      direction: 'send',
-      method: 'swap-out',
-      protocol: 'swap-out',
-      amount: sat(amount),
-      accountId: record.mintUrl,
-      status,
-      createdAt: record.createdAt,
-      fee:
-        status === 'pending'
-          ? { quoted: sat(quoted) }
-          : { quoted: sat(quoted), effective: sat(effective) },
-      metadata,
-    }
-    return status === 'pending'
-      ? transaction
-      : { ...transaction, completedAt: this.completedAt(record, existing) }
-  }
-
-  private completedAt(record: SwapOutRecord, existing: Transaction | null): number {
-    if (existing !== null && existing.status !== 'pending' && existing.completedAt !== undefined) {
-      return existing.completedAt
-    }
-    return record.updatedAt
   }
 
   private pruneQuotes(): void {
@@ -966,8 +810,8 @@ export class SwapOutService implements SwapOutUseCase {
       phase: record.phase,
       payoutTxId: record.payoutTxId,
       failureReason: record.failureReason,
-      hasOpenPayments: record.payments.some(
-        (payment) => payment.status === 'prepared' || payment.status === 'dispatched',
+      hasOpenPayments: record.payments.some((payment) =>
+        isOpenSwapOutPayment(payment.status),
       ),
       deadline: record.deadline,
       createdAt: record.createdAt,

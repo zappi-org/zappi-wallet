@@ -1,6 +1,6 @@
 import { sha256 } from '@noble/hashes/sha2.js'
 import { hexToBytes } from '@noble/hashes/utils.js'
-import { payoutReceiveAmount } from '@/core/domain/swap-out'
+import { payoutReceiveAmount, payoutUpfrontAmount } from '@/core/domain/swap-out'
 import { Err, Ok, type Result } from '@/core/domain/result'
 import type { PayoutRelayClient, PayoutRelayEvent } from './relay-client'
 import type { PayoutNetwork } from './network'
@@ -266,7 +266,7 @@ export function selectPayoutOffers(
     })
     if (!checkPayoutCosts({ sendAmount: reference, onchainAmount }).ok) return false
     return checkUpfront({
-      upfrontAmount: 2 * offer.networkFee,
+      upfrontAmount: payoutUpfrontAmount(offer.networkFee),
       sendAmount: reference,
       feeRateSatPerVb,
     }).ok
