@@ -35,6 +35,7 @@ export interface LnurlWithdrawParams {
 
 export type InputType =
   | Bolt11Input
+  | BitcoinAddressInput
   | EmailAddressInput
   | LnurlInput
   | CashuTokenInput
@@ -51,6 +52,12 @@ export interface Bolt11Input {
   isExpired: boolean
   expiry: number
   paymentHash?: string
+}
+
+export interface BitcoinAddressInput {
+  type: 'bitcoin-address'
+  address: string
+  amountSats?: number
 }
 
 export interface EmailAddressInput {
@@ -96,6 +103,7 @@ export interface UnknownInput {
 
 export type ValidatedData =
   | ValidatedBolt11
+  | ValidatedBitcoinAddress
   | ValidatedEmailAddress
   | ValidatedLnurlPay
   | ValidatedLnurlWithdraw
@@ -119,6 +127,12 @@ export interface ValidatedEmailAddressNutZapInfo {
   mints: string[]
   p2pkPubkey?: string
   dmRelays?: string[]
+}
+
+export interface ValidatedBitcoinAddress {
+  type: 'bitcoin-address'
+  address: string
+  amountSats?: number
 }
 
 export interface ValidatedEmailAddress {

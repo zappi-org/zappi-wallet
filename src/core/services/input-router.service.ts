@@ -9,6 +9,10 @@ import { UnrecognizedInputError } from '@/core/errors/payment.errors'
 import type { LnurlGateway } from '@/core/ports/driven/lnurl-gateway.port'
 import type { InputRouterUseCase, ParsedInput } from '@/core/ports/driving/input-router.usecase'
 import { lnurlDecode } from '@/core/domain/nostr-address'
+import {
+  bitcoinUriLightningInvoice,
+  parseBitcoinPaymentInput,
+} from '@/core/domain/bitcoin-address'
 
 // Re-export for backward compatibility
 export type { ParsedInput }
@@ -29,6 +33,11 @@ export class InputRouter implements InputRouterUseCase {
     // BOLT11 invoice
     if (/^ln(bc|tb|tbs)1/i.test(stripped)) {
       return { type: 'invoice', bolt11: stripped.toLowerCase() }
+    }
+
+    const unifiedInvoice = bitcoinUriLightningInvoice(input)
+    if (unifiedInvoice) {
+      return { type: 'invoice', bolt11: unifiedInvoice.toLowerCase() }
     }
 
     // Cashu token
@@ -54,6 +63,15 @@ export class InputRouter implements InputRouterUseCase {
     // BOLT12 offer
     if (stripped.startsWith('lno1')) {
       return { type: 'address', value: stripped, addressType: 'bolt12' }
+    }
+
+    const bitcoin = parseBitcoinPaymentInput(input)
+    if (bitcoin) {
+      return {
+        type: 'bitcoin-address',
+        address: bitcoin.address,
+        amountSats: bitcoin.amountSats,
+      }
     }
 
     // Lightning Address (email-like)

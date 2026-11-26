@@ -78,6 +78,14 @@ export interface WipeAccountDeps {
   allowActiveOnchainPayouts?: boolean
 }
 
+export type WipeAccountOptions = Pick<WipeAccountDeps, 'allowActiveOnchainPayouts'>
+
+export function bindWipeAccount(
+  deps: Omit<WipeAccountDeps, 'allowActiveOnchainPayouts'>,
+): (options?: WipeAccountOptions) => Promise<void> {
+  return (options) => wipeAccountData({ ...deps, ...options })
+}
+
 export async function wipeAccountData(deps: WipeAccountDeps): Promise<void> {
   if (deps.allowActiveOnchainPayouts !== true) {
     let active: number

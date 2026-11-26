@@ -10,7 +10,7 @@ export interface UseSecurityHandlersDeps {
    * MainApp injects a closure already bound to registry and removePasskey so the
    * hook never imports composition directly (ui/hooks depend only on core ports).
    */
-  wipeAccount: () => Promise<void>
+  wipeAccount: (options?: { allowActiveOnchainPayouts?: boolean }) => Promise<void>
 }
 
 export interface SecurityHandlers {
@@ -30,7 +30,10 @@ export interface SecurityHandlers {
    * false = PIN mismatch only. VERIFY_FAILED (infra failure) and wipe failures
    * throw. NO_WALLET resumes wiping via the half-wipe recovery path.
    */
-  handleLogout: (password: string) => Promise<boolean>
+  handleLogout: (
+    password: string,
+    options?: { allowActiveOnchainPayouts?: boolean },
+  ) => Promise<boolean>
 }
 
 /**
@@ -86,7 +89,10 @@ export function useSecurityHandlers(deps: UseSecurityHandlersDeps): SecurityHand
     throw result.error // infra failure — caller's catch shows lock.errorOccurred
   }, [security])
 
-  const handleLogout = useCallback(async (password: string): Promise<boolean> => {
+  const handleLogout = useCallback(async (
+    password: string,
+    options?: { allowActiveOnchainPayouts?: boolean },
+  ): Promise<boolean> => {
     const result = await security.verifyPassword(password)
     // NO_WALLET = half-wiped state where a past wipe stopped after deleting the
     // wallet record (legacy of the old ordering) — no secret to verify, but
@@ -103,7 +109,7 @@ export function useSecurityHandlers(deps: UseSecurityHandlersDeps): SecurityHand
     // lock.errorOccurred (never fake success). Per-piece deletes are replaced by
     // wipeAccountData — everything, including the coco DB, is wiped even when the
     // registry is absent.
-    await wipeAccount()
+    await wipeAccount(options)
     window.location.reload()
     return true
   }, [security, wipeAccount])

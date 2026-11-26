@@ -1,4 +1,6 @@
 import type { AppState } from '@/store'
+import { isPayoutStageTerminal } from '@/core/domain/onchain-payout'
+import type { OnchainPayoutView } from '@/core/ports/driving/onchain-payout.usecase'
 
 // ===== Wallet Selectors =====
 
@@ -31,6 +33,32 @@ export function spendableTotal(
 export const selectOnchainPayoutInFlight = (state: AppState) =>
   state.onchainPayoutInFlightByMint
 export const selectOnchainPayouts = (state: AppState) => state.onchainPayouts
+
+export function isOnchainPayoutPending(payout: OnchainPayoutView): boolean {
+  return !isPayoutStageTerminal(payout.stage) || payout.hasOpenPayments
+}
+
+const NO_ONCHAIN_PAYOUTS: OnchainPayoutView[] = []
+const pendingOnchainPayoutsMemo: {
+  source: OnchainPayoutView[] | null
+  result: OnchainPayoutView[]
+} = { source: null, result: NO_ONCHAIN_PAYOUTS }
+
+export function selectPendingOnchainPayouts(state: AppState): OnchainPayoutView[] {
+  const source = state.onchainPayouts ?? NO_ONCHAIN_PAYOUTS
+  if (source !== pendingOnchainPayoutsMemo.source) {
+    pendingOnchainPayoutsMemo.source = source
+    pendingOnchainPayoutsMemo.result = source
+      .filter(isOnchainPayoutPending)
+      .sort((a, b) => b.createdAt - a.createdAt)
+  }
+  return pendingOnchainPayoutsMemo.result
+}
+
+export const selectOnchainPayoutById = (id: string | null) => (state: AppState) =>
+  id === null
+    ? null
+    : (state.onchainPayouts ?? NO_ONCHAIN_PAYOUTS).find((payout) => payout.id === id) ?? null
 export const selectSpendableTotalBalance = (state: AppState) =>
   spendableTotal(state.balance.byMint, state.onchainPayoutInFlightByMint)
 

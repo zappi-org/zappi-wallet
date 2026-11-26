@@ -38,7 +38,7 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
   const mintUrls = useAppStore((s) => s.settings.mints)
   const mintColors = useAppStore((s) => s.settings.mintColors)
   const balance = useAppStore((s) => s.balance)
-  const onchainPayoutInFlight = useAppStore((s) => s.onchainPayoutInFlightByMint)
+  const onchainPayoutInFlight = useAppStore((s) => s.onchainPayoutInFlightByMint ?? {})
   const spendable = useMemo(
     () => spendableByMint(balance.byMint, onchainPayoutInFlight),
     [balance.byMint, onchainPayoutInFlight],

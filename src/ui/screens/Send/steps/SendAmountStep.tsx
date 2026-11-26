@@ -149,7 +149,7 @@ export function SendAmountStep({
   const isFiatMode = heroFiat.isFiatMode
   const fiatInput = heroFiat.fiatAmount
 
-  const onchainPayoutInFlight = useAppStore((s) => s.onchainPayoutInFlightByMint)
+  const onchainPayoutInFlight = useAppStore((s) => s.onchainPayoutInFlightByMint ?? {})
   const mintBalance = Math.max(
     0,
     getMintBalance(mintUrl, balance.byMint) - (onchainPayoutInFlight[mintUrl] ?? 0),

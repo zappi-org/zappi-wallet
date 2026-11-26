@@ -4,6 +4,8 @@ import { useFormatSats, getLocaleCode } from '@/utils/format'
 import { cn } from '@/ui/lib/utils'
 import { formatMD } from '@/ui/utils/dateFilter'
 import type { PendingItem } from '@/ui/hooks/usePendingItems'
+import type { OnchainPayoutView } from '@/core/ports/driving/onchain-payout.usecase'
+import { onchainPayoutStageLabel } from '@/ui/utils/onchain-payout-labels'
 
 interface PendingItemsListProps {
   items: PendingItem[]
@@ -12,6 +14,8 @@ interface PendingItemsListProps {
   /** Gutterless rows — for lists whose siblings manage their own inset. */
   flush?: boolean
   onItemClick?: (item: PendingItem) => void
+  payouts?: OnchainPayoutView[]
+  onPayoutClick?: (payout: OnchainPayoutView) => void
 }
 
 function getItemTypeLabel(item: PendingItem, t: TFunction): string {
@@ -34,14 +38,23 @@ function formatExpiry(expiresAt: number): string | null {
   return `${minutes}m`
 }
 
-export function PendingItemsList({ items, maxItems = 5, showDate = false, flush = false, onItemClick }: PendingItemsListProps) {
+export function PendingItemsList({
+  items,
+  maxItems = 5,
+  showDate = false,
+  flush = false,
+  onItemClick,
+  payouts = [],
+  onPayoutClick,
+}: PendingItemsListProps) {
   const { t, i18n } = useTranslation()
   const formatSats = useFormatSats()
   const locale = getLocaleCode(i18n.language)
 
   const displayed = items.slice(0, maxItems)
+  const displayedPayouts = payouts.slice(0, maxItems)
 
-  if (displayed.length === 0) {
+  if (displayed.length === 0 && displayedPayouts.length === 0) {
     return (
       <p className="text-caption text-foreground-muted text-center py-4">
         {t('mintDetail.noPendingItems')}
@@ -51,6 +64,34 @@ export function PendingItemsList({ items, maxItems = 5, showDate = false, flush 
 
   return (
     <div className="flex flex-col">
+      {displayedPayouts.map((payout) => {
+        const expiryStr = formatExpiry(payout.deadline.estimatedAt)
+        const subtitle = expiryStr
+          ? `${onchainPayoutStageLabel(payout.stage, t)} · ${t('mintDetail.pendingExpiry')} ${expiryStr}`
+          : onchainPayoutStageLabel(payout.stage, t)
+        return (
+          <button
+            key={`payout-${payout.id}`}
+            onClick={() => onPayoutClick?.(payout)}
+            className={cn(
+              'w-full flex items-center justify-between py-3.5 min-h-[44px] cursor-pointer active:bg-foreground/[0.02] transition-colors',
+              flush ? 'px-0.5' : 'px-4',
+            )}
+          >
+            <div className="flex flex-col gap-0.5 text-left min-w-0 flex-1 mr-4">
+              <span className="text-body font-semibold text-foreground leading-normal truncate">
+                {t('onchainPayout.pendingTitle')}
+              </span>
+              <span className="text-label font-medium text-foreground-muted leading-normal truncate">
+                {subtitle}
+              </span>
+            </div>
+            <span className="text-body font-semibold text-foreground whitespace-nowrap">
+              {formatSats(payout.sendAmount)}
+            </span>
+          </button>
+        )
+      })}
       {displayed.map((item, index) => {
         const isSend = item.direction === 'send'
         const title = getItemTitle(item, t)

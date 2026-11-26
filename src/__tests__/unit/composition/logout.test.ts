@@ -19,8 +19,12 @@
  * store are real.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { wipeAccountData, type WipeAccountDeps } from '@/composition/logout'
+import { renderHook } from '@testing-library/react'
+import { bindWipeAccount, wipeAccountData, type WipeAccountDeps } from '@/composition/logout'
 import { useAppStore } from '@/store'
+import { Ok } from '@/core/domain/result'
+import type { SecurityUseCase } from '@/core/ports/driving/security.usecase'
+import { useSecurityHandlers } from '@/ui/hooks/use-security-handlers'
 
 const {
   deleteCocoDataMock,
@@ -419,4 +423,67 @@ describe('wipeAccountData', () => {
     expect(deps.removePasskey).not.toHaveBeenCalled()
   })
 
+})
+
+describe('bindWipeAccount', () => {
+  beforeEach(() => {
+    deleteCocoDataMock.mockReset().mockResolvedValue(undefined)
+    broadcastSyncMock.mockReset()
+    deleteGraceDatabaseMock.mockReset().mockResolvedValue(undefined)
+    countActivePayoutsMock.mockReset().mockResolvedValue(1)
+    clearPayoutsMock.mockReset().mockResolvedValue(undefined)
+    deletePayoutDatabaseMock.mockReset().mockResolvedValue(undefined)
+    localStorage.clear()
+  })
+
+  it('refuses to wipe an active payout when no option is passed', async () => {
+    makeDb()
+    const deps = makeDeps()
+    await expect(bindWipeAccount(deps)()).rejects.toMatchObject({ code: 'ONCHAIN_PAYOUT_ACTIVE' })
+    expect(deps.security.deleteWallet).not.toHaveBeenCalled()
+  })
+
+  it('forwards allowActiveOnchainPayouts into wipeAccountData', async () => {
+    makeDb()
+    const deps = makeDeps()
+    await bindWipeAccount(deps)({ allowActiveOnchainPayouts: true })
+    expect(countActivePayoutsMock).not.toHaveBeenCalled()
+    expect(deps.security.deleteWallet).toHaveBeenCalledTimes(1)
+  })
+
+  it('carries the log out anyway option from the logout handler to the wipe', async () => {
+    makeDb()
+    const deps = makeDeps()
+    const reload = vi.fn()
+    const originalLocation = window.location
+    Object.defineProperty(window, 'location', {
+      value: { ...originalLocation, reload },
+      writable: true,
+      configurable: true,
+    })
+    const security = {
+      verifyPassword: vi.fn().mockResolvedValue(Ok(true)),
+      deleteWallet: deps.security.deleteWallet,
+    } as unknown as SecurityUseCase
+    try {
+      const { result } = renderHook(() =>
+        useSecurityHandlers({ security, wipeAccount: bindWipeAccount(deps) }),
+      )
+      await expect(result.current.handleLogout('123456')).rejects.toMatchObject({
+        code: 'ONCHAIN_PAYOUT_ACTIVE',
+      })
+      expect(deps.security.deleteWallet).not.toHaveBeenCalled()
+      await expect(
+        result.current.handleLogout('123456', { allowActiveOnchainPayouts: true }),
+      ).resolves.toBe(true)
+      expect(deps.security.deleteWallet).toHaveBeenCalledTimes(1)
+      expect(reload).toHaveBeenCalledTimes(1)
+    } finally {
+      Object.defineProperty(window, 'location', {
+        value: originalLocation,
+        writable: true,
+        configurable: true,
+      })
+    }
+  })
 })

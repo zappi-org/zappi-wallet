@@ -728,4 +728,28 @@ describe('onchain payout service views', () => {
     expect((await service.listActive()).map((view) => view.id)).toEqual(['one'])
     expect(service.isEnabled()).toBe(true)
   })
+
+  it('reports whether a payout still has open payments', async () => {
+    const { service, store } = setup()
+    store.seed(
+      makeRecord({
+        id: 'open',
+        stage: 'completed',
+        payments: [
+          { request: 'a', amount: 1000, operationId: 'op-a', feeReserve: 10, status: 'dispatched', feePaid: null, settledAt: null },
+        ],
+      }),
+    )
+    store.seed(
+      makeRecord({
+        id: 'settled',
+        stage: 'completed',
+        payments: [
+          { request: 'b', amount: 1000, operationId: 'op-b', feeReserve: 10, status: 'paid', feePaid: 1, settledAt: 1 },
+        ],
+      }),
+    )
+    expect((await service.get('open'))?.hasOpenPayments).toBe(true)
+    expect((await service.get('settled'))?.hasOpenPayments).toBe(false)
+  })
 })

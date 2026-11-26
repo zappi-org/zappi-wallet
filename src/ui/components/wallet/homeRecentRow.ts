@@ -3,6 +3,8 @@ import type { Transaction } from '@/core/domain/transaction'
 import { getTransactionType, getTxMeta, getTotalCost } from '@/core/domain/transaction'
 import { toNumber } from '@/core/domain/amount'
 import type { PendingItem } from '@/ui/hooks/usePendingItems'
+import type { OnchainPayoutView } from '@/core/ports/driving/onchain-payout.usecase'
+import { onchainPayoutStageLabel } from '@/ui/utils/onchain-payout-labels'
 import { getTypeLabel } from './transactionHelpers'
 
 /** The one-line home row, sourced from either the ledger or a pending item —
@@ -43,6 +45,19 @@ export function pendingItemToRecentRow(item: PendingItem, t: TFunction): HomeRec
     createdAt: item.createdAt,
     amountSats: item.amount,
     isReceive: item.direction === 'receive',
+    state: 'pending',
+  }
+}
+
+export function onchainPayoutToRecentRow(
+  payout: OnchainPayoutView,
+  t: TFunction,
+): HomeRecentRow {
+  return {
+    title: `${t('onchainPayout.pendingTitle')} · ${onchainPayoutStageLabel(payout.stage, t)}`,
+    createdAt: payout.createdAt,
+    amountSats: payout.sendAmount,
+    isReceive: false,
     state: 'pending',
   }
 }

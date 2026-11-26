@@ -14,6 +14,7 @@ function view(patch: Partial<OnchainPayoutView> = {}): OnchainPayoutView {
     phase: 'submitted',
     payoutTxId: null,
     failureReason: null,
+    hasOpenPayments: true,
     deadline: { blockHeight: 209, estimatedAt: 0 },
     createdAt: 1,
     updatedAt: 1,

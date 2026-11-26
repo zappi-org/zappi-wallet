@@ -15,6 +15,8 @@ import { hapticTap } from '@/ui/utils/haptic'
 import { useAllPendingItems } from '@/ui/hooks/usePendingItems'
 import type { PendingItem } from '@/ui/hooks/usePendingItems'
 import { useAvailableMints, getMintFilterLabel } from '@/ui/hooks/useAvailableMints'
+import { OnchainPayoutProgressModal } from '@/ui/screens/OnchainPayout/OnchainPayoutProgress'
+import { selectPendingOnchainPayouts } from '@/store/selectors'
 
 type Tab = 'all' | 'request' | 'token'
 
@@ -54,6 +56,17 @@ export function PendingItemsScreen({ onBack, onItemClick, initialMintUrls }: Pen
   const closeSheet = useCallback(() => setOpenSheet(null), [])
 
   const { availableMints, getDisplayName } = useAvailableMints()
+  const onchainPayouts = useAppStore(selectPendingOnchainPayouts)
+  const [selectedPayoutId, setSelectedPayoutId] = useState<string | null>(null)
+  const visiblePayouts = useMemo(
+    () =>
+      onchainPayouts.filter((payout) =>
+        selectedMintUrls.size === 0
+          ? true
+          : [...selectedMintUrls].some((mintUrl) => mintUrlKey(mintUrl) === mintUrlKey(payout.mintUrl)),
+      ),
+    [onchainPayouts, selectedMintUrls],
+  )
 
   const handleItemClick = useCallback((item: PendingItem) => {
     hapticTap()
@@ -189,7 +202,20 @@ export function PendingItemsScreen({ onBack, onItemClick, initialMintUrls }: Pen
 
       {/* Content */}
       <main className="flex-1 overflow-y-auto px-4 pb-app">
-        {groups.length === 0 ? (
+        {visiblePayouts.length > 0 && (
+          <div data-testid="onchain-payout-pending">
+            <h3 className="text-body font-bold text-foreground pt-5 pb-2 px-1">
+              {t('onchainPayout.pendingTitle')}
+            </h3>
+            <PendingItemsList
+              items={[]}
+              payouts={visiblePayouts}
+              maxItems={999}
+              onPayoutClick={(payout) => setSelectedPayoutId(payout.id)}
+            />
+          </div>
+        )}
+        {groups.length === 0 && visiblePayouts.length === 0 ? (
           <p className="text-caption text-foreground-muted text-center py-8">
             {t('mintDetail.noPendingItems')}
           </p>
@@ -204,6 +230,11 @@ export function PendingItemsScreen({ onBack, onItemClick, initialMintUrls }: Pen
           </div>
         )}
       </main>
+
+      <OnchainPayoutProgressModal
+        payoutId={selectedPayoutId}
+        onClose={() => setSelectedPayoutId(null)}
+      />
 
       {/* Type Filter Sheet */}
       <BottomSheet isOpen={openSheet === 'type'} onClose={closeSheet} title={t('mintDetail.filterType')}>

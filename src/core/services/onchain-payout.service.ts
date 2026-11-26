@@ -672,6 +672,9 @@ export class OnchainPayoutService implements OnchainPayoutUseCase {
       phase: record.phase,
       payoutTxId: record.payoutTxId,
       failureReason: record.failureReason,
+      hasOpenPayments: record.payments.some(
+        (payment) => payment.status === 'prepared' || payment.status === 'dispatched',
+      ),
       deadline: record.deadline,
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,

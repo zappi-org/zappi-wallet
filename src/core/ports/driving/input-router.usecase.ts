@@ -15,6 +15,7 @@ export type ParsedInput =
   | { type: 'lnurl-withdraw'; params: LnurlWithdrawParams }
   | { type: 'lnurl-auth'; params: LnurlAuthParams }
   | { type: 'invoice'; bolt11: string }
+  | { type: 'bitcoin-address'; address: string; amountSats?: number }
   | { type: 'cashu-token'; token: string }
 
 export interface InputRouterUseCase {

@@ -120,6 +120,12 @@ describe('useSecurityHandlers — Result discriminant (.ok) semantics', () => {
   })
 
   describe('handleLogout', () => {
+    it('forwards allowActiveOnchainPayouts to the wipe', async () => {
+      const { handlers, wipeAccount } = render(createSecurityMock())
+      await handlers.handleLogout('123456', { allowActiveOnchainPayouts: true })
+      expect(wipeAccount).toHaveBeenCalledWith({ allowActiveOnchainPayouts: true })
+    })
+
     it('Ok(true) → wipe + reload + true', async () => {
       const { handlers, wipeAccount } = render(createSecurityMock())
       await expect(handlers.handleLogout('123456')).resolves.toBe(true)

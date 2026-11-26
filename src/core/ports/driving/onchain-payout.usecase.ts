@@ -31,6 +31,7 @@ export interface OnchainPayoutView {
   phase: TransferPhase
   payoutTxId: string | null
   failureReason: string | null
+  hasOpenPayments: boolean
   deadline: OnchainPayoutDeadline
   createdAt: number
   updatedAt: number

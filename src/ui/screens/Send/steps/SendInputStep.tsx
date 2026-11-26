@@ -57,6 +57,8 @@ interface SendDestinationStepProps {
     commonMintUrls: string[]
     infoText?: string
   }) => void
+  onBitcoinAddress?: (input: { address: string; amountSats?: number }) => void
+  onDestinationEdit?: () => void
 }
 
 export function SendInputStep({
@@ -71,6 +73,8 @@ export function SendInputStep({
   isLoading = false,
   onRouteValidated,
   onRequestMintSelection,
+  onBitcoinAddress,
+  onDestinationEdit,
 }: SendDestinationStepProps) {
   const { t } = useTranslation()
   const reduceMotion = useReducedMotion()
@@ -118,6 +122,7 @@ export function SendInputStep({
     onRouteValidated,
     onRequestMintSelection,
     getDisplayName,
+    onBitcoinAddress,
   })
 
   // If the advance is rejected upstream (offline/route/validation toast) while
@@ -249,7 +254,10 @@ export function SendInputStep({
                 ref={inputRef}
                 type="text"
                 value={destination}
-                onChange={(e) => updateDestination(e.target.value)}
+                onChange={(e) => {
+                  onDestinationEdit?.()
+                  updateDestination(e.target.value)
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault()

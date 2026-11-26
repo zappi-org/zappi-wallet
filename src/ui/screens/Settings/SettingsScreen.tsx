@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { AnimatePresence } from 'motion/react'
 import { PageTransition } from '@/ui/components/common/PageTransition'
 import { Modal, PinInput } from '../../components/common'
+import { ConfirmDialog } from '@/ui/components/common/ConfirmDialog'
 import { useAppStore } from '@/store'
 import { translateError } from '@/ui/utils/error-i18n'
 import { satUnit } from '@/utils/format'
@@ -47,7 +48,10 @@ export interface SettingsScreenProps {
   onBack: () => void
   onChangePassword: (oldPassword: string, newPassword: string) => Promise<boolean>
   onBackupMnemonic: (password: string) => Promise<string | null>
-  onLogout: (password: string) => Promise<boolean>
+  onLogout: (
+    password: string,
+    options?: { allowActiveOnchainPayouts?: boolean },
+  ) => Promise<boolean>
   onVerifyPin: (pin: string) => Promise<boolean>
   onSaveSettings: (settings: Record<string, unknown>) => Promise<void>
   onMintManagement?: () => void
@@ -130,6 +134,7 @@ export function SettingsScreen({
   const [showLogoutModal, setShowLogoutModal] = useState(false)
   const [logoutPin, setLogoutPin] = useState('')
   const [logoutError, setLogoutError] = useState('')
+  const [payoutActiveConfirm, setPayoutActiveConfirm] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   // PIN change
@@ -257,6 +262,27 @@ export function SettingsScreen({
     setLogoutError('')
     try {
       const success = await onLogout(logoutPin)
+      if (!success) {
+        setLogoutError(t('settings.wrongPin'))
+        setLogoutPin('')
+      }
+    } catch (error) {
+      if (error instanceof Error && 'code' in error && error.code === 'ONCHAIN_PAYOUT_ACTIVE') {
+        setPayoutActiveConfirm(true)
+        return
+      }
+      setLogoutError(translateError(error, t))
+    } finally {
+      setIsLoggingOut(false)
+    }
+  }, [logoutPin, onLogout, t])
+
+  const handleLogoutAnyway = useCallback(async () => {
+    setPayoutActiveConfirm(false)
+    setIsLoggingOut(true)
+    setLogoutError('')
+    try {
+      const success = await onLogout(logoutPin, { allowActiveOnchainPayouts: true })
       if (!success) {
         setLogoutError(t('settings.wrongPin'))
         setLogoutPin('')
@@ -698,6 +724,16 @@ export function SettingsScreen({
           />
         </div>
       </Modal>
+
+      <ConfirmDialog
+        isOpen={payoutActiveConfirm}
+        onClose={() => setPayoutActiveConfirm(false)}
+        onConfirm={handleLogoutAnyway}
+        title={t('onchainPayout.logoutActiveTitle')}
+        description={t('onchainPayout.logoutActiveMessage')}
+        confirmLabel={t('onchainPayout.logoutAnyway')}
+        cancelLabel={t('common.cancel')}
+      />
 
       {/* Token Restore Modal */}
       <Modal

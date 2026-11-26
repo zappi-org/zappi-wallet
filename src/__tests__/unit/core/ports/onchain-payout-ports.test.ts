@@ -129,6 +129,7 @@ const view = {
   phase: record.phase,
   payoutTxId: null,
   failureReason: null,
+  hasOpenPayments: true,
   deadline: record.deadline,
   createdAt: record.createdAt,
   updatedAt: record.updatedAt,
