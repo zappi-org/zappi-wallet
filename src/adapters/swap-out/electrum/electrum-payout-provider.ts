@@ -46,7 +46,7 @@ import {
   parseQuoteOfferRef,
   parseSecrets,
   toJsonValue,
-  VERSION,
+  PROVIDER_STATE_VERSION,
   type ProviderRefData,
   type SecretsData,
   type SweepRecord,
@@ -357,7 +357,7 @@ export class ElectrumPayoutProvider implements SwapOutProvider {
         payout.mainRequest,
       ]
       const providerRef: ProviderRefData = {
-        v: VERSION,
+        v: PROVIDER_STATE_VERSION,
         network: this.network,
         serverPubkey: offer.pubkey,
         serverId: payout.serverId,
@@ -371,7 +371,7 @@ export class ElectrumPayoutProvider implements SwapOutProvider {
         maxSweepFee: Math.floor(payout.onchainAmount / 10),
       }
       const secrets: SecretsData = {
-        v: VERSION,
+        v: PROVIDER_STATE_VERSION,
         secret: bytesToHex(secret),
         claimKey: bytesToHex(claimKey),
         sweeps: [],

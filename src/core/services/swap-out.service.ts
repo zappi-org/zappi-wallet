@@ -91,7 +91,7 @@ export class SwapOutService implements SwapOutUseCase {
       txRepo: deps.txRepo,
       eventBus: deps.eventBus,
       now: deps.now,
-      emit: (record) => this.emit(record),
+      onPersisted: (record) => this.emit(record),
       logger: deps.logger,
     })
     this.eventBus = deps.eventBus

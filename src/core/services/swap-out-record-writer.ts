@@ -22,7 +22,7 @@ export interface SwapOutRecordWriterDeps {
   txRepo: Pick<TransactionRepository, 'save' | 'getById' | 'update'>
   eventBus: EventBus
   now: () => number
-  emit: (record: SwapOutRecord) => void
+  onPersisted: (record: SwapOutRecord) => void
   logger?: SwapOutRecordWriterLogger
 }
 
@@ -31,7 +31,7 @@ export class SwapOutRecordWriter {
   private readonly txRepo: SwapOutRecordWriterDeps['txRepo']
   private readonly eventBus: EventBus
   private readonly now: () => number
-  private readonly emitView: (record: SwapOutRecord) => void
+  private readonly onPersisted: (record: SwapOutRecord) => void
   private readonly logger?: SwapOutRecordWriterLogger
 
   constructor(deps: SwapOutRecordWriterDeps) {
@@ -39,7 +39,7 @@ export class SwapOutRecordWriter {
     this.txRepo = deps.txRepo
     this.eventBus = deps.eventBus
     this.now = deps.now
-    this.emitView = deps.emit
+    this.onPersisted = deps.onPersisted
     this.logger = deps.logger
   }
 
@@ -62,7 +62,7 @@ export class SwapOutRecordWriter {
       version: expectedVersion + 1,
     }
     await this.syncTransaction(next)
-    this.emitView(next)
+    this.onPersisted(next)
     return next
   }
 
@@ -89,7 +89,7 @@ export class SwapOutRecordWriter {
         version: record.version + 1,
       }
       await this.syncTransaction(next)
-      this.emitView(next)
+      this.onPersisted(next)
       return next
     }
     this.logger?.warn(`payout update gave up: ${id}`)

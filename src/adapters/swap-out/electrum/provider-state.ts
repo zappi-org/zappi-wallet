@@ -1,7 +1,7 @@
 import type { JsonValue } from '@/core/domain/json'
 import type { PayoutNetwork } from './network'
 
-export const VERSION = 1
+export const PROVIDER_STATE_VERSION = 1
 
 export interface QuoteOfferRef {
   pubkey: string
@@ -73,11 +73,11 @@ function readNetwork(value: unknown): PayoutNetwork {
 }
 
 export function parseProviderRef(value: unknown): ProviderRefData {
-  if (!isRecord(value) || readNumber(value, 'v') !== VERSION) {
+  if (!isRecord(value) || readNumber(value, 'v') !== PROVIDER_STATE_VERSION) {
     throw new Error('payout reference has an unknown version')
   }
   return {
-    v: VERSION,
+    v: PROVIDER_STATE_VERSION,
     network: readNetwork(value.network),
     serverPubkey: readString(value, 'serverPubkey'),
     serverId: readString(value, 'serverId'),
@@ -99,13 +99,13 @@ export function parseSecrets(secrets: string): SecretsData {
   } catch {
     throw new Error('payout secrets are not valid json')
   }
-  if (!isRecord(parsed) || readNumber(parsed, 'v') !== VERSION) {
+  if (!isRecord(parsed) || readNumber(parsed, 'v') !== PROVIDER_STATE_VERSION) {
     throw new Error('payout secrets have an unknown version')
   }
   const sweeps = parsed.sweeps
   if (!Array.isArray(sweeps)) throw new Error('payout secrets are missing sweeps')
   return {
-    v: VERSION,
+    v: PROVIDER_STATE_VERSION,
     secret: readString(parsed, 'secret'),
     claimKey: readString(parsed, 'claimKey'),
     sweeps: sweeps.map((entry) => {
