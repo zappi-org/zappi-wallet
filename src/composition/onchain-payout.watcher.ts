@@ -10,6 +10,7 @@ export interface OnchainPayoutWatcherDeps {
   service: OnchainPayoutUseCase
   eventBus: EventBus
   pollIntervalMs: number
+  refreshInFlight?: () => Promise<void>
   logger?: OnchainPayoutWatcherLogger
 }
 
@@ -17,6 +18,7 @@ export class OnchainPayoutWatcher {
   private readonly service: OnchainPayoutUseCase
   private readonly eventBus: EventBus
   private readonly pollIntervalMs: number
+  private readonly refreshInFlight?: () => Promise<void>
   private readonly logger?: OnchainPayoutWatcherLogger
   private timer: ReturnType<typeof setTimeout> | null = null
   private unsubscribe: (() => void) | null = null
@@ -26,6 +28,7 @@ export class OnchainPayoutWatcher {
     this.service = deps.service
     this.eventBus = deps.eventBus
     this.pollIntervalMs = deps.pollIntervalMs
+    this.refreshInFlight = deps.refreshInFlight
     this.logger = deps.logger
   }
 
@@ -70,6 +73,11 @@ export class OnchainPayoutWatcher {
       await this.service.resumeAll()
     } catch (error) {
       this.warn('resume failed', error)
+    }
+    try {
+      await this.refreshInFlight?.()
+    } catch (error) {
+      this.warn('in-flight refresh failed', error)
     }
     if (!this.started) return
     try {

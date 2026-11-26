@@ -245,6 +245,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     disconnectBridge,
     disconnectTransferBridge,
     seedOnchainPayouts,
+    refreshOnchainPayoutInFlight,
   } = connectStoreBridges({
     balanceCache,
     balance,
@@ -340,6 +341,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     service: onchainPayout.service,
     eventBus,
     pollIntervalMs: onchainPayoutConfig.pollIntervalMs,
+    refreshInFlight: refreshOnchainPayoutInFlight,
     logger: { warn: (message) => console.warn("[OnchainPayout]", message) },
   });
   void seedOnchainPayouts();

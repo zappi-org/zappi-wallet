@@ -3,7 +3,7 @@
  *
  * Coco Manager singleton and related utilities.
  */
-import { initializeCoco, type Manager, type MintQuote, normalizeMintUrl } from '@cashu/coco-core'
+import { initializeCoco, type CoreProof, type Manager, type MintQuote, normalizeMintUrl } from '@cashu/coco-core'
 import { IndexedDbRepositories } from '@cashu/coco-indexeddb'
 import { getSeed } from './seed-getter'
 import { cocoLogger as logger } from './logger'
@@ -182,6 +182,15 @@ export async function getPendingMintQuotes(): Promise<MintQuote[]> {
 export async function getMintQuote(mintUrl: string, quoteId: string): Promise<MintQuote | null> {
   await getCocoManager()
   return reposInstance!.mintQuoteRepository.getMintQuote(mintUrl, quoteId)
+}
+
+export async function getProofsByOperationId(
+  mintUrl: string,
+  operationId: string,
+): Promise<CoreProof[]> {
+  await getCocoManager()
+  if (!reposInstance) return []
+  return reposInstance.proofRepository.getProofsByOperationId(mintUrl, operationId)
 }
 
 export async function abandonMintQuote(mintUrl: string, quoteId: string): Promise<void> {

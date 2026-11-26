@@ -103,5 +103,7 @@ export function createCashuBackend(deps: CreateCashuBackendDeps): CashuModuleBac
     abandonMintQuote,
     // Module-level
     getBalances: backend.getBalances,
+    heldAmounts: backend.heldAmounts,
+    checkMeltSettlement: backend.checkMeltSettlement,
   }
 }

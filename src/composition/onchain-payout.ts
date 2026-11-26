@@ -83,7 +83,12 @@ export interface CreateOnchainPayoutDeps {
   config: OnchainPayoutConfig
   routePaymentOperator: Pick<
     RoutePaymentOperator,
-    'prepareMelt' | 'executeMelt' | 'rollbackMelt' | 'refreshMelt'
+    | 'prepareMelt'
+    | 'executeMelt'
+    | 'rollbackMelt'
+    | 'refreshMelt'
+    | 'checkMeltSettlement'
+    | 'heldAmounts'
   >
   eventBus: EventBus
   store?: WipeableOnchainPayoutStore

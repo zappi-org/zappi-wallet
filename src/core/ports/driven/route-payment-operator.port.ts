@@ -35,6 +35,8 @@ export interface RoutePaymentOperator {
   executeMelt(operationId: string): Promise<ExecutedRouteMelt>
   rollbackMelt(operationId: string, reason: string): Promise<void>
   refreshMelt(operationId: string): Promise<{ state: string }>
+  checkMeltSettlement(operationId: string): Promise<{ state: string }>
+  heldAmounts(mintUrl: string, operationIds: string[]): Promise<Record<string, number>>
   redeemMintQuote(mintUrl: string, quoteId: string, amount: number): Promise<void>
   mintAndReceive(quoteId: string, mintUrl: string, amount: number): Promise<void>
   prepareTokenSend(params: {

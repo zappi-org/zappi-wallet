@@ -23,6 +23,7 @@ import type {
   RoutePaymentOperator,
 } from '@/core/ports/driven/route-payment-operator.port'
 import { OnchainPayoutService } from '@/core/services/onchain-payout.service'
+import { isPayoutStageTerminal } from '@/core/domain/onchain-payout'
 import { InsufficientBalanceError } from '@/core/errors/payment.errors'
 
 const NOW = 1_700_000_000_000
@@ -30,7 +31,12 @@ const MINT = 'https://mint.example.com'
 
 type Payments = Pick<
   RoutePaymentOperator,
-  'prepareMelt' | 'executeMelt' | 'rollbackMelt' | 'refreshMelt'
+  | 'prepareMelt'
+  | 'executeMelt'
+  | 'rollbackMelt'
+  | 'refreshMelt'
+  | 'checkMeltSettlement'
+  | 'heldAmounts'
 >
 
 function clone<T>(value: T): T {
@@ -116,6 +122,8 @@ class FakeStore implements OnchainPayoutStore {
   secrets = new Map<string, string>()
   failUpdates = 0
   beforeUpdate: ((changes: OnchainPayoutUpdate) => boolean) | null = null
+  afterUpdate: ((changes: OnchainPayoutUpdate) => void) | null = null
+  onCreate: (() => Promise<void>) | null = null
 
   constructor(private readonly timeline: string[]) {}
 
@@ -128,6 +136,7 @@ class FakeStore implements OnchainPayoutStore {
     this.timeline.push(`store:create:${record.id}`)
     this.records.set(record.id, clone(record))
     this.secrets.set(record.id, secrets)
+    await this.onCreate?.()
   }
 
   async get(id: string): Promise<OnchainPayoutRecord | null> {
@@ -154,6 +163,7 @@ class FakeStore implements OnchainPayoutStore {
     const next = { ...current, ...rest, version: current.version + 1 }
     this.records.set(id, clone(next))
     if (secrets !== undefined) this.secrets.set(id, secrets)
+    this.afterUpdate?.(changes)
     return true
   }
 
@@ -162,7 +172,15 @@ class FakeStore implements OnchainPayoutStore {
   }
 
   async listActive(): Promise<OnchainPayoutRecord[]> {
-    return [...this.records.values()].map(clone)
+    return [...this.records.values()]
+      .map(clone)
+      .filter(
+        (record) =>
+          !isPayoutStageTerminal(record.stage) ||
+          record.payments.some(
+            (payment) => payment.status === 'prepared' || payment.status === 'dispatched',
+          ),
+      )
   }
 
   async list(): Promise<OnchainPayoutRecord[]> {
@@ -176,6 +194,7 @@ interface ProviderControl {
   resume?: OnchainPayoutAdvance
   startError?: unknown
   quoteError?: unknown
+  resumeError?: unknown
   onResume?: () => void
 }
 
@@ -196,6 +215,7 @@ function createProvider(control: ProviderControl, timeline: string[]) {
     async resume() {
       calls.push('resume')
       control.onResume?.()
+      if (control.resumeError) throw control.resumeError
       return control.resume ?? { progress: { stage: 'funded' } }
     },
     async publish() {
@@ -215,18 +235,29 @@ interface PaymentControl {
   prepareFailIndex?: number
   refreshStates?: string[]
   hangFirstRefresh?: boolean
+  rollbackFailCount?: number
+  onPrepare?: (request: string) => void
+  held?: Record<string, number>
+  heldError?: boolean
+  settlementStates?: string[]
+  hangSettlement?: boolean
+  settlementError?: boolean
+  onSettlementCheck?: () => void
 }
 
 function createPayments(control: PaymentControl, timeline: string[]) {
   const order: string[] = []
   const rollbacks: string[] = []
   const refreshes: string[] = []
+  const settlements: string[] = []
+  const heldCalls: { mintUrl: string; operationIds: string[] }[] = []
   const pending: {
     operationId: string
     resolve: (result: ExecutedRouteMelt) => void
     reject: (error: unknown) => void
   }[] = []
   let refreshIndex = 0
+  let settlementIndex = 0
 
   const payments: Payments = {
     async prepareMelt(_mintUrl, request) {
@@ -236,6 +267,7 @@ function createPayments(control: PaymentControl, timeline: string[]) {
       if (control.prepareFailIndex === prepareCount) {
         throw new InsufficientBalanceError(100000, 10)
       }
+      control.onPrepare?.(request)
       return {
         operationId: `op-${request}`,
         quoteId: `quote-${request}`,
@@ -253,7 +285,30 @@ function createPayments(control: PaymentControl, timeline: string[]) {
     },
     async rollbackMelt(operationId) {
       order.push(`rollback:${operationId}`)
+      if ((control.rollbackFailCount ?? 0) > 0) {
+        control.rollbackFailCount = (control.rollbackFailCount ?? 0) - 1
+        throw new Error('rollback unavailable')
+      }
       rollbacks.push(operationId)
+    },
+    async heldAmounts(mintUrl: string, operationIds: string[]) {
+      heldCalls.push({ mintUrl, operationIds })
+      if (control.heldError) throw new Error('proof store down')
+      return Object.fromEntries(
+        operationIds.map((operationId) => [operationId, control.held?.[operationId] ?? 0]),
+      )
+    },
+    async checkMeltSettlement(operationId: string) {
+      settlements.push(operationId)
+      control.onSettlementCheck?.()
+      if (control.settlementError) throw new Error('mint unreachable')
+      if (control.hangSettlement) {
+        control.hangSettlement = false
+        return new Promise<{ state: string }>(() => {})
+      }
+      const state = control.settlementStates?.[settlementIndex] ?? 'pending'
+      settlementIndex += 1
+      return { state }
     },
     async refreshMelt(operationId: string) {
       refreshes.push(operationId)
@@ -266,7 +321,7 @@ function createPayments(control: PaymentControl, timeline: string[]) {
       return { state }
     },
   }
-  return { payments, order, rollbacks, refreshes, pending }
+  return { payments, order, rollbacks, refreshes, settlements, heldCalls, pending }
 }
 
 function setup(
@@ -276,6 +331,9 @@ function setup(
     prepareFailIndex?: number
     refreshStates?: string[]
     hangFirstRefresh?: boolean
+    settlementStates?: string[]
+    hangSettlement?: boolean
+    settlementError?: boolean
   } = {},
 ) {
   const timeline: string[] = []
@@ -286,6 +344,9 @@ function setup(
     prepareFailIndex: options.prepareFailIndex,
     refreshStates: options.refreshStates,
     hangFirstRefresh: options.hangFirstRefresh,
+    settlementStates: options.settlementStates,
+    hangSettlement: options.hangSettlement,
+    settlementError: options.settlementError,
   }
   const paymentKit = createPayments(paymentControl, timeline)
   const events: DomainEvent[] = []
@@ -313,6 +374,7 @@ function setup(
     service,
     store,
     control,
+    paymentControl,
     ...providerKit,
     ...paymentKit,
     timeline,
@@ -333,6 +395,17 @@ async function quoteAndStart(service: OnchainPayoutService) {
 
 function flush(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0))
+}
+
+function openRecord(patch: Partial<OnchainPayoutRecord> = {}): OnchainPayoutRecord {
+  return makeRecord({
+    stage: 'funded',
+    payments: [
+      { request: 'fee', amount: 45000, operationId: 'op-fee', feeReserve: 500, status: 'dispatched', feePaid: null, settledAt: null },
+      { request: 'main', amount: 55000, operationId: 'op-main', feeReserve: 500, status: 'dispatched', feePaid: null, settledAt: null },
+    ],
+    ...patch,
+  })
 }
 
 describe('onchain payout service start', () => {
@@ -391,9 +464,101 @@ describe('onchain payout service start', () => {
     expect(record?.stage).toBe('aborted')
     expect(record?.failureReason).toBe('prepare_failed')
     expect(record?.payments.map((payment) => payment.status)).toEqual([
-      'prepared',
-      'prepared',
+      'rolled_back',
+      'rolled_back',
     ])
+  })
+
+  it('refuses to dispatch when the record left the quoted stage during prepare', async () => {
+    const { service, store, rollbacks, order } = setup()
+    store.afterUpdate = (changes) => {
+      const storedMainOperation =
+        changes.payments?.some(
+          (payment) => payment.request === 'main' && payment.operationId === 'op-main',
+        ) ?? false
+      if (!storedMainOperation) return
+      const current = store.records.get('id-2')
+      if (current) store.records.set('id-2', { ...current, stage: 'aborted' })
+    }
+    const started = await quoteAndStart(service)
+    expect(started.ok).toBe(false)
+    expect(!started.ok && started.error).toBeInstanceOf(OnchainPayoutProviderRejectedError)
+    expect(order.filter((entry) => entry.startsWith('execute:'))).toEqual([])
+    expect(rollbacks).toEqual(['op-fee', 'op-main'])
+    expect(store.records.get('id-2')?.stage).toBe('aborted')
+  })
+
+  it('skips a record that is still being created', async () => {
+    const { service, store, rollbacks } = setup()
+    let resumed: Promise<void> | null = null
+    store.onCreate = async () => {
+      resumed = service.resumeAll()
+      await resumed
+    }
+    const started = await quoteAndStart(service)
+    expect(resumed).not.toBeNull()
+    expect(rollbacks).toEqual([])
+    expect(started.ok).toBe(true)
+    expect(store.records.get('id-2')?.stage).toBe('paying')
+  })
+
+  it('does not record an operation id on a record that left the quoted stage', async () => {
+    const { service, store, rollbacks, paymentControl } = setup()
+    paymentControl.onPrepare = () => {
+      const current = store.records.get('id-2')
+      if (current) store.records.set('id-2', { ...current, stage: 'aborted' })
+    }
+    const started = await quoteAndStart(service)
+    expect(started.ok).toBe(false)
+    expect(rollbacks).toEqual(['op-fee'])
+    expect(store.records.get('id-2')?.payments.map((payment) => payment.operationId)).toEqual([
+      null,
+      null,
+    ])
+  })
+
+  it('skips a record that start() is still preparing', async () => {
+    const { service, store, rollbacks, paymentControl } = setup()
+    let resumed: Promise<void> | null = null
+    paymentControl.onPrepare = (request) => {
+      if (request === 'fee') resumed = service.resumeAll()
+    }
+    const started = await quoteAndStart(service)
+    await resumed
+    expect(rollbacks).toEqual([])
+    expect(started.ok).toBe(true)
+    expect(store.records.get('id-2')?.stage).toBe('paying')
+  })
+
+  it('clears the reservation after a failed prepare', async () => {
+    const { service, store } = setup({ prepareFailIndex: 1 })
+    const started = await quoteAndStart(service)
+    expect(started.ok).toBe(false)
+    expect(store.records.get('id-2')?.payments.map((payment) => payment.status)).toEqual([
+      'rolled_back',
+      'rolled_back',
+    ])
+    expect(await service.inFlightAmount()).toBe(0)
+    expect(await service.listActive()).toEqual([])
+  })
+
+  it('keeps a payout open after a failed rollback and retries it on the next resume', async () => {
+    const { service, store, paymentControl } = setup({ prepareFailIndex: 1 })
+    paymentControl.rollbackFailCount = 1
+    const started = await quoteAndStart(service)
+    expect(started.ok).toBe(false)
+    expect(store.records.get('id-2')?.payments.map((payment) => payment.status)).toEqual([
+      'prepared',
+      'rolled_back',
+    ])
+    expect((await service.listActive()).map((view) => view.id)).toEqual(['id-2'])
+    await service.resumeAll()
+    expect(store.records.get('id-2')?.payments.map((payment) => payment.status)).toEqual([
+      'rolled_back',
+      'rolled_back',
+    ])
+    expect(await service.inFlightAmount()).toBe(0)
+    expect(await service.listActive()).toEqual([])
   })
 
   it('rolls back prepared payments and aborts when a prepare fails', async () => {
@@ -496,6 +661,44 @@ describe('onchain payout service resume', () => {
     const record = store.records.get('payout-1')
     expect(record?.stage).toBe('aborted')
     expect(record?.failureReason).toBe('interrupted_before_payment')
+  })
+
+  it('does not abort a record that was dispatched while it was being resumed', async () => {
+    const { service, store, rollbacks } = setup()
+    store.seed(
+      makeRecord({
+        stage: 'quoted',
+        phase: 'preparing',
+        payments: makeRecord().payments.map((payment) => ({
+          ...payment,
+          status: 'prepared' as const,
+        })),
+      }),
+    )
+    let flipped = false
+    store.beforeUpdate = () => {
+      if (!flipped) {
+        flipped = true
+        const current = store.records.get('payout-1')
+        if (current) store.records.set('payout-1', { ...current, stage: 'paying' })
+      }
+      return false
+    }
+    await service.resumeAll()
+    expect(rollbacks).toEqual([])
+    expect(store.records.get('payout-1')?.stage).toBe('paying')
+    expect(store.records.get('payout-1')?.failureReason).toBeNull()
+  })
+
+  it('clears a stale failure reason on a later progress update', async () => {
+    const { service, store, control } = setup()
+    store.seed(makeRecord({ stage: 'funded', failureReason: 'fee_too_high' }))
+    await service.resumeAll()
+    expect(store.records.get('payout-1')?.failureReason).toBeNull()
+
+    control.resume = { progress: { stage: 'funded', failureReason: 'too_close_to_locktime' } }
+    await service.resumeAll()
+    expect(store.records.get('payout-1')?.failureReason).toBe('too_close_to_locktime')
   })
 
   it('persists a prepared sweep and its publication before publishing', async () => {
@@ -666,6 +869,126 @@ describe('onchain payout service resume', () => {
     ])
   })
 
+  it('marks a dispatched payment paid once its melt settled before the sweep confirmed', async () => {
+    const { service, store } = setup({ settlementStates: ['finalized', 'finalized'] })
+    store.seed(makeRecord({ stage: 'sweeping', publishedAt: NOW }))
+    await service.resumeAll()
+    expect(store.records.get('payout-1')?.payments.map((payment) => payment.status)).toEqual([
+      'paid',
+      'paid',
+    ])
+    expect(await service.inFlightAmount()).toBe(0)
+  })
+
+  it('never checks a payment whose execute call is still in flight', async () => {
+    const { service, store, pending, settlements } = setup({
+      settlementStates: ['finalized', 'finalized'],
+    })
+    await quoteAndStart(service)
+    await service.resumeAll()
+    expect(settlements).toEqual([])
+    expect(store.records.get('id-2')?.payments.map((payment) => payment.status)).toEqual([
+      'dispatched',
+      'dispatched',
+    ])
+    pending[0].resolve({ secret: 'aa' })
+    pending[1].resolve({ secret: 'bb' })
+    await flush()
+  })
+
+  it('leaves a payment untouched when the settlement check times out', async () => {
+    const { service, store, rollbacks } = setup({ hangSettlement: true })
+    store.seed(makeRecord({ stage: 'sweeping', publishedAt: NOW }))
+    await service.resumeAll()
+    expect(store.records.get('payout-1')?.payments.map((payment) => payment.status)).toEqual([
+      'dispatched',
+      'dispatched',
+    ])
+    expect(rollbacks).toEqual([])
+  })
+
+  it('leaves a payment untouched when its operation is still executing elsewhere', async () => {
+    const { service, store, settlements } = setup({ settlementStates: ['executing', 'executing'] })
+    store.seed(makeRecord({ stage: 'paying' }))
+    await service.resumeAll()
+    expect(settlements).toHaveLength(2)
+    expect(store.records.get('payout-1')?.payments.map((payment) => payment.status)).toEqual([
+      'dispatched',
+      'dispatched',
+    ])
+  })
+
+  it('leaves a payment untouched when the settlement check fails', async () => {
+    const { service, store, rollbacks } = setup({ settlementError: true })
+    store.seed(makeRecord({ stage: 'paying' }))
+    await service.resumeAll()
+    expect(store.records.get('payout-1')?.payments.map((payment) => payment.status)).toEqual([
+      'dispatched',
+      'dispatched',
+    ])
+    expect(rollbacks).toEqual([])
+    expect(await service.inFlightAmount()).toBe(100084)
+  })
+
+  it('marks a payment rolled back when the library already rolled it back', async () => {
+    const { service, store, rollbacks } = setup({ settlementStates: ['rolled_back', 'rolled_back'] })
+    store.seed(makeRecord({ stage: 'sweeping', publishedAt: NOW }))
+    await service.resumeAll()
+    expect(store.records.get('payout-1')?.payments.map((payment) => payment.status)).toEqual([
+      'rolled_back',
+      'rolled_back',
+    ])
+    expect(rollbacks).toEqual([])
+    expect(await service.inFlightAmount()).toBe(0)
+  })
+
+  it('settles only after every record got its provider step', async () => {
+    const { service, store, control, paymentControl } = setup({
+      settlementStates: ['pending', 'pending', 'pending', 'pending'],
+    })
+    let resumes = 0
+    control.onResume = () => {
+      resumes += 1
+    }
+    let resumesSeenBySettlement = -1
+    paymentControl.onSettlementCheck = () => {
+      if (resumesSeenBySettlement === -1) resumesSeenBySettlement = resumes
+    }
+    store.seed(makeRecord({ id: 'a', stage: 'paying' }))
+    store.seed(makeRecord({ id: 'b', stage: 'paying' }))
+    await service.resumeAll()
+    expect(resumes).toBe(2)
+    expect(resumesSeenBySettlement).toBe(2)
+  })
+
+  it('does not let a hanging settlement check block another record', async () => {
+    const { service, store, control, paymentControl } = setup({ hangSettlement: true })
+    let resumes = 0
+    control.onResume = () => {
+      resumes += 1
+    }
+    let resumesSeenBySettlement = -1
+    paymentControl.onSettlementCheck = () => {
+      if (resumesSeenBySettlement === -1) resumesSeenBySettlement = resumes
+    }
+    store.seed(makeRecord({ id: 'a', stage: 'paying' }))
+    store.seed(makeRecord({ id: 'b', stage: 'sweeping', publishedAt: NOW }))
+    await service.resumeAll()
+    expect(resumes).toBe(2)
+    expect(resumesSeenBySettlement).toBe(2)
+  })
+
+  it('settles payments even when the provider step threw', async () => {
+    const { service, store, control } = setup({ settlementStates: ['finalized', 'finalized'] })
+    store.seed(makeRecord({ stage: 'paying' }))
+    control.resumeError = new Error('provider down')
+    await service.resumeAll()
+    expect(store.records.get('payout-1')?.payments.map((payment) => payment.status)).toEqual([
+      'paid',
+      'paid',
+    ])
+  })
+
   it('keeps a completed payout completed', async () => {
     const { service, store, control, calls } = setup()
     store.seed(
@@ -693,8 +1016,8 @@ describe('onchain payout service resume', () => {
 })
 
 describe('onchain payout service views', () => {
-  it('sums in-flight amounts per mint', async () => {
-    const { service, store } = setup()
+  it('sums the uncovered in-flight amount per mint', async () => {
+    const { service, store, heldCalls } = setup()
     store.seed(
       makeRecord({
         id: 'a',
@@ -716,8 +1039,85 @@ describe('onchain payout service views', () => {
       }),
     )
     expect(await service.inFlightAmount()).toBe(3030 + 505)
+    const beforeSingleMint = heldCalls.length
     expect(await service.inFlightAmount(MINT)).toBe(3030)
+    expect(heldCalls.slice(beforeSingleMint)).toEqual([
+      { mintUrl: MINT, operationIds: ['op-a', 'op-b'] },
+    ])
     expect(await service.inFlightAmount('https://other.example.com')).toBe(505)
+  })
+
+  it('deducts nothing while the payout operations still hold every proof', async () => {
+    const { service, store, paymentControl } = setup()
+    store.seed(openRecord())
+    paymentControl.held = { 'op-fee': 45500, 'op-main': 55500 }
+    expect(await service.inFlightAmount(MINT)).toBe(0)
+  })
+
+  it('deducts the full amount once the payout operations hold nothing', async () => {
+    const { service, store, paymentControl } = setup()
+    store.seed(openRecord())
+    paymentControl.held = {}
+    expect(await service.inFlightAmount(MINT)).toBe(101000)
+  })
+
+  it('deducts only the part the payout operations no longer hold', async () => {
+    const { service, store, paymentControl } = setup()
+    store.seed(openRecord())
+    paymentControl.held = { 'op-fee': 45500 }
+    expect(await service.inFlightAmount(MINT)).toBe(55500)
+  })
+
+  it('deducts nothing while a swapped payment still holds its send proofs', async () => {
+    const { service, store, paymentControl } = setup()
+    store.seed(
+      openRecord({
+        payments: [
+          { request: 'main', amount: 55000, operationId: 'op-main', feeReserve: 500, status: 'dispatched', feePaid: null, settledAt: null },
+        ],
+      }),
+    )
+    paymentControl.held = { 'op-main': 55500 }
+    expect(await service.inFlightAmount(MINT)).toBe(0)
+
+    paymentControl.held = { 'op-main': 0 }
+    expect(await service.inFlightAmount(MINT)).toBe(55500)
+  })
+
+  it('does not let one payment surplus hide another payment shortfall', async () => {
+    const { service, store, paymentControl } = setup()
+    store.seed(
+      openRecord({
+        payments: [
+          { request: 'a', amount: 9991, operationId: 'op-a', feeReserve: 9, status: 'dispatched', feePaid: null, settledAt: null },
+          { request: 'b', amount: 795, operationId: 'op-b', feeReserve: 5, status: 'dispatched', feePaid: null, settledAt: null },
+        ],
+      }),
+    )
+    paymentControl.held = { 'op-a': 10900, 'op-b': 0 }
+    expect(await service.inFlightAmount(MINT)).toBe(800)
+  })
+
+  it('counts a payment without an operation id fully', async () => {
+    const { service, store, paymentControl, heldCalls } = setup()
+    store.seed(
+      openRecord({
+        payments: [
+          { request: 'fee', amount: 45000, operationId: 'op-fee', feeReserve: 500, status: 'dispatched', feePaid: null, settledAt: null },
+          { request: 'main', amount: 55000, operationId: null, feeReserve: 500, status: 'prepared', feePaid: null, settledAt: null },
+        ],
+      }),
+    )
+    paymentControl.held = { 'op-fee': 45500 }
+    expect(await service.inFlightAmount(MINT)).toBe(55500)
+    expect(heldCalls[0].operationIds).toEqual(['op-fee'])
+  })
+
+  it('counts the full amount when the held look-up fails', async () => {
+    const { service, store, paymentControl } = setup()
+    store.seed(openRecord())
+    paymentControl.heldError = true
+    expect(await service.inFlightAmount(MINT)).toBe(101000)
   })
 
   it('returns views and lists active records', async () => {

@@ -113,6 +113,43 @@ describe('OnchainPayoutWatcher', () => {
     watcher.stop()
   })
 
+  it('refreshes the in-flight amount on every poll', async () => {
+    const active = createService([view()])
+    const refreshInFlight = vi.fn().mockResolvedValue(undefined)
+    const watcher = new OnchainPayoutWatcher({
+      service: active.service,
+      eventBus: createEventBus(),
+      pollIntervalMs: 1000,
+      refreshInFlight,
+    })
+    watcher.start()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(refreshInFlight).toHaveBeenCalledTimes(1)
+
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(refreshInFlight).toHaveBeenCalledTimes(2)
+    watcher.stop()
+  })
+
+  it('keeps polling when the in-flight refresh fails', async () => {
+    const active = createService([view()])
+    const refreshInFlight = vi.fn().mockRejectedValue(new Error('store down'))
+    const warn = vi.fn()
+    const watcher = new OnchainPayoutWatcher({
+      service: active.service,
+      eventBus: createEventBus(),
+      pollIntervalMs: 1000,
+      refreshInFlight,
+      logger: { warn },
+    })
+    watcher.start()
+    await vi.advanceTimersByTimeAsync(0)
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(active.resumeAll).toHaveBeenCalledTimes(2)
+    expect(warn).toHaveBeenCalled()
+    watcher.stop()
+  })
+
   it('catches errors and keeps polling', async () => {
     const active = createService([view()])
     active.resumeAll.mockRejectedValueOnce(new Error('boom'))

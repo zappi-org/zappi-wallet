@@ -16,6 +16,10 @@ import { toNumber } from '@/core/domain/amount'
 import { createThrottledAsync } from '@/utils/throttled-async'
 import type { ReceiveRequestUseCase } from '@/core/ports/driving/receive-request.usecase'
 import type { OnchainPayoutUseCase } from '@/core/ports/driving/onchain-payout.usecase'
+import {
+  beginOnchainPayoutInFlightWrite,
+  writeOnchainPayoutInFlight,
+} from './onchain-payout-inflight'
 
 export interface EventStoreBridgeOptions {
   handleBalance?: boolean
@@ -100,9 +104,10 @@ export function connectEventStoreBridge(
       const service = options.getOnchainPayout?.()
       if (!service) return
       const mintUrl = event.payload.mintUrl
+      const token = beginOnchainPayoutInFlightWrite()
       void service
         .inFlightAmount(mintUrl)
-        .then((amount) => useAppStore.getState().setOnchainPayoutInFlight(mintUrl, amount))
+        .then((amount) => writeOnchainPayoutInFlight(token, { [mintUrl]: amount }))
         .catch(() => {})
     }),
   )

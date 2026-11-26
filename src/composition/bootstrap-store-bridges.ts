@@ -13,6 +13,10 @@ import { useAppStore } from "@/store";
 
 import { connectEventStoreBridge } from "./event-store-bridge";
 import { connectTransferTxBridge } from "./transfer-tx-bridge";
+import {
+  beginOnchainPayoutInFlightWrite,
+  writeOnchainPayoutInFlight,
+} from "./onchain-payout-inflight";
 
 import type { EventBus } from "@/core/events/event-bus";
 import type { BalanceUseCase } from "@/core/ports/driving/balance.usecase";
@@ -66,20 +70,33 @@ export function connectStoreBridges(deps: {
     getOnchainPayout: deps.getOnchainPayout,
   });
 
+  const refreshOnchainPayoutInFlight = async () => {
+    const service = deps.getOnchainPayout?.();
+    if (!service) return;
+    const token = beginOnchainPayoutInFlightWrite();
+    try {
+      const active = await service.listActive();
+      const known = Object.keys(useAppStore.getState().onchainPayoutInFlightByMint);
+      const amounts: Record<string, number> = {};
+      for (const mintUrl of known) amounts[mintUrl] = 0;
+      for (const mintUrl of new Set(active.map((view) => view.mintUrl))) {
+        amounts[mintUrl] = await service.inFlightAmount(mintUrl);
+      }
+      writeOnchainPayoutInFlight(token, amounts);
+    } catch {
+      return;
+    }
+  };
+
   const seedOnchainPayouts = async () => {
     const service = deps.getOnchainPayout?.();
     if (!service) return;
     try {
-      const active = await service.listActive();
-      useAppStore.getState().setOnchainPayouts(active);
-      for (const mintUrl of new Set(active.map((view) => view.mintUrl))) {
-        useAppStore
-          .getState()
-          .setOnchainPayoutInFlight(mintUrl, await service.inFlightAmount(mintUrl));
-      }
+      useAppStore.getState().setOnchainPayouts(await service.listActive());
     } catch {
       return;
     }
+    await refreshOnchainPayoutInFlight();
   };
 
   // Transfer → Transaction bridge (persists tx history for the TLS path)
@@ -89,5 +106,11 @@ export function connectStoreBridges(deps: {
     triggerTxRefresh: () => useAppStore.getState().triggerTxRefresh(),
   });
 
-  return { balanceRefresh, disconnectBridge, disconnectTransferBridge, seedOnchainPayouts };
+  return {
+    balanceRefresh,
+    disconnectBridge,
+    disconnectTransferBridge,
+    seedOnchainPayouts,
+    refreshOnchainPayoutInFlight,
+  };
 }

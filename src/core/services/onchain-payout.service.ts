@@ -46,7 +46,12 @@ export interface OnchainPayoutServiceDeps {
   store: OnchainPayoutStore
   payments: Pick<
     RoutePaymentOperator,
-    'prepareMelt' | 'executeMelt' | 'rollbackMelt' | 'refreshMelt'
+    | 'prepareMelt'
+    | 'executeMelt'
+    | 'rollbackMelt'
+    | 'refreshMelt'
+    | 'checkMeltSettlement'
+    | 'heldAmounts'
   >
   eventBus: EventBus
   enabled: () => boolean
@@ -74,6 +79,7 @@ export class OnchainPayoutService implements OnchainPayoutUseCase {
   private readonly logger?: OnchainPayoutServiceLogger
 
   private readonly quotes = new Map<string, PendingQuote>()
+  private readonly starting = new Set<string>()
   private readonly pendingExecutions = new Set<string>()
   private resumePromise: Promise<void> | null = null
 
@@ -184,6 +190,7 @@ export class OnchainPayoutService implements OnchainPayoutUseCase {
 
     const id = this.newId()
     const at = this.now()
+    this.starting.add(id)
     const record: OnchainPayoutRecord = {
       id,
       version: 1,
@@ -213,30 +220,45 @@ export class OnchainPayoutService implements OnchainPayoutUseCase {
     }
 
     try {
-      await this.store.create(record, started.secrets)
-    } catch (error) {
-      return Err(new UnknownError('could not persist the payout', error))
+      try {
+        await this.store.create(record, started.secrets)
+      } catch (error) {
+        return Err(new UnknownError('could not persist the payout', error))
+      }
+      this.emit(record)
+      const prepared = await this.prepareAndDispatch(record)
+      return prepared
+    } finally {
+      this.starting.delete(id)
     }
-    this.emit(record)
+  }
 
+  private async prepareAndDispatch(
+    record: OnchainPayoutRecord,
+  ): Promise<Result<OnchainPayoutView, BaseError>> {
+    const id = record.id
     const preparedOperations: string[] = []
     for (let index = 0; index < record.payments.length; index++) {
       try {
         const result = await this.payments.prepareMelt(
-          mintUrl,
+          record.mintUrl,
           record.payments[index].request,
         )
-        const stored = await this.persist(id, (current) => ({
-          payments: current.payments.map((payment, paymentIndex) =>
-            paymentIndex === index
-              ? {
-                  ...payment,
-                  operationId: result.operationId,
-                  feeReserve: result.feeReserve,
-                }
-              : payment,
-          ),
-        }))
+        const stored = await this.persist(id, (current) =>
+          current.stage === 'quoted'
+            ? {
+                payments: current.payments.map((payment, paymentIndex) =>
+                  paymentIndex === index
+                    ? {
+                        ...payment,
+                        operationId: result.operationId,
+                        feeReserve: result.feeReserve,
+                      }
+                    : payment,
+                ),
+              }
+            : null,
+        )
         if (!stored) {
           return this.failPrepare(
             id,
@@ -254,29 +276,34 @@ export class OnchainPayoutService implements OnchainPayoutUseCase {
       }
     }
 
-    const dispatched = await this.persist(id, (current) => ({
-      payments: current.payments.map((payment) => ({
-        ...payment,
-        status: 'dispatched' as const,
-      })),
-      stage: 'paying',
-      phase: this.phaseFor(current, 'paying'),
-    }))
+    const dispatched = await this.persist(id, (current) =>
+      current.stage === 'quoted'
+        ? {
+            payments: current.payments.map((payment) => ({
+              ...payment,
+              status: 'dispatched' as const,
+            })),
+            stage: 'paying',
+            phase: this.phaseFor(current, 'paying'),
+          }
+        : null,
+    )
     if (!dispatched) {
-      return Err(new UnknownError('payout record update failed'))
+      await this.rollbackOperations(preparedOperations, 'payout_not_dispatched')
+      return Err(
+        new OnchainPayoutProviderRejectedError('payout was interrupted before dispatch'),
+      )
     }
 
-    const operationIds = dispatched.payments
-      .map((payment) => payment.operationId)
-      .filter((operationId): operationId is string => operationId !== null)
-
     void Promise.all(
-      operationIds.map((operationId) => {
+      dispatched.payments.map((payment, index) => {
+        const operationId = payment.operationId
+        if (operationId === null) return Promise.resolve()
         this.pendingExecutions.add(operationId)
         return this.payments.executeMelt(operationId).then(
           (result) => {
             this.pendingExecutions.delete(operationId)
-            return this.onPaymentResult(id, operationId, result)
+            return this.onPaymentResult(id, index, result)
           },
           (error: unknown) => {
             this.pendingExecutions.delete(operationId)
@@ -309,20 +336,54 @@ export class OnchainPayoutService implements OnchainPayoutUseCase {
 
   async inFlightAmount(mintUrl?: string): Promise<number> {
     const records = await this.store.listActive()
-    let total = 0
+    const perMint = new Map<string, OnchainPayoutPayment[]>()
     for (const record of records) {
       if (mintUrl !== undefined && record.mintUrl !== mintUrl) continue
+      const open = perMint.get(record.mintUrl) ?? []
       for (const payment of record.payments) {
         if (payment.status !== 'prepared' && payment.status !== 'dispatched') continue
-        total += payment.amount + payment.feeReserve
+        open.push(payment)
+      }
+      perMint.set(record.mintUrl, open)
+    }
+    let uncovered = 0
+    for (const [recordMintUrl, open] of perMint) {
+      uncovered += await this.uncoveredAmount(recordMintUrl, open)
+    }
+    return uncovered
+  }
+
+  private async uncoveredAmount(
+    mintUrl: string,
+    open: OnchainPayoutPayment[],
+  ): Promise<number> {
+    const totalOf = (payment: OnchainPayoutPayment) => payment.amount + payment.feeReserve
+    const operationIds = open
+      .map((payment) => payment.operationId)
+      .filter((operationId): operationId is string => operationId !== null)
+    let held: Record<string, number> = {}
+    if (operationIds.length > 0) {
+      try {
+        held = await this.payments.heldAmounts(mintUrl, operationIds)
+      } catch (error) {
+        this.logger?.warn(
+          `payout held amount failed: ${mintUrl} ${error instanceof Error ? error.message : ''}`,
+        )
+        return open.reduce((sum, payment) => sum + totalOf(payment), 0)
       }
     }
-    return total
+    return open.reduce((sum, payment) => {
+      const heldByPayment = payment.operationId === null ? 0 : (held[payment.operationId] ?? 0)
+      return sum + Math.max(0, totalOf(payment) - heldByPayment)
+    }, 0)
   }
 
   private async runResumeAll(): Promise<void> {
     const records = await this.store.listActive()
+    const settle: string[] = []
     for (const record of records) {
+      if (this.starting.has(record.id)) continue
+      if (RESUMABLE_STAGES.includes(record.stage)) settle.push(record.id)
       try {
         await this.resumeRecord(record)
       } catch (error) {
@@ -331,6 +392,7 @@ export class OnchainPayoutService implements OnchainPayoutUseCase {
         )
       }
     }
+    await this.settleOpenPayments(settle)
   }
 
   private async resumeRecord(record: OnchainPayoutRecord): Promise<void> {
@@ -343,6 +405,54 @@ export class OnchainPayoutService implements OnchainPayoutUseCase {
       return
     }
     await this.reconcile(record.id)
+  }
+
+  private async settleOpenPayments(ids: string[]): Promise<void> {
+    if (ids.length === 0) return
+    let timer: ReturnType<typeof setTimeout> | undefined
+    try {
+      const timeout = new Promise<void>((resolve) => {
+        timer = setTimeout(resolve, this.statusTimeoutMs)
+      })
+      await Promise.race([
+        Promise.allSettled(ids.map((id) => this.settleRecordPayments(id))),
+        timeout,
+      ])
+    } finally {
+      if (timer !== undefined) clearTimeout(timer)
+    }
+  }
+
+  private async settleRecordPayments(id: string): Promise<void> {
+    const record = await this.store.get(id)
+    if (!record || !RESUMABLE_STAGES.includes(record.stage)) return
+    await Promise.allSettled(
+      record.payments.map(async (payment, index) => {
+        if (payment.status !== 'dispatched') return
+        if (payment.operationId === null) return
+        if (this.pendingExecutions.has(payment.operationId)) return
+        const state = await this.checkSettlement(payment.operationId)
+        if (state === 'finalized') {
+          await this.markPayment(id, index, () => ({ status: 'paid' }))
+          return
+        }
+        if (state === 'rolled_back') {
+          await this.markPayment(id, index, () => ({ status: 'rolled_back' }))
+        }
+      }),
+    )
+  }
+
+  private async checkSettlement(operationId: string): Promise<string | null> {
+    try {
+      const result = await this.payments.checkMeltSettlement(operationId)
+      return result.state
+    } catch (error) {
+      this.logger?.warn(
+        `payout settlement check failed: ${operationId} ${error instanceof Error ? error.message : ''}`,
+      )
+      return null
+    }
   }
 
   private async resumeProvider(record: OnchainPayoutRecord): Promise<void> {
@@ -397,50 +507,75 @@ export class OnchainPayoutService implements OnchainPayoutUseCase {
     await this.reconcile(record.id)
   }
 
-  private async failPrepare(
-    id: string,
+  private async rollbackOperations(
     operations: string[],
-    error: BaseError,
-  ): Promise<Result<OnchainPayoutView, BaseError>> {
+    reason: string,
+  ): Promise<Set<string>> {
+    const rolledBack = new Set<string>()
     for (const operationId of operations) {
       if (this.pendingExecutions.has(operationId)) continue
       try {
-        await this.payments.rollbackMelt(operationId, 'prepare_failed')
+        await this.payments.rollbackMelt(operationId, reason)
+        rolledBack.add(operationId)
       } catch (rollbackError) {
         this.logger?.warn(
           `payout rollback failed: ${operationId} ${rollbackError instanceof Error ? rollbackError.message : ''}`,
         )
       }
     }
+    return rolledBack
+  }
+
+  private async failPrepare(
+    id: string,
+    operations: string[],
+    error: BaseError,
+  ): Promise<Result<OnchainPayoutView, BaseError>> {
+    const rolledBack = await this.rollbackOperations(operations, 'prepare_failed')
     await this.persist(id, (current) => ({
       stage: 'aborted',
       phase: this.phaseFor(current, 'aborted'),
       failureReason: 'prepare_failed',
+      payments: current.payments.map((payment) =>
+        payment.operationId === null || rolledBack.has(payment.operationId)
+          ? { ...payment, status: 'rolled_back' as const }
+          : payment,
+      ),
     }))
     return Err(error)
   }
 
   private async rollbackPrepared(record: OnchainPayoutRecord): Promise<void> {
-    for (const payment of record.payments) {
-      if (payment.operationId === null) continue
-      try {
-        await this.payments.rollbackMelt(payment.operationId, 'interrupted_before_payment')
-      } catch (error) {
-        this.logger?.warn(
-          `payout rollback failed: ${payment.operationId} ${error instanceof Error ? error.message : ''}`,
-        )
-      }
+    const aborted = await this.persist(record.id, (current) =>
+      this.canAbortUnpaid(current)
+        ? {
+            stage: 'aborted',
+            phase: this.phaseFor(current, 'aborted'),
+            failureReason: 'interrupted_before_payment',
+          }
+        : null,
+    )
+    if (aborted) await this.reconcileTerminal(aborted)
+  }
+
+  private canAbortUnpaid(record: OnchainPayoutRecord): boolean {
+    return (
+      record.stage === 'quoted' &&
+      !record.payments.some((payment) => payment.status === 'dispatched')
+    )
+  }
+
+  private async rollbackUnpaid(operationId: string): Promise<boolean> {
+    if (this.pendingExecutions.has(operationId)) return false
+    try {
+      await this.payments.rollbackMelt(operationId, 'payout_not_sent')
+      return true
+    } catch (error) {
+      this.logger?.warn(
+        `payout rollback failed: ${operationId} ${error instanceof Error ? error.message : ''}`,
+      )
+      return (await this.refreshWithTimeout(operationId)) === 'rolled_back'
     }
-    await this.persist(record.id, (current) => ({
-      stage: 'aborted',
-      phase: this.phaseFor(current, 'aborted'),
-      failureReason: 'interrupted_before_payment',
-      payments: current.payments.map((payment) =>
-        payment.status === 'prepared'
-          ? { ...payment, status: 'rolled_back' as const }
-          : payment,
-      ),
-    }))
   }
 
   private async applyProgress(id: string, progress: OnchainPayoutProgress): Promise<void> {
@@ -454,7 +589,7 @@ export class OnchainPayoutService implements OnchainPayoutUseCase {
         phase: this.phaseFor(current, progress.stage),
       }
       if (progress.payoutTxId !== undefined) changes.payoutTxId = progress.payoutTxId
-      if (progress.failureReason !== undefined) changes.failureReason = progress.failureReason
+      changes.failureReason = progress.failureReason ?? null
       return changes
     })
   }
@@ -472,23 +607,32 @@ export class OnchainPayoutService implements OnchainPayoutUseCase {
   }
 
   private async reconcileCompleted(record: OnchainPayoutRecord): Promise<void> {
-    for (const payment of record.payments) {
+    for (let index = 0; index < record.payments.length; index++) {
+      const payment = record.payments[index]
       if (payment.operationId === null) continue
       if (this.pendingExecutions.has(payment.operationId)) continue
       if (payment.status === 'paid' || payment.status === 'rolled_back') continue
       const state = await this.refreshWithTimeout(payment.operationId)
       if (state === 'finalized') {
-        await this.markPayment(record.id, payment.operationId, () => ({ status: 'paid' }))
+        await this.markPayment(record.id, index, () => ({ status: 'paid' }))
         continue
       }
       if (state === 'rolled_back') {
-        await this.markPayment(record.id, payment.operationId, () => ({ status: 'rolled_back' }))
+        await this.markPayment(record.id, index, () => ({ status: 'rolled_back' }))
       }
     }
   }
 
   private async reconcileTerminal(record: OnchainPayoutRecord): Promise<void> {
-    for (const payment of record.payments) {
+    for (let index = 0; index < record.payments.length; index++) {
+      const payment = record.payments[index]
+      if (payment.status === 'prepared') {
+        if (payment.operationId !== null && !(await this.rollbackUnpaid(payment.operationId))) {
+          continue
+        }
+        await this.markPayment(record.id, index, () => ({ status: 'rolled_back' }))
+        continue
+      }
       if (payment.status !== 'dispatched') continue
       if (payment.operationId === null) continue
       if (this.pendingExecutions.has(payment.operationId)) continue
@@ -502,15 +646,15 @@ export class OnchainPayoutService implements OnchainPayoutUseCase {
           )
           continue
         }
-        await this.markPayment(record.id, payment.operationId, () => ({ status: 'rolled_back' }))
+        await this.markPayment(record.id, index, () => ({ status: 'rolled_back' }))
         continue
       }
       if (state === 'finalized') {
-        await this.markPayment(record.id, payment.operationId, () => ({ status: 'paid' }))
+        await this.markPayment(record.id, index, () => ({ status: 'paid' }))
         continue
       }
       if (state === 'rolled_back') {
-        await this.markPayment(record.id, payment.operationId, () => ({ status: 'rolled_back' }))
+        await this.markPayment(record.id, index, () => ({ status: 'rolled_back' }))
       }
     }
   }
@@ -535,11 +679,11 @@ export class OnchainPayoutService implements OnchainPayoutUseCase {
 
   private async onPaymentResult(
     id: string,
-    operationId: string,
+    index: number,
     result: ExecutedRouteMelt,
   ): Promise<void> {
     if (!result.secret) return
-    await this.markPayment(id, operationId, (payment) => ({
+    await this.markPayment(id, index, (payment) => ({
       status: 'paid',
       feePaid: result.effectiveFee ?? payment.feePaid,
       settledAt: this.now(),
@@ -558,15 +702,12 @@ export class OnchainPayoutService implements OnchainPayoutUseCase {
 
   private async markPayment(
     id: string,
-    operationId: string,
+    index: number,
     patch: (payment: OnchainPayoutPayment) => Partial<OnchainPayoutPayment>,
   ): Promise<void> {
     await this.persist(id, (current) => {
-      const index = current.payments.findIndex(
-        (payment) => payment.operationId === operationId,
-      )
-      if (index === -1) return null
       const payment = current.payments[index]
+      if (!payment) return null
       if (payment.status === 'paid' || payment.status === 'rolled_back') return null
       const change = patch(payment)
       return {
@@ -607,7 +748,7 @@ export class OnchainPayoutService implements OnchainPayoutUseCase {
       const record = await this.store.get(id)
       if (!record) return null
       const changes = mutate(record)
-      if (!changes) return record
+      if (!changes) return null
       const updatedAt = this.now()
       const applied = await this.store.update(id, record.version, {
         ...changes,

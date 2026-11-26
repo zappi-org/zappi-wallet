@@ -52,6 +52,8 @@ function createMockRouteOperator(): RoutePaymentOperator {
     executeMelt: vi.fn(),
     rollbackMelt: vi.fn(),
     refreshMelt: vi.fn(),
+    heldAmounts: vi.fn().mockResolvedValue({}),
+    checkMeltSettlement: vi.fn(),
     redeemMintQuote: vi.fn(),
     mintAndReceive: vi.fn(),
     prepareTokenSend: vi.fn(),

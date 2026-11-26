@@ -24,9 +24,16 @@ const payments = {
   executeMelt: vi.fn(),
   rollbackMelt: vi.fn(),
   refreshMelt: vi.fn(),
+  heldAmounts: vi.fn().mockResolvedValue({}),
+  checkMeltSettlement: vi.fn().mockResolvedValue({ state: 'pending' }),
 } as unknown as Pick<
   RoutePaymentOperator,
-  'prepareMelt' | 'executeMelt' | 'rollbackMelt' | 'refreshMelt'
+  | 'prepareMelt'
+  | 'executeMelt'
+  | 'rollbackMelt'
+  | 'refreshMelt'
+  | 'checkMeltSettlement'
+  | 'heldAmounts'
 >
 
 describe('createOnchainPayout', () => {

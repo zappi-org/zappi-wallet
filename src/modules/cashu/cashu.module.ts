@@ -34,6 +34,8 @@ import {
 
 export interface CashuModuleBackend extends LightningBackend, EcashBackend {
   getBalances(): Promise<{ [mintUrl: string]: number }>
+  heldAmounts(mintUrl: string, operationIds: string[]): Promise<Record<string, number>>
+  checkMeltSettlement(operationId: string): Promise<{ state: string }>
   restoreWallet(mintUrl: string): Promise<void>
   recoverPendingQuotes(): Promise<{ recovered: number; failed: number; expired: number }>
   storeOfflineToken(token: string, amount: number, mintUrl: string, dleqStatus: 'valid' | 'missing'): Promise<string>

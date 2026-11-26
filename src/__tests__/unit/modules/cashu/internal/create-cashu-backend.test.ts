@@ -40,6 +40,9 @@ vi.mock('@/modules/cashu/internal/cashu-backend', () => ({
   onMintQuotePaid: vi.fn(),
   getQuoteRecoveryOps: getQuoteRecoveryOpsMock,
   getBalances: vi.fn(),
+  heldAmounts: vi.fn(),
+  checkMeltSettlement: vi.fn(),
+  getProofsByOperationId: vi.fn(),
   restoreWallet: vi.fn(),
   inspectInput: vi.fn(),
 }))
