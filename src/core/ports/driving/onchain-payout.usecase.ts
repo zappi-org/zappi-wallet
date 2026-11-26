@@ -5,11 +5,16 @@ import type { BaseError } from '@/core/errors/base'
 import type {
   OnchainPayoutDeadline,
   OnchainPayoutLimits,
+  OnchainPayoutOffer,
 } from '@/core/ports/driven/onchain-payout-provider.port'
+
+export type { OnchainPayoutOffer }
 
 export interface OnchainPayoutQuoteView {
   quoteId: string
   providerId: string
+  offerId: string
+  identifier: string
   destination: string
   sendAmount: number
   receiveAmount: number
@@ -24,6 +29,8 @@ export interface OnchainPayoutQuoteView {
 export interface OnchainPayoutView {
   id: string
   mintUrl: string
+  offerId: string | null
+  identifier: string | null
   destination: string
   sendAmount: number
   receiveAmount: number
@@ -39,7 +46,9 @@ export interface OnchainPayoutView {
 
 export interface OnchainPayoutUseCase {
   isEnabled(): boolean
+  listOffers(): Promise<Result<OnchainPayoutOffer[], BaseError>>
   quote(params: {
+    offerId?: string
     sendAmount: number
     destination: string
     mintUrl: string

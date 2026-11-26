@@ -16,6 +16,7 @@ const otherSecret = generateSecretKey()
 const otherPubkey = getPublicKey(otherSecret)
 
 const offer: PayoutOffer = {
+  eventId: 'event-1',
   pubkey: serverPubkey,
   feePercent: 0.5,
   networkFee: 150,

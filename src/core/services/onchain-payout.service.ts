@@ -7,12 +7,14 @@ import { Err, Ok, type Result } from '@/core/domain/result'
 import { BaseError, UnknownError } from '@/core/errors/base'
 import {
   OnchainPayoutAmountOutOfRangeError,
+  OnchainPayoutOfferUnavailableError,
   OnchainPayoutProviderRejectedError,
   OnchainPayoutQuoteExpiredError,
   OnchainPayoutUnavailableError,
 } from '@/core/errors/onchain-payout'
 import type { EventBus } from '@/core/events/event-bus'
 import type {
+  OnchainPayoutOffer,
   OnchainPayoutProgress,
   OnchainPayoutProvider,
   OnchainPayoutQuote,
@@ -99,13 +101,32 @@ export class OnchainPayoutService implements OnchainPayoutUseCase {
     return this.enabled()
   }
 
+  async listOffers(): Promise<Result<OnchainPayoutOffer[], BaseError>> {
+    if (!this.enabled()) {
+      return Err(new OnchainPayoutUnavailableError('onchain payout is disabled'))
+    }
+    try {
+      return Ok(await this.provider.listOffers())
+    } catch (error) {
+      return Err(
+        error instanceof BaseError
+          ? error
+          : new OnchainPayoutUnavailableError('payout offers failed', error),
+      )
+    }
+  }
+
   async quote(params: {
+    offerId?: string
     sendAmount: number
     destination: string
     mintUrl: string
   }): Promise<Result<OnchainPayoutQuoteView, BaseError>> {
     if (!this.enabled()) {
       return Err(new OnchainPayoutUnavailableError('onchain payout is disabled'))
+    }
+    if (params.offerId === undefined || params.offerId.length === 0) {
+      return Err(new OnchainPayoutOfferUnavailableError('no payout provider was chosen'))
     }
     if (!Number.isSafeInteger(params.sendAmount) || params.sendAmount <= 0) {
       return Err(
@@ -120,6 +141,7 @@ export class OnchainPayoutService implements OnchainPayoutUseCase {
     let quote: OnchainPayoutQuote
     try {
       quote = await this.provider.quote({
+        offerId: params.offerId,
         sendAmount: params.sendAmount,
         destination: params.destination,
       })
@@ -139,6 +161,8 @@ export class OnchainPayoutService implements OnchainPayoutUseCase {
     return Ok({
       quoteId,
       providerId: quote.providerId,
+      offerId: quote.offerId,
+      identifier: quote.identifier,
       destination: quote.destination,
       sendAmount: quote.sendAmount,
       receiveAmount: quote.receiveAmount,
@@ -195,6 +219,8 @@ export class OnchainPayoutService implements OnchainPayoutUseCase {
       id,
       version: 1,
       providerId: this.provider.id,
+      offerId: quote.offerId,
+      identifier: quote.identifier,
       mintUrl,
       destination: quote.destination,
       sendAmount: started.sendAmount,
@@ -806,6 +832,8 @@ export class OnchainPayoutService implements OnchainPayoutUseCase {
     return {
       id: record.id,
       mintUrl: record.mintUrl,
+      offerId: record.offerId ?? null,
+      identifier: record.identifier ?? null,
       destination: record.destination,
       sendAmount: record.sendAmount,
       receiveAmount: record.receiveAmount,

@@ -13,6 +13,7 @@ export const REQUEST_KIND = 25582
 export const SWAP_TX_SIZE = 150
 export const MAX_PREPAY_RATIO = 0.5
 export const MAX_PREPAY_FEE_MULTIPLIER = 4
+export const REFERENCE_PAYOUT_SATS = 20_000
 
 const OFFER_MAX_AGE_SECONDS = 3600
 const MAX_OFFER_RELAYS = 10
@@ -25,6 +26,7 @@ const LARGE_COST_SATS = 1_000_000
 const LARGE_COST_RATIO_LIMIT = 0.15
 
 export interface PayoutOffer {
+  eventId: string
   pubkey: string
   feePercent: number
   networkFee: number
@@ -219,6 +221,7 @@ export function parseOffers(
     }
 
     offers.push({
+      eventId: event.id,
       pubkey: event.pubkey,
       feePercent,
       networkFee,
@@ -233,57 +236,41 @@ export function parseOffers(
   return offers
 }
 
-export function offerLimits(
-  offers: PayoutOffer[],
+export function offerRange(
+  offer: PayoutOffer,
   limits: AppPayoutLimits,
 ): { minAmount: number; maxAmount: number } {
-  if (offers.length === 0) {
-    return { minAmount: limits.appMinAmount, maxAmount: limits.appMaxAmount }
+  return {
+    minAmount: Math.max(offer.minAmount, limits.appMinAmount),
+    maxAmount: Math.min(offer.maxForwardAmount, limits.appMaxAmount),
   }
-  let minAmount = Number.POSITIVE_INFINITY
-  let maxAmount = 0
-  for (const offer of offers) {
-    minAmount = Math.min(minAmount, Math.max(offer.minAmount, limits.appMinAmount))
-    maxAmount = Math.max(maxAmount, Math.min(offer.maxForwardAmount, limits.appMaxAmount))
-  }
-  return { minAmount, maxAmount }
 }
 
-export function rankOffers(
+export function offerIdOf(offer: PayoutOffer): string {
+  return `${offer.pubkey}:${offer.eventId}`
+}
+
+export function selectPayoutOffers(
   offers: PayoutOffer[],
-  sendAmount: number,
   limits: AppPayoutLimits,
   feeRateSatPerVb: number,
 ): PayoutOffer[] {
-  return offers
-    .filter((offer) => {
-      const min = Math.max(offer.minAmount, limits.appMinAmount)
-      const max = Math.min(offer.maxForwardAmount, limits.appMaxAmount)
-      if (sendAmount < min || sendAmount > max) return false
-      const onchainAmount = payoutReceiveAmount({
-        sendAmount,
-        feePercent: offer.feePercent,
-        networkFee: offer.networkFee,
-      })
-      if (!checkPayoutCosts({ sendAmount, onchainAmount }).ok) return false
-      return checkUpfront({
-        upfrontAmount: 2 * offer.networkFee,
-        sendAmount,
-        feeRateSatPerVb,
-      }).ok
+  return offers.filter((offer) => {
+    const { minAmount, maxAmount } = offerRange(offer, limits)
+    if (minAmount > maxAmount) return false
+    const reference = Math.min(maxAmount, Math.max(minAmount, REFERENCE_PAYOUT_SATS))
+    const onchainAmount = payoutReceiveAmount({
+      sendAmount: reference,
+      feePercent: offer.feePercent,
+      networkFee: offer.networkFee,
     })
-    .map((offer) => ({
-      offer,
-      cost:
-        sendAmount -
-        payoutReceiveAmount({
-          sendAmount,
-          feePercent: offer.feePercent,
-          networkFee: offer.networkFee,
-        }),
-    }))
-    .sort((a, b) => a.cost - b.cost || b.offer.powBits - a.offer.powBits)
-    .map((entry) => entry.offer)
+    if (!checkPayoutCosts({ sendAmount: reference, onchainAmount }).ok) return false
+    return checkUpfront({
+      upfrontAmount: 2 * offer.networkFee,
+      sendAmount: reference,
+      feeRateSatPerVb,
+    }).ok
+  })
 }
 
 export async function fetchOffers(

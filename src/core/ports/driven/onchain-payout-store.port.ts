@@ -24,6 +24,8 @@ export interface OnchainPayoutRecord {
   id: string
   version: number
   providerId: string
+  offerId?: string
+  identifier?: string
   mintUrl: string
   destination: string
   sendAmount: number

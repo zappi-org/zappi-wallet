@@ -63,6 +63,18 @@ describe('DexieOnchainPayoutStore', () => {
     expect(await store.readSecrets('missing')).toBeNull()
   })
 
+  it('round trips the chosen offer and still loads records without one', async () => {
+    const withOffer = makeRecord({ id: 'with-offer', offerId: 'fake:offer-1', identifier: 'npub1fake' })
+    const legacy = makeRecord({ id: 'legacy' })
+    await store.create(withOffer, 's')
+    await store.create(legacy, 's')
+    expect(await store.get('with-offer')).toMatchObject({
+      offerId: 'fake:offer-1',
+      identifier: 'npub1fake',
+    })
+    expect(await store.get('legacy')).toEqual(legacy)
+  })
+
   it('never stores the secrets as plaintext', async () => {
     await store.create(makeRecord(), 'super-secret-blob')
     const rows = await new Promise<unknown[]>((resolve, reject) => {

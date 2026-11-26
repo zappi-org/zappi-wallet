@@ -10,6 +10,8 @@ vi.mock('react-i18next', () => ({
 const payout: OnchainPayoutView = {
   id: 'payout-1',
   mintUrl: 'https://mint.example.com',
+  offerId: 'fake:offer-1',
+  identifier: 'npub1fake',
   destination: 'bcrt1qdestination',
   sendAmount: 100000,
   receiveAmount: 99000,

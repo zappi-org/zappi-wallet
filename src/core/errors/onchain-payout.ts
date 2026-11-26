@@ -50,6 +50,15 @@ export class OnchainPayoutQuoteExpiredError extends BaseError {
   }
 }
 
+export class OnchainPayoutOfferUnavailableError extends BaseError {
+  readonly code = 'ONCHAIN_PAYOUT_OFFER_UNAVAILABLE' as const
+  readonly isRetryable = true
+
+  constructor(message: string, cause?: unknown) {
+    super(message, cause)
+  }
+}
+
 export class OnchainPayoutActiveError extends BaseError {
   readonly code = 'ONCHAIN_PAYOUT_ACTIVE' as const
   readonly isRetryable = false

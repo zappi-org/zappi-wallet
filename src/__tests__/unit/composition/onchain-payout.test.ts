@@ -52,6 +52,9 @@ describe('createOnchainPayout', () => {
       })
       expect(quote.ok).toBe(false)
       expect(!quote.ok && quote.error).toBeInstanceOf(OnchainPayoutUnavailableError)
+      const offers = await bundle.service.listOffers()
+      expect(offers.ok).toBe(false)
+      expect(!offers.ok && offers.error).toBeInstanceOf(OnchainPayoutUnavailableError)
       expect(await bundle.service.listActive()).toEqual([])
     } finally {
       bundle.dispose()

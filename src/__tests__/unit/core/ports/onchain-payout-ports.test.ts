@@ -4,12 +4,14 @@ import { Ok } from '@/core/domain/result'
 import {
   OnchainPayoutAmountOutOfRangeError,
   OnchainPayoutInvalidDestinationError,
+  OnchainPayoutOfferUnavailableError,
   OnchainPayoutProviderRejectedError,
   OnchainPayoutQuoteExpiredError,
   OnchainPayoutUnavailableError,
 } from '@/core/errors/onchain-payout'
 import type {
   OnchainPayoutAdvance,
+  OnchainPayoutOffer,
   OnchainPayoutProgress,
   OnchainPayoutProvider,
   OnchainPayoutQuote,
@@ -26,8 +28,22 @@ import type {
   OnchainPayoutView,
 } from '@/core/ports/driving/onchain-payout.usecase'
 
+const offer = {
+  offerId: 'offer-1',
+  identifier: 'npub1provider',
+  feePercent: 0.3,
+  networkFee: 150,
+  payoutFeeRate: 2,
+  payoutFeeEstimate: 136,
+  minAmount: 20000,
+  maxAmount: 1000000,
+  seenAt: 1700000000000,
+} satisfies OnchainPayoutOffer
+
 const quote = {
   providerId: 'provider-1',
+  offerId: offer.offerId,
+  identifier: offer.identifier,
   destination: 'bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080',
   sendAmount: 100000,
   receiveAmount: 99000,
@@ -43,6 +59,8 @@ const quote = {
 const quoteView = {
   quoteId: 'quote-1',
   providerId: quote.providerId,
+  offerId: quote.offerId,
+  identifier: quote.identifier,
   destination: quote.destination,
   sendAmount: quote.sendAmount,
   receiveAmount: quote.receiveAmount,
@@ -122,6 +140,8 @@ const record = {
 const view = {
   id: record.id,
   mintUrl: record.mintUrl,
+  offerId: offer.offerId,
+  identifier: offer.identifier,
   destination: record.destination,
   sendAmount: record.sendAmount,
   receiveAmount: record.receiveAmount,
@@ -137,6 +157,9 @@ const view = {
 
 const provider = {
   id: 'provider-1',
+  async listOffers() {
+    return [offer]
+  },
   async quote() {
     return quote
   },
@@ -179,6 +202,9 @@ const useCase = {
   isEnabled() {
     return true
   },
+  async listOffers() {
+    return Ok([offer])
+  },
   async quote() {
     return Ok(quoteView)
   },
@@ -198,6 +224,14 @@ const useCase = {
 } satisfies OnchainPayoutUseCase
 
 describe('onchain payout provider port', () => {
+  it('lists offers with an identity, fees and limits', async () => {
+    const offers = await provider.listOffers()
+    expect(offers).toHaveLength(1)
+    expect(offers[0].offerId).toBe(offer.offerId)
+    expect(offers[0].minAmount).toBeLessThanOrEqual(offers[0].maxAmount)
+    expect(Number.isSafeInteger(offers[0].payoutFeeEstimate)).toBe(true)
+  })
+
   it('quotes integer sats and fixed fees', async () => {
     const result = await provider.quote()
     expect(result.sendAmount).toBe(100000)
@@ -207,6 +241,8 @@ describe('onchain payout provider port', () => {
     expect(Number.isSafeInteger(result.sweepFee)).toBe(true)
     expect(result.limits.minAmount).toBeLessThanOrEqual(result.sendAmount)
     expect(result.offerRef).toEqual(quote.offerRef)
+    expect(result.offerId).toBe(offer.offerId)
+    expect(result.identifier).toBe(offer.identifier)
   })
 
   it('starts with all payment requests, a deadline and no payment yet', async () => {
@@ -272,6 +308,14 @@ describe('onchain payout use case port', () => {
     expect(result.ok).toBe(true)
     expect(result.ok && result.value.receiveAmount).toBe(99000)
     expect(result.ok && result.value.quoteId).toBe('quote-1')
+    expect(result.ok && result.value.offerId).toBe(offer.offerId)
+    expect(result.ok && result.value.identifier).toBe(offer.identifier)
+  })
+
+  it('lists offers through Result', async () => {
+    const result = await useCase.listOffers()
+    expect(result.ok).toBe(true)
+    expect(result.ok && result.value.map((entry) => entry.offerId)).toEqual([offer.offerId])
   })
 
   it('starts from a stored quote id into the paying stage view', async () => {
@@ -292,6 +336,7 @@ describe('onchain payout errors', () => {
     [new OnchainPayoutInvalidDestinationError('bad address'), 'ONCHAIN_PAYOUT_INVALID_DESTINATION', false],
     [new OnchainPayoutProviderRejectedError('bad answer'), 'ONCHAIN_PAYOUT_PROVIDER_REJECTED', true],
     [new OnchainPayoutQuoteExpiredError('old quote'), 'ONCHAIN_PAYOUT_QUOTE_EXPIRED', false],
+    [new OnchainPayoutOfferUnavailableError('no offer'), 'ONCHAIN_PAYOUT_OFFER_UNAVAILABLE', true],
   ])('%s carries its code', (error, code, retryable) => {
     expect(error.code).toBe(code)
     expect(error.isRetryable).toBe(retryable)

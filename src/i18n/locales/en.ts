@@ -831,6 +831,7 @@ export default {
     onchainPayoutInvalidDestination: 'Unsupported Bitcoin address',
     onchainPayoutProviderRejected: 'The provider rejected this payout',
     onchainPayoutQuoteExpired: 'This payout quote has expired',
+    onchainPayoutOfferUnavailable: 'The chosen provider is no longer available',
     onchainPayoutActive: 'An on-chain payout is still in progress. Logging out now can lose those funds',
   },
 

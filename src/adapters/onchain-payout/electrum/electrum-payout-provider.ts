@@ -2,6 +2,7 @@ import { Transaction } from '@scure/btc-signer'
 import { pubECDSA } from '@scure/btc-signer/utils.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
+import { nip19 } from 'nostr-tools'
 import {
   decidePayoutSweep,
   PAYOUT_MIN_OUTPUT_VALUE,
@@ -13,12 +14,14 @@ import type { JsonValue } from '@/core/domain/json'
 import {
   OnchainPayoutAmountOutOfRangeError,
   OnchainPayoutInvalidDestinationError,
+  OnchainPayoutOfferUnavailableError,
   OnchainPayoutProviderRejectedError,
   OnchainPayoutQuoteExpiredError,
   OnchainPayoutUnavailableError,
 } from '@/core/errors/onchain-payout'
 import type {
   OnchainPayoutAdvance,
+  OnchainPayoutOffer,
   OnchainPayoutProvider,
   OnchainPayoutProgress,
   OnchainPayoutQuote,
@@ -27,8 +30,9 @@ import type {
 import type { OnchainPayoutStage } from '@/core/domain/onchain-payout'
 import type { PayoutChain, ChainOutspend, ChainOutput } from './chain-client'
 import {
-  offerLimits,
-  rankOffers,
+  offerIdOf,
+  offerRange,
+  selectPayoutOffers,
   fetchOffers,
   POW_TARGET_BITS,
   type PayoutOffer,
@@ -307,9 +311,13 @@ export class ElectrumPayoutProvider implements OnchainPayoutProvider {
     }
   }
 
-  private async offers(): Promise<PayoutOffer[]> {
+  private async offers(refresh = false): Promise<PayoutOffer[]> {
     const fetchedAt = this.nowMs()
-    if (this.cachedOffers && fetchedAt - this.cachedOffers.fetchedAt < this.offerCacheMs) {
+    if (
+      !refresh &&
+      this.cachedOffers &&
+      fetchedAt - this.cachedOffers.fetchedAt < this.offerCacheMs
+    ) {
       return this.cachedOffers.offers
     }
     const offers = await fetchOffers(this.relayClient, {
@@ -319,32 +327,69 @@ export class ElectrumPayoutProvider implements OnchainPayoutProvider {
       maxWaitMs: this.offerWaitMs,
       powTarget: this.powTargetBits,
     })
+    if (refresh && offers.length === 0 && this.cachedOffers !== null && this.cachedOffers.offers.length > 0) {
+      return this.cachedOffers.offers
+    }
     this.cachedOffers = { fetchedAt, offers }
     return offers
   }
 
+  async listOffers(): Promise<OnchainPayoutOffer[]> {
+    const offers = await this.offers()
+    if (offers.length === 0) return []
+    const limits = this.offerLimitsInput()
+    const feeRate = await this.chain.feeRate(this.sweepTargetBlocks)
+    const payoutFeeEstimate = payoutSweepFee(feeRate)
+    return selectPayoutOffers(offers, limits, feeRate)
+      .map((offer) => ({
+        offerId: offerIdOf(offer),
+        identifier: nip19.npubEncode(offer.pubkey),
+        feePercent: offer.feePercent,
+        networkFee: offer.networkFee,
+        payoutFeeRate: feeRate,
+        payoutFeeEstimate,
+        ...offerRange(offer, limits),
+        seenAt: offer.createdAt * 1000,
+      }))
+      .sort(
+        (a, b) =>
+          a.feePercent - b.feePercent ||
+          a.networkFee - b.networkFee ||
+          a.identifier.localeCompare(b.identifier),
+      )
+  }
+
+  private async findOffer(offerId: string): Promise<{ offer: PayoutOffer; feeRate: number } | null> {
+    const limits = this.offerLimitsInput()
+    const feeRate = await this.chain.feeRate(this.sweepTargetBlocks)
+    const pick = (offers: PayoutOffer[]) =>
+      selectPayoutOffers(offers, limits, feeRate).find(
+        (offer) => offerIdOf(offer) === offerId,
+      ) ?? null
+    const cached = pick(await this.offers())
+    if (cached) return { offer: cached, feeRate }
+    const refreshed = pick(await this.offers(true))
+    return refreshed ? { offer: refreshed, feeRate } : null
+  }
+
   async quote(params: {
+    offerId: string
     sendAmount: number
     destination: string
   }): Promise<OnchainPayoutQuote> {
-    const { sendAmount, destination } = params
-    this.destinationVsize(destination)
-    const offers = await this.offers()
-    if (offers.length === 0) {
+    const { offerId, sendAmount, destination } = params
+    const sweepVsize = this.destinationVsize(destination)
+    if ((await this.offers()).length === 0) {
       throw new OnchainPayoutUnavailableError('no payout provider is available')
     }
-    const feeRate = await this.chain.feeRate(this.sweepTargetBlocks)
-    const ranked = rankOffers(offers, sendAmount, this.offerLimitsInput(), feeRate)
-    const overallLimits = offerLimits(offers, this.offerLimitsInput())
-    const offer = ranked[0]
-    if (!offer) {
-      throw new OnchainPayoutAmountOutOfRangeError(
-        'amount is outside the supported payout range',
-        overallLimits.minAmount,
-        overallLimits.maxAmount,
+    const found = await this.findOffer(offerId)
+    if (!found) {
+      throw new OnchainPayoutOfferUnavailableError(
+        'the chosen payout provider is no longer available',
       )
     }
-    const sweepVsize = estimateSweepVsize(destination, this.network)
+    const { offer, feeRate } = found
+    const { minAmount, maxAmount } = offerRange(offer, this.offerLimitsInput())
     const sweepFee = payoutSweepFee(feeRate, sweepVsize)
     const grossOnchain = payoutReceiveAmount({
       sendAmount,
@@ -352,22 +397,28 @@ export class ElectrumPayoutProvider implements OnchainPayoutProvider {
       networkFee: offer.networkFee,
     })
     const receiveAmount = grossOnchain - sweepFee
-    if (receiveAmount < PAYOUT_MIN_OUTPUT_VALUE) {
+    if (
+      sendAmount < minAmount ||
+      sendAmount > maxAmount ||
+      receiveAmount < PAYOUT_MIN_OUTPUT_VALUE
+    ) {
       throw new OnchainPayoutAmountOutOfRangeError(
         'amount is outside the supported payout range',
-        overallLimits.minAmount,
-        overallLimits.maxAmount,
+        minAmount,
+        maxAmount,
       )
     }
     return {
       providerId: this.id,
+      offerId,
+      identifier: nip19.npubEncode(offer.pubkey),
       destination,
       sendAmount,
       receiveAmount,
       serviceFee: sendAmount - grossOnchain - offer.networkFee,
       networkFee: offer.networkFee,
       sweepFee,
-      limits: overallLimits,
+      limits: { minAmount, maxAmount },
       estimatedMinutes: this.network === 'regtest' ? 1 : 30,
       offerRef: toJsonValue({
         pubkey: offer.pubkey,
@@ -403,17 +454,7 @@ export class ElectrumPayoutProvider implements OnchainPayoutProvider {
       const tip = await this.chain.tipHeight()
       const response = await requestPayout({
         client: this.relayClient,
-        offer: {
-          pubkey: offer.pubkey,
-          feePercent: offer.feePercent,
-          networkFee: offer.networkFee,
-          minAmount: 0,
-          maxForwardAmount: Number.MAX_SAFE_INTEGER,
-          maxReverseAmount: Number.MAX_SAFE_INTEGER,
-          relays: offer.relays,
-          powBits: 0,
-          createdAt: this.nowSeconds(),
-        },
+        offer: { pubkey: offer.pubkey, relays: offer.relays },
         relays: this.relays,
         invoiceAmount: quote.sendAmount,
         paymentHash,

@@ -48,6 +48,8 @@ function makeQuote(patch: Partial<OnchainPayoutQuoteView> = {}): OnchainPayoutQu
   return {
     quoteId: 'quote-1',
     providerId: 'provider',
+    offerId: 'fake:offer-1',
+    identifier: 'npub1fake',
     destination: 'bcrt1qdestination',
     sendAmount: 100000,
     receiveAmount: 99000,
@@ -65,6 +67,8 @@ function makePayout(): OnchainPayoutView {
   return {
     id: 'payout-1',
     mintUrl: MINT,
+    offerId: 'fake:offer-1',
+    identifier: 'npub1fake',
     destination: 'bcrt1qdestination',
     sendAmount: 100000,
     receiveAmount: 99000,

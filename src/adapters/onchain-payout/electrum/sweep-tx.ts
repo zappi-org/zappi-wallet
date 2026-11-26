@@ -3,7 +3,7 @@ import { pubECDSA, signECDSA } from '@scure/btc-signer/utils.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { ripemd160 } from '@noble/hashes/legacy.js'
 import { hexToBytes } from '@noble/hashes/utils.js'
-import { validatePayoutSweep } from '@/core/domain/onchain-payout'
+import { payoutSweepVsizeForScriptLength, validatePayoutSweep } from '@/core/domain/onchain-payout'
 import { isErr } from '@/core/domain/result'
 import { parsePayoutScript } from './payout-script'
 import { payoutNetworkParams, type PayoutNetwork } from './network'
@@ -34,11 +34,9 @@ export interface BuiltSweepTx {
   vsize: number
 }
 
-const SWEEP_BASE_VSIZE = 105
-
 export function estimateSweepVsize(destination: string, network: PayoutNetwork): number {
   const script = OutScript.encode(Address(payoutNetworkParams(network)).decode(destination))
-  return SWEEP_BASE_VSIZE + 8 + encodeVarInt(script.length).length + script.length
+  return payoutSweepVsizeForScriptLength(script.length)
 }
 
 function encodeUint32(value: number): Uint8Array {

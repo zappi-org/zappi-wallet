@@ -10,7 +10,7 @@ const REQUEST_LOOKBACK_SECONDS = 60
 
 export interface RequestPayoutParams {
   client: PayoutRelayClient
-  offer: PayoutOffer
+  offer: Pick<PayoutOffer, 'pubkey' | 'relays'>
   relays: string[]
   invoiceAmount: number
   paymentHash: string

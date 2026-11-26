@@ -6,6 +6,7 @@ import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import {
   OnchainPayoutAmountOutOfRangeError,
   OnchainPayoutInvalidDestinationError,
+  OnchainPayoutOfferUnavailableError,
   OnchainPayoutProviderRejectedError,
   OnchainPayoutQuoteExpiredError,
   OnchainPayoutUnavailableError,
@@ -21,6 +22,7 @@ import {
   type ElectrumPayoutProviderOptions,
 } from '@/adapters/onchain-payout/electrum/electrum-payout-provider'
 import { encryptMessage } from '@/adapters/onchain-payout/electrum/message-crypto'
+import { estimatePayout } from '@/core/domain/onchain-payout'
 import {
   OFFER_D_TAG,
   OFFER_KIND,
@@ -126,6 +128,7 @@ interface FakeRelay {
   client: PayoutRelayClient
   serverPubkey: string
   serverSecret: Uint8Array
+  offerEvents: PayoutRelayEvent[]
   queries: Record<string, unknown>[]
   requestEvents: PayoutRelayEvent[]
 }
@@ -142,12 +145,13 @@ function createFakeRelay(
   const state: FakeRelay = {
     serverPubkey,
     serverSecret,
+    offerEvents: options.offerEvents ?? [],
     queries: [],
     requestEvents: [],
     client: {
       async query(_relays, filter) {
         state.queries.push(filter)
-        return options.offerEvents ?? []
+        return state.offerEvents
       },
       async publish(_relays, event) {
         state.requestEvents.push(event)
@@ -176,6 +180,10 @@ function createFakeRelay(
     },
   }
   return state
+}
+
+function offerIdFor(row: OfferRow): string {
+  return `${row.pubkey}:offer-${row.pubkey.slice(0, 8)}`
 }
 
 function offerEvent(row: OfferRow, createdAt: number): PayoutRelayEvent {
@@ -229,6 +237,8 @@ function responseWith(patch: Record<string, unknown> = {}): Record<string, unkno
 function makeQuote(serverPubkey: string, patch: Partial<OnchainPayoutQuote> = {}): OnchainPayoutQuote {
   return {
     providerId: 'electrum',
+    offerId: offerIdFor(offersFixture.offers[0]),
+    identifier: 'npub1fixture',
     destination: regtestDestination,
     sendAmount: 100000,
     receiveAmount: 66800,
@@ -296,6 +306,153 @@ function expectNoBroadcast(chain: FakeChain) {
   expect(chain.broadcastCalls).toEqual([])
 }
 
+describe('electrum payout provider offers', () => {
+  const nowSeconds = 1_700_000_000
+
+  function listProvider(
+    relay: FakeRelay,
+    options: Partial<ElectrumPayoutProviderOptions> = {},
+  ) {
+    const chain = new FakeChain()
+    chain.rate = 2
+    return new ElectrumPayoutProvider({
+      network: 'mainnet',
+      relayClient: relay.client,
+      chain,
+      relays: ['wss://our.example'],
+      appLimits: { minAmount: 20000, maxAmount: 2000000 },
+      now: () => 1_700_000_000_000,
+      offerCacheMs: 60000,
+      offerWaitMs: 1,
+      ...options,
+    })
+  }
+
+  function fixtureRelay(): FakeRelay {
+    return createFakeRelay({
+      offerEvents: [
+        offerEvent(offersFixture.offers[0], nowSeconds - 60),
+        offerEvent(offersFixture.offers[1], nowSeconds - 60),
+      ],
+    })
+  }
+
+  it('lists the offers cheapest first with identity, fees and limits', async () => {
+    const offers = await listProvider(fixtureRelay()).listOffers()
+    expect(offers).toHaveLength(2)
+    expect(offers[0]).toMatchObject({
+      offerId: offerIdFor(offersFixture.offers[1]),
+      feePercent: 0.3,
+      networkFee: 150,
+      payoutFeeRate: 2,
+      payoutFeeEstimate: 272,
+      minAmount: 20000,
+      maxAmount: 2000000,
+      seenAt: (nowSeconds - 60) * 1000,
+    })
+    expect(offers[0].identifier.startsWith('npub1')).toBe(true)
+    expect(offers[1].identifier.startsWith('npub1')).toBe(true)
+    expect(offers[0].identifier).not.toBe(offers[1].identifier)
+  })
+
+  it('intersects the limits with the app range', async () => {
+    const offers = await listProvider(fixtureRelay(), {
+      appLimits: { minAmount: 30000, maxAmount: 1000000 },
+    }).listOffers()
+    expect(offers.map((offer) => ({ minAmount: offer.minAmount, maxAmount: offer.maxAmount }))).toEqual([
+      { minAmount: 30000, maxAmount: 1000000 },
+      { minAmount: 30000, maxAmount: 1000000 },
+    ])
+  })
+
+  it('drops offers whose range is empty after the app limits', async () => {
+    const offers = await listProvider(fixtureRelay(), {
+      appLimits: { minAmount: 20000, maxAmount: 10000 },
+    }).listOffers()
+    expect(offers).toEqual([])
+  })
+
+  it('lists nothing when no announcement passes validation', async () => {
+    const relay = createFakeRelay({
+      offerEvents: [offerEvent(offersFixture.offers[0], nowSeconds - 7200)],
+    })
+    expect(await listProvider(relay).listOffers()).toEqual([])
+  })
+
+  it('agrees with the quote for every destination shape', async () => {
+    const provider = listProvider(fixtureRelay())
+    const [offer] = await provider.listOffers()
+    const sendAmount = 100000
+    const destinations = [
+      ['bc1qqurswpc8qurswpc8qurswpc8qurswpc89fe3yv', 272],
+      ['bc1pqurswpc8qurswpc8qurswpc8qurswpc8qurswpc8qurswpc8qurssvw8hu', 296],
+      ['1eA9ctCNq41iLLnQErtTUVdxpRyZ9hZmW', 278],
+    ] as const
+    expect(offer.payoutFeeEstimate).toBe(272)
+    for (const [destination, sweepFee] of destinations) {
+      const quote = await provider.quote({
+        offerId: offer.offerId,
+        sendAmount,
+        destination,
+      })
+      expect(quote.sweepFee).toBe(sweepFee)
+      const estimate = estimatePayout({
+        feePercent: offer.feePercent,
+        networkFee: offer.networkFee,
+        payoutFeeRate: offer.payoutFeeRate,
+        destination,
+        sendAmount,
+      })
+      expect(estimate).toEqual({
+        sendAmount: quote.sendAmount,
+        receiveAmount: quote.receiveAmount,
+        serviceFee: quote.serviceFee,
+        networkFee: quote.networkFee,
+        payoutFee: quote.sweepFee,
+      })
+      expect(
+        estimatePayout({
+          feePercent: offer.feePercent,
+          networkFee: offer.networkFee,
+          payoutFeeRate: offer.payoutFeeRate,
+          destination,
+          receiveAmount: quote.receiveAmount,
+        }).sendAmount,
+      ).toBe(sendAmount)
+    }
+  })
+
+  it('keeps the cached offers when a forced refresh comes back empty', async () => {
+    const relay = fixtureRelay()
+    const provider = listProvider(relay)
+    const offers = await provider.listOffers()
+    expect(offers).toHaveLength(2)
+    relay.offerEvents = []
+    await expect(
+      provider.quote({
+        offerId: 'unknown-offer',
+        sendAmount: 100000,
+        destination: mainnetDestination,
+      }),
+    ).rejects.toBeInstanceOf(OnchainPayoutOfferUnavailableError)
+    expect(relay.queries).toHaveLength(2)
+    expect(await provider.listOffers()).toEqual(offers)
+    expect(relay.queries).toHaveLength(2)
+  })
+
+  it('caches the announcements for the cache window', async () => {
+    const relay = fixtureRelay()
+    let clock = 1_700_000_000_000
+    const provider = listProvider(relay, { now: () => clock })
+    await provider.listOffers()
+    await provider.listOffers()
+    expect(relay.queries).toHaveLength(1)
+    clock += 61_000
+    await provider.listOffers()
+    expect(relay.queries).toHaveLength(2)
+  })
+})
+
 describe('electrum payout provider quote', () => {
   function mainnetProvider(
     relay: FakeRelay,
@@ -318,7 +475,7 @@ describe('electrum payout provider quote', () => {
 
   const nowSeconds = 1_700_000_000
 
-  it('picks the cheapest offer and prices the payout', async () => {
+  it('quotes the chosen offer and prices the payout', async () => {
     const relay = createFakeRelay({
       offerEvents: [
         offerEvent(offersFixture.offers[0], nowSeconds - 60),
@@ -326,9 +483,12 @@ describe('electrum payout provider quote', () => {
       ],
     })
     const quote = await mainnetProvider(relay).quote({
+      offerId: offerIdFor(offersFixture.offers[1]),
       sendAmount: 100000,
       destination: mainnetDestination,
     })
+    expect(quote.offerId).toBe(offerIdFor(offersFixture.offers[1]))
+    expect(quote.identifier.startsWith('npub1')).toBe(true)
     expect(quote.networkFee).toBe(150)
     expect(quote.sweepFee).toBe(296)
     expect(quote.receiveAmount).toBe(99550 - 296)
@@ -339,14 +499,66 @@ describe('electrum payout provider quote', () => {
     expect(quote.offerRef).toMatchObject({ feePercent: 0.3, sweepVsize: 148, feeRate: 2 })
   })
 
+  it('quotes the other offer at its own rate', async () => {
+    const relay = createFakeRelay({
+      offerEvents: [
+        offerEvent(offersFixture.offers[0], nowSeconds - 60),
+        offerEvent(offersFixture.offers[1], nowSeconds - 60),
+      ],
+    })
+    const quote = await mainnetProvider(relay).quote({
+      offerId: offerIdFor(offersFixture.offers[0]),
+      sendAmount: 100000,
+      destination: mainnetDestination,
+    })
+    expect(quote.networkFee).toBe(150)
+    expect(quote.serviceFee).toBe(490)
+    expect(quote.offerRef).toMatchObject({ feePercent: 0.49 })
+  })
+
   it('caches offers between quotes', async () => {
     const relay = createFakeRelay({
       offerEvents: [offerEvent(offersFixture.offers[0], nowSeconds - 60)],
     })
     const provider = mainnetProvider(relay)
-    await provider.quote({ sendAmount: 100000, destination: mainnetDestination })
-    await provider.quote({ sendAmount: 100000, destination: mainnetDestination })
+    const offerId = offerIdFor(offersFixture.offers[0])
+    await provider.quote({ offerId, sendAmount: 100000, destination: mainnetDestination })
+    await provider.quote({ offerId, sendAmount: 100000, destination: mainnetDestination })
     expect(relay.queries).toHaveLength(1)
+  })
+
+  it('refreshes once when the chosen offer is not in the cache', async () => {
+    const relay = createFakeRelay({
+      offerEvents: [offerEvent(offersFixture.offers[0], nowSeconds - 60)],
+    })
+    const provider = mainnetProvider(relay)
+    await provider.listOffers()
+    relay.offerEvents = [
+      offerEvent(offersFixture.offers[0], nowSeconds - 60),
+      offerEvent(offersFixture.offers[1], nowSeconds - 60),
+    ]
+    const quote = await provider.quote({
+      offerId: offerIdFor(offersFixture.offers[1]),
+      sendAmount: 100000,
+      destination: mainnetDestination,
+    })
+    expect(quote.offerId).toBe(offerIdFor(offersFixture.offers[1]))
+    expect(relay.queries).toHaveLength(2)
+  })
+
+  it('rejects an unknown offer after a single refresh', async () => {
+    const relay = createFakeRelay({
+      offerEvents: [offerEvent(offersFixture.offers[0], nowSeconds - 60)],
+    })
+    const provider = mainnetProvider(relay)
+    await expect(
+      provider.quote({
+        offerId: 'unknown-offer',
+        sendAmount: 100000,
+        destination: mainnetDestination,
+      }),
+    ).rejects.toBeInstanceOf(OnchainPayoutOfferUnavailableError)
+    expect(relay.queries).toHaveLength(2)
   })
 
   it('reports the limits when no offer serves the amount', async () => {
@@ -354,7 +566,11 @@ describe('electrum payout provider quote', () => {
       offerEvents: [offerEvent(offersFixture.offers[0], nowSeconds - 60)],
     })
     const error = await mainnetProvider(relay)
-      .quote({ sendAmount: 1000, destination: mainnetDestination })
+      .quote({
+        offerId: offerIdFor(offersFixture.offers[0]),
+        sendAmount: 1000,
+        destination: mainnetDestination,
+      })
       .catch((cause: unknown) => cause)
     expect(error).toBeInstanceOf(OnchainPayoutAmountOutOfRangeError)
     expect(error).toMatchObject({ minAmount: 20000, maxAmount: 2000000 })
@@ -365,7 +581,11 @@ describe('electrum payout provider quote', () => {
       offerEvents: [offerEvent(offersFixture.offers[0], nowSeconds - 60)],
     })
     await expect(
-      mainnetProvider(relay).quote({ sendAmount: 100000, destination: 'not-an-address' }),
+      mainnetProvider(relay).quote({
+        offerId: offerIdFor(offersFixture.offers[0]),
+        sendAmount: 100000,
+        destination: 'not-an-address',
+      }),
     ).rejects.toBeInstanceOf(OnchainPayoutInvalidDestinationError)
   })
 
@@ -373,13 +593,15 @@ describe('electrum payout provider quote', () => {
     const relay = createFakeRelay({
       offerEvents: [offerEvent(offersFixture.offers[0], nowSeconds - 60)],
     })
+    const offerId = offerIdFor(offersFixture.offers[0])
     const strict = mainnetProvider(relay, new FakeChain(), { powTargetBits: 54 })
     await expect(
-      strict.quote({ sendAmount: 100000, destination: mainnetDestination }),
+      strict.quote({ offerId, sendAmount: 100000, destination: mainnetDestination }),
     ).rejects.toBeInstanceOf(OnchainPayoutUnavailableError)
 
     const relaxed = mainnetProvider(relay, new FakeChain(), { powTargetBits: 53 })
     const quote = await relaxed.quote({
+      offerId,
       sendAmount: 100000,
       destination: mainnetDestination,
     })
@@ -389,7 +611,11 @@ describe('electrum payout provider quote', () => {
   it('reports unavailability without offers', async () => {
     const relay = createFakeRelay({ offerEvents: [] })
     await expect(
-      mainnetProvider(relay).quote({ sendAmount: 100000, destination: mainnetDestination }),
+      mainnetProvider(relay).quote({
+        offerId: offerIdFor(offersFixture.offers[0]),
+        sendAmount: 100000,
+        destination: mainnetDestination,
+      }),
     ).rejects.toBeInstanceOf(OnchainPayoutUnavailableError)
   })
 })

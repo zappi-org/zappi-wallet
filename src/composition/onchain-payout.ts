@@ -12,6 +12,7 @@ import { ElectrumPayoutProvider } from '@/adapters/onchain-payout/electrum/elect
 import { DexieOnchainPayoutStore } from '@/adapters/storage/dexie/dexie-onchain-payout.store'
 import type { EventBus } from '@/core/events/event-bus'
 import type {
+  OnchainPayoutOffer,
   OnchainPayoutProvider,
   OnchainPayoutQuote,
   OnchainPayoutStartResult,
@@ -41,7 +42,15 @@ class LazyPayoutProvider implements OnchainPayoutProvider {
     return this.provider
   }
 
-  quote(params: { sendAmount: number; destination: string }): Promise<OnchainPayoutQuote> {
+  listOffers(): Promise<OnchainPayoutOffer[]> {
+    return this.inner().listOffers()
+  }
+
+  quote(params: {
+    offerId: string
+    sendAmount: number
+    destination: string
+  }): Promise<OnchainPayoutQuote> {
     return this.inner().quote(params)
   }
 

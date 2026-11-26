@@ -3,12 +3,15 @@ import { describe, expect, it } from 'vitest'
 import {
   advancePayoutStage,
   decidePayoutSweep,
+  estimatePayout,
   isPayoutAmountInRange,
   isPayoutStageTerminal,
   payoutPhase,
   payoutReceiveAmount,
   payoutSendAmount,
   payoutSweepFee,
+  payoutSweepVsizeForDestination,
+  payoutSweepVsizeForScriptLength,
   payoutUpfrontAmount,
   validatePayoutSweep,
   type OnchainPayoutStage,
@@ -168,6 +171,213 @@ describe('payout amounts match the fee table', () => {
     expect(payoutSweepFee(1)).toBe(136)
     expect(payoutSweepFee(2.5)).toBe(340)
     expect(payoutSweepFee(2, 200)).toBe(400)
+  })
+})
+
+describe('payout sweep virtual size', () => {
+  const wpkh = 'bc1qqurswpc8qurswpc8qurswpc8qurswpc89fe3yv'
+  const pkh = '1eA9ctCNq41iLLnQErtTUVdxpRyZ9hZmW'
+  const sh = '32LB5ANdvjNPoW3DXLXUt6ra7Lih9WeBJN'
+  const tr = 'bc1pqurswpc8qurswpc8qurswpc8qurswpc8qurswpc8qurswpc8qurssvw8hu'
+  const wsh = 'bc1qqurswpc8qurswpc8qurswpc8qurswpc8qurswpc8qurswpc8qurs6mww0q'
+  const testnetWpkh = 'tb1qqurswpc8qurswpc8qurswpc8qurswpc800zzll'
+
+  it.each([
+    [wpkh, 136],
+    [testnetWpkh, 136],
+    [pkh, 139],
+    [sh, 137],
+    [tr, 148],
+    [wsh, 148],
+  ])('maps %s to %s vbytes', (destination, vsize) => {
+    expect(payoutSweepVsizeForDestination(destination)).toBe(vsize)
+  })
+
+  it('uses the largest size for an unknown shape', () => {
+    expect(payoutSweepVsizeForDestination('not-an-address')).toBe(148)
+    expect(payoutSweepVsizeForDestination('')).toBe(148)
+  })
+
+  it('matches the default size on a key-hash witness output', () => {
+    expect(payoutSweepVsizeForDestination(wpkh)).toBe(payoutSweepFee(1))
+  })
+
+  it('embeds the output script in the transaction size', () => {
+    expect(payoutSweepVsizeForScriptLength(22)).toBe(136)
+    expect(payoutSweepVsizeForScriptLength(25)).toBe(139)
+    expect(payoutSweepVsizeForScriptLength(23)).toBe(137)
+    expect(payoutSweepVsizeForScriptLength(34)).toBe(148)
+  })
+})
+
+describe('estimatePayout', () => {
+  const feePercent = 0.3
+  const networkFee = 150
+  const payoutFeeRate = 2
+  const destination = 'bc1qqurswpc8qurswpc8qurswpc8qurswpc89fe3yv'
+  const payoutFeeEstimate = 272
+
+  it('links a send amount to the receive amount', () => {
+    const estimate = estimatePayout({
+      feePercent,
+      networkFee,
+      payoutFeeRate,
+      destination,
+      sendAmount: 100000,
+    })
+    expect(estimate).toEqual({
+      sendAmount: 100000,
+      receiveAmount: 99550 - payoutFeeEstimate,
+      serviceFee: 300,
+      networkFee,
+      payoutFee: payoutFeeEstimate,
+    })
+  })
+
+  it('prices the sweep fee from the destination shape', () => {
+    const taproot = 'bc1pqurswpc8qurswpc8qurswpc8qurswpc8qurswpc8qurswpc8qurssvw8hu'
+    expect(
+      estimatePayout({
+        feePercent,
+        networkFee,
+        payoutFeeRate,
+        destination,
+        sendAmount: 100000,
+      }).payoutFee,
+    ).toBe(272)
+    expect(
+      estimatePayout({
+        feePercent,
+        networkFee,
+        payoutFeeRate,
+        destination: taproot,
+        sendAmount: 100000,
+      }).payoutFee,
+    ).toBe(296)
+  })
+
+  it('links a receive amount to the send amount', () => {
+    const estimate = estimatePayout({
+      feePercent,
+      networkFee,
+      payoutFeeRate,
+      destination,
+      receiveAmount: 99278,
+    })
+    expect(estimate.sendAmount).toBe(payoutSendAmount({
+      receiveAmount: 99278 + payoutFeeEstimate,
+      feePercent,
+      networkFee,
+    }))
+    expect(estimate.sendAmount - estimate.receiveAmount).toBe(
+      estimate.serviceFee + estimate.networkFee + estimate.payoutFee,
+    )
+  })
+
+  it('round trips a send amount through the receive side', () => {
+    for (const sendAmount of [20000, 100000, 123457, 2000000]) {
+      const forward = estimatePayout({
+        feePercent,
+        networkFee,
+        payoutFeeRate,
+        destination,
+        sendAmount,
+      })
+      const back = estimatePayout({
+        feePercent,
+        networkFee,
+        payoutFeeRate,
+        destination,
+        receiveAmount: forward.receiveAmount,
+      })
+      expect(back.sendAmount).toBe(sendAmount)
+      expect(back.receiveAmount).toBe(forward.receiveAmount)
+      expect(back.serviceFee).toBe(forward.serviceFee)
+    }
+  })
+
+  it('keeps the receive amount on the send side for every fee table row', () => {
+    for (const row of vectors.fees_reverse) {
+      const estimate = estimatePayout({
+        feePercent: Number(row.percentage),
+        networkFee: row.mining_fee,
+        payoutFeeRate: 0,
+        destination,
+        sendAmount: row.amount,
+      })
+      expect(estimate.receiveAmount).toBe(row.recv_reverse)
+      expect(estimate.serviceFee).toBe(row.amount - row.recv_reverse - row.mining_fee)
+    }
+  })
+
+  it('matches exact rational arithmetic on the receive side', () => {
+    for (const percentage of ['0.0079', '0.0001', '0.0123', '0.0999']) {
+      for (const receiveAmount of [1_000_000, 99_700, 250_000]) {
+        const estimate = estimatePayout({
+          feePercent: Number(percentage),
+          networkFee: 300,
+          payoutFeeRate,
+          destination,
+          receiveAmount,
+        })
+        expect(estimate.sendAmount).toBe(
+          exactSend(receiveAmount + payoutFeeEstimate, percentage, 300),
+        )
+      }
+    }
+  })
+
+  it('rounds the receive side up to whole sats', () => {
+    const estimate = estimatePayout({
+      feePercent: 0.49,
+      networkFee: 150,
+      payoutFeeRate,
+      destination,
+      receiveAmount: 10001,
+    })
+    expect(Number.isSafeInteger(estimate.sendAmount)).toBe(true)
+    expect(estimate.sendAmount).toBe(
+      exactSend(10001 + payoutFeeEstimate, '0.49', 150),
+    )
+  })
+
+  it('rejects unusable inputs', () => {
+    expect(() =>
+      estimatePayout({
+        feePercent,
+        networkFee,
+        payoutFeeRate: -1,
+        destination,
+        sendAmount: 100000,
+      }),
+    ).toThrow(RangeError)
+    expect(() =>
+      estimatePayout({
+        feePercent,
+        networkFee,
+        payoutFeeRate: Number.NaN,
+        destination,
+        sendAmount: 100000,
+      }),
+    ).toThrow(RangeError)
+    expect(() =>
+      estimatePayout({
+        feePercent,
+        networkFee,
+        payoutFeeRate,
+        destination,
+        sendAmount: 1000.5,
+      }),
+    ).toThrow(RangeError)
+    expect(() =>
+      estimatePayout({
+        feePercent,
+        networkFee,
+        payoutFeeRate,
+        destination,
+        receiveAmount: -1,
+      }),
+    ).toThrow(RangeError)
   })
 })
 

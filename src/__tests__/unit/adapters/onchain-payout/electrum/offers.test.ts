@@ -5,11 +5,12 @@ import {
   checkUpfront,
   OFFER_D_TAG,
   OFFER_KIND,
-  offerLimits,
+  offerIdOf,
   offerNetworkTag,
   offerPowBits,
+  offerRange,
   parseOffers,
-  rankOffers,
+  selectPayoutOffers,
   type PayoutOffer,
 } from '@/adapters/onchain-payout/electrum/offers'
 import type { PayoutRelayEvent } from '@/adapters/onchain-payout/electrum/relay-client'
@@ -75,6 +76,7 @@ const parse = { network: 'mainnet' as const, now, powTarget: 30 }
 
 function offerOf(patch: Partial<PayoutOffer> = {}): PayoutOffer {
   return {
+    eventId: 'event-1',
     pubkey: 'ab'.repeat(32),
     feePercent: 0.5,
     networkFee: 150,
@@ -261,49 +263,72 @@ describe('parseOffers', () => {
   })
 })
 
-describe('rankOffers', () => {
-  it('serves an amount within max_forward even when max_reverse is tiny', () => {
+describe('offerRange', () => {
+  it('intersects the offer range with the app limits', () => {
+    expect(offerRange(offerOf({ minAmount: 10000, maxForwardAmount: 5000000 }), appLimits)).toEqual({
+      minAmount: 20000,
+      maxAmount: 2000000,
+    })
+  })
+
+  it('keeps a range when the offer is narrower than the app limits', () => {
+    expect(offerRange(offerOf({ minAmount: 30000, maxForwardAmount: 100000 }), appLimits)).toEqual({
+      minAmount: 30000,
+      maxAmount: 100000,
+    })
+  })
+
+  it('yields an empty range when the offer sits outside the app limits', () => {
+    expect(offerRange(offerOf({ minAmount: 3000000 }), appLimits)).toEqual({
+      minAmount: 3000000,
+      maxAmount: 2000000,
+    })
+  })
+})
+
+describe('offerIdOf', () => {
+  it('combines the pubkey and the announcement id', () => {
+    expect(offerIdOf(offerOf({ pubkey: 'ab'.repeat(32), eventId: 'event-9' }))).toBe(
+      `${'ab'.repeat(32)}:event-9`,
+    )
+  })
+})
+
+describe('selectPayoutOffers', () => {
+  it('keeps an offer whose range covers the reference amount', () => {
     const offer = offerOf({ maxForwardAmount: 5000000, maxReverseAmount: 100 })
-    expect(rankOffers([offer], 100000, appLimits, 2)).toEqual([offer])
+    expect(selectPayoutOffers([offer], appLimits, 2)).toEqual([offer])
   })
 
-  it('drops an offer above its forward limit', () => {
-    const offer = offerOf({ maxForwardAmount: 50000 })
-    expect(rankOffers([offer], 100000, appLimits, 2)).toEqual([])
+  it('keeps an offer whose minimum is above the reference amount', () => {
+    const offer = offerOf({ minAmount: 100000 })
+    expect(selectPayoutOffers([offer], appLimits, 2)).toEqual([offer])
   })
 
-  it('drops an offer below the minimum amount', () => {
-    const offer = offerOf({ minAmount: 200000 })
-    expect(rankOffers([offer], 100000, appLimits, 2)).toEqual([])
+  it('drops an offer entirely below the app minimum', () => {
+    const offer = offerOf({ minAmount: 1000, maxForwardAmount: 10000 })
+    expect(selectPayoutOffers([offer], appLimits, 2)).toEqual([])
   })
 
-  it('respects the app limits on top of the offer limits', () => {
-    const offer = offerOf({ maxForwardAmount: 5000000 })
-    expect(rankOffers([offer], 2500000, appLimits, 2)).toEqual([])
-    expect(rankOffers([offer], 2000000, appLimits, 2)).toEqual([offer])
+  it('drops an offer entirely above the app maximum', () => {
+    const offer = offerOf({ minAmount: 3000000, maxForwardAmount: 5000000 })
+    expect(selectPayoutOffers([offer], appLimits, 2)).toEqual([])
   })
 
-  it('sorts cheapest first', () => {
-    const expensive = offerOf({ pubkey: 'cd'.repeat(32), feePercent: 0.99 })
-    const cheap = offerOf({ pubkey: 'ef'.repeat(32), feePercent: 0.3 })
-    expect(rankOffers([expensive, cheap], 100000, appLimits, 2)).toEqual([cheap, expensive])
-  })
-
-  it('breaks a cost tie towards the higher pow', () => {
-    const lowPow = offerOf({ pubkey: 'cd'.repeat(32), powBits: 31 })
-    const highPow = offerOf({ pubkey: 'ef'.repeat(32), powBits: 50 })
-    expect(rankOffers([lowPow, highPow], 100000, appLimits, 2)).toEqual([highPow, lowPow])
+  it('drops an offer whose total cost is insane at the reference amount', () => {
+    const offer = offerOf({ networkFee: 15000 })
+    expect(selectPayoutOffers([offer], appLimits, 2)).toEqual([])
   })
 
   it('drops an offer whose upfront fee is insane at our fee rate', () => {
-    const offer = offerOf({ networkFee: 10000 })
-    expect(rankOffers([offer], 100000, appLimits, 2)).toEqual([])
-    expect(rankOffers([offer], 100000, appLimits, 100)).toEqual([offer])
+    const offer = offerOf({ networkFee: 1200 })
+    expect(selectPayoutOffers([offer], appLimits, 2)).toEqual([])
+    expect(selectPayoutOffers([offer], appLimits, 100)).toEqual([offer])
   })
 
-  it('drops an offer whose total cost is insane', () => {
-    const offer = offerOf({ networkFee: 300000 })
-    expect(rankOffers([offer], 1000000, appLimits, 100000)).toEqual([])
+  it('keeps the healthy fixture announcements', () => {
+    const offers = parseOffers(fixture.offers.map((row) => makeEvent(row)), parse)
+    expect(selectPayoutOffers(offers, appLimits, 2)).toHaveLength(2)
   })
 })
 
@@ -337,19 +362,5 @@ describe('upfront sanity', () => {
 
   it('rejects an unusable fee rate', () => {
     expect(checkUpfront({ upfrontAmount: 1, sendAmount: 100000, feeRateSatPerVb: 0 }).ok).toBe(false)
-  })
-})
-
-describe('offerLimits', () => {
-  it('clamps the aggregate range to the app limits', () => {
-    const offers = [
-      offerOf({ minAmount: 10000, maxForwardAmount: 5000000 }),
-      offerOf({ pubkey: 'cd'.repeat(32), minAmount: 30000, maxForwardAmount: 1000000 }),
-    ]
-    expect(offerLimits(offers, appLimits)).toEqual({ minAmount: 20000, maxAmount: 2000000 })
-  })
-
-  it('falls back to the app range without offers', () => {
-    expect(offerLimits([], appLimits)).toEqual({ minAmount: 20000, maxAmount: 2000000 })
   })
 })

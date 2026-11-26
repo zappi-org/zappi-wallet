@@ -3,12 +3,14 @@ import type { DomainEvent } from '@/core/events/domain-events'
 import type { EventBus } from '@/core/events/event-bus'
 import {
   OnchainPayoutAmountOutOfRangeError,
+  OnchainPayoutOfferUnavailableError,
   OnchainPayoutProviderRejectedError,
   OnchainPayoutQuoteExpiredError,
   OnchainPayoutUnavailableError,
 } from '@/core/errors/onchain-payout'
 import type {
   OnchainPayoutAdvance,
+  OnchainPayoutOffer,
   OnchainPayoutProvider,
   OnchainPayoutQuote,
   OnchainPayoutStartResult,
@@ -43,9 +45,28 @@ function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
 }
 
+const OFFER_ID = 'fake:offer-1'
+
+function makeOffer(patch: Partial<OnchainPayoutOffer> = {}): OnchainPayoutOffer {
+  return {
+    offerId: OFFER_ID,
+    identifier: 'npub1fake',
+    feePercent: 0.3,
+    networkFee: 700,
+    payoutFeeRate: 2,
+    payoutFeeEstimate: 272,
+    minAmount: 20000,
+    maxAmount: 2000000,
+    seenAt: NOW,
+    ...patch,
+  }
+}
+
 function makeQuote(patch: Partial<OnchainPayoutQuote> = {}): OnchainPayoutQuote {
   return {
     providerId: 'fake',
+    offerId: OFFER_ID,
+    identifier: 'npub1fake',
     destination: 'bcrt1qdestination',
     sendAmount: 100000,
     receiveAmount: 99000,
@@ -189,6 +210,8 @@ class FakeStore implements OnchainPayoutStore {
 }
 
 interface ProviderControl {
+  offers?: OnchainPayoutOffer[]
+  listOffersError?: unknown
   quote?: OnchainPayoutQuote
   start?: OnchainPayoutStartResult
   resume?: OnchainPayoutAdvance
@@ -202,6 +225,11 @@ function createProvider(control: ProviderControl, timeline: string[]) {
   const calls: string[] = []
   const provider: OnchainPayoutProvider = {
     id: 'fake',
+    async listOffers() {
+      calls.push('listOffers')
+      if (control.listOffersError) throw control.listOffersError
+      return control.offers ?? [makeOffer()]
+    },
     async quote() {
       calls.push('quote')
       if (control.quoteError) throw control.quoteError
@@ -385,6 +413,7 @@ function setup(
 
 async function quoteAndStart(service: OnchainPayoutService) {
   const quoted = await service.quote({
+    offerId: OFFER_ID,
     sendAmount: 100000,
     destination: 'bcrt1qdestination',
     mintUrl: MINT,
@@ -410,9 +439,13 @@ function openRecord(patch: Partial<OnchainPayoutRecord> = {}): OnchainPayoutReco
 
 describe('onchain payout service start', () => {
   it('persists secrets before the first payment is prepared', async () => {
-    const { service, timeline, events } = setup()
+    const { service, store, timeline, events } = setup()
     const started = await quoteAndStart(service)
     expect(started.ok).toBe(true)
+    expect(store.records.get('id-2')).toMatchObject({
+      offerId: OFFER_ID,
+      identifier: 'npub1fake',
+    })
     const createIndex = timeline.indexOf('store:create:id-2')
     const firstPrepare = timeline.findIndex((entry) => entry.startsWith('prepare:'))
     expect(createIndex).toBeGreaterThan(-1)
@@ -573,10 +606,43 @@ describe('onchain payout service start', () => {
   })
 })
 
+describe('onchain payout service offers', () => {
+  it('lists the provider offers when enabled', async () => {
+    const { service, control, calls } = setup()
+    control.offers = [makeOffer({ offerId: 'b', feePercent: 0.5 }), makeOffer({ offerId: 'a' })]
+    const result = await service.listOffers()
+    expect(result.ok).toBe(true)
+    expect(result.ok && result.value.map((offer) => offer.offerId)).toEqual(['b', 'a'])
+    expect(calls).toEqual(['listOffers'])
+  })
+
+  it('reports unavailability when disabled', async () => {
+    const { service, calls } = setup({ enabled: false })
+    const result = await service.listOffers()
+    expect(!result.ok && result.error).toBeInstanceOf(OnchainPayoutUnavailableError)
+    expect(calls).toEqual([])
+  })
+
+  it('passes a provider failure through', async () => {
+    const { service, control } = setup()
+    control.listOffersError = new OnchainPayoutUnavailableError('no provider')
+    const result = await service.listOffers()
+    expect(!result.ok && result.error).toBeInstanceOf(OnchainPayoutUnavailableError)
+  })
+
+  it('wraps an unknown provider failure', async () => {
+    const { service, control } = setup()
+    control.listOffersError = new Error('relay down')
+    const result = await service.listOffers()
+    expect(!result.ok && result.error).toBeInstanceOf(OnchainPayoutUnavailableError)
+  })
+})
+
 describe('onchain payout service quote', () => {
   it('reports unavailability when disabled', async () => {
     const { service } = setup({ enabled: false })
     const result = await service.quote({
+      offerId: OFFER_ID,
       sendAmount: 100000,
       destination: 'bcrt1qdestination',
       mintUrl: MINT,
@@ -585,9 +651,21 @@ describe('onchain payout service quote', () => {
     expect(!result.ok && result.error).toBeInstanceOf(OnchainPayoutUnavailableError)
   })
 
+  it('requires a chosen offer', async () => {
+    const { service } = setup()
+    const result = await service.quote({
+      sendAmount: 100000,
+      destination: 'bcrt1qdestination',
+      mintUrl: MINT,
+    })
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error).toBeInstanceOf(OnchainPayoutOfferUnavailableError)
+  })
+
   it('rejects a non-positive amount', async () => {
     const { service } = setup()
     const result = await service.quote({
+      offerId: OFFER_ID,
       sendAmount: 0,
       destination: 'bcrt1qdestination',
       mintUrl: MINT,
@@ -600,6 +678,7 @@ describe('onchain payout service quote', () => {
     const { service, control } = setup()
     control.quoteError = new OnchainPayoutUnavailableError('no provider')
     const result = await service.quote({
+      offerId: OFFER_ID,
       sendAmount: 100000,
       destination: 'bcrt1qdestination',
       mintUrl: MINT,
@@ -610,11 +689,14 @@ describe('onchain payout service quote', () => {
   it('expires quotes, rejects a mint mismatch and allows a single start', async () => {
     const { service, clock } = setup()
     const quoted = await service.quote({
+      offerId: OFFER_ID,
       sendAmount: 100000,
       destination: 'bcrt1qdestination',
       mintUrl: MINT,
     })
     if (!quoted.ok) throw new Error('quote failed')
+    expect(quoted.value.offerId).toBe(OFFER_ID)
+    expect(quoted.value.identifier).toBe('npub1fake')
     const mismatch = await service.start({
       quoteId: quoted.value.quoteId,
       mintUrl: 'https://other.example.com',
@@ -622,6 +704,7 @@ describe('onchain payout service quote', () => {
     expect(!mismatch.ok && mismatch.error).toBeInstanceOf(OnchainPayoutQuoteExpiredError)
 
     const second = await service.quote({
+      offerId: OFFER_ID,
       sendAmount: 100000,
       destination: 'bcrt1qdestination',
       mintUrl: MINT,

@@ -7,6 +7,8 @@ function view(patch: Partial<OnchainPayoutView>): OnchainPayoutView {
   return {
     id: 'payout',
     mintUrl: 'https://mint.example.com',
+    offerId: 'fake:offer-1',
+    identifier: 'npub1fake',
     destination: 'bcrt1qdestination',
     sendAmount: 100000,
     receiveAmount: 99000,

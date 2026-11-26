@@ -16,8 +16,22 @@ export interface OnchainPayoutDeadline {
   estimatedAt: number
 }
 
+export interface OnchainPayoutOffer {
+  offerId: string
+  identifier: string
+  feePercent: number
+  networkFee: number
+  payoutFeeRate: number
+  payoutFeeEstimate: number
+  minAmount: number
+  maxAmount: number
+  seenAt: number
+}
+
 export interface OnchainPayoutQuote {
   providerId: string
+  offerId: string
+  identifier: string
   destination: string
   sendAmount: number
   receiveAmount: number
@@ -54,7 +68,12 @@ export interface OnchainPayoutAdvance {
 
 export interface OnchainPayoutProvider {
   readonly id: string
-  quote(params: { sendAmount: number; destination: string }): Promise<OnchainPayoutQuote>
+  listOffers(): Promise<OnchainPayoutOffer[]>
+  quote(params: {
+    offerId: string
+    sendAmount: number
+    destination: string
+  }): Promise<OnchainPayoutQuote>
   start(params: { quote: OnchainPayoutQuote }): Promise<OnchainPayoutStartResult>
   resume(params: {
     providerRef: JsonValue
