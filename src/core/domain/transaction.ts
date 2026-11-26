@@ -45,10 +45,17 @@ export interface Transaction {
 
 // ─── UI helper types ───
 
-export type TransactionType = 'lightning' | 'ecash' | 'ecash-token' | 'nutzap' | 'swap'
+export type TransactionType =
+  | 'lightning'
+  | 'ecash'
+  | 'ecash-token'
+  | 'nutzap'
+  | 'swap'
+  | 'swap-out'
 
 /** Derive display type from method + protocol + intent */
 export function getTransactionType(tx: Transaction): TransactionType {
+  if (tx.method === 'swap-out') return 'swap-out'
   if (tx.intent === 'swap') return 'swap'
   if (tx.protocol === 'bolt11') return 'lightning'
   if (tx.protocol === 'nut18') return 'ecash'

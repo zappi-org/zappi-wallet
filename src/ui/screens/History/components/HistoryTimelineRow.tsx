@@ -7,6 +7,12 @@ import { useFormatSats, useFormatFiat, formatTransactionFiat } from '@/utils/for
 import { formatMintHost } from '@/utils/url'
 import { cn } from '@/ui/lib/utils'
 import type { TimelineKind } from '@/ui/hooks/use-transaction-history'
+import {
+  getSwapOutDetails,
+  isSwapOutLoss,
+  shortenAddress,
+  swapOutActionLabel,
+} from '@/ui/utils/swap-out-transaction'
 
 export interface HistoryTimelineRowProps {
   transaction: Transaction
@@ -51,6 +57,9 @@ export function HistoryTimelineRow({
   const isReceive = tx.direction === 'receive'
   const isSwap = txType === 'swap'
   const isEcashToken = txType === 'ecash-token'
+  const isSwapOut = txType === 'swap-out'
+  const swapOutDestination = isSwapOut ? getSwapOutDetails(tx).destination : null
+  const isLoss = isSwapOutLoss(tx)
   const isPending = tx.status === 'pending'
   const isFailed = tx.status === 'failed'
   const isReclaim = !!getTxMeta(tx).reclaimedFrom
@@ -65,7 +74,9 @@ export function HistoryTimelineRow({
 
   const directionLabel = isReclaim
     ? t('history.reclaimed')
-    : isSwap
+    : isSwapOut
+      ? swapOutActionLabel(tx, t)
+      : isSwap
       ? t(isReceive ? 'history.swapReceived' : 'history.swapSent')
       : tx.status === 'pending'
         ? (!isReceive && isReclaimableSend(tx)
@@ -78,13 +89,17 @@ export function HistoryTimelineRow({
 
   const subtitle = transferRoute
     ? `${time} · ${transferRoute}`
-    : tx.memo
+    : swapOutDestination
+      ? `${time} · ${shortenAddress(swapOutDestination)}`
+      : tx.memo
       ? `${time} · ${directionLabel}`
       : time
 
   const amountSats = toNumber(getTotalCost(tx))
   const amountPrefix = isReclaim ? '' : isReceive ? '' : '- '
-  const amountColor = isFailed
+  const amountColor = isLoss
+    ? 'text-[#272727]'
+    : isFailed
     ? 'line-through text-foreground-muted'
     : isPending
       ? cn(isReceive ? 'text-[#4B85D3]' : 'text-[#272727]', 'opacity-60')
@@ -103,6 +118,9 @@ export function HistoryTimelineRow({
           <div className="flex items-center gap-1.5 min-w-0">
             {isPending && (
               <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-[5px] bg-status-pending animate-pulse" />
+            )}
+            {isFailed && (
+              <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-[5px] bg-accent-danger" />
             )}
             <span className="text-[16px] leading-[19px] font-normal text-[#272727] truncate">
               {title}

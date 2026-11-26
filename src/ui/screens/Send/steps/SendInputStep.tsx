@@ -15,6 +15,7 @@ import { useState, useCallback, useRef, useMemo } from 'react'
 import { flushSync } from 'react-dom'
 import { AnimatePresence, motion, useReducedMotion, useIsPresent } from 'motion/react'
 import { CameraFilled } from '@/ui/components/icons/CameraFilled'
+import { Bitcoin, ChevronRight } from 'lucide-react'
 import cardLogo from '@/assets/card-logo.svg'
 import { useTranslation } from 'react-i18next'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
@@ -57,6 +58,9 @@ interface SendDestinationStepProps {
     commonMintUrls: string[]
     infoText?: string
   }) => void
+  onBitcoinAddress?: (input: { address: string; amountSats?: number }) => void
+  onSwapOut?: () => void
+  onDestinationEdit?: () => void
 }
 
 export function SendInputStep({
@@ -71,6 +75,9 @@ export function SendInputStep({
   isLoading = false,
   onRouteValidated,
   onRequestMintSelection,
+  onBitcoinAddress,
+  onSwapOut,
+  onDestinationEdit,
 }: SendDestinationStepProps) {
   const { t } = useTranslation()
   const reduceMotion = useReducedMotion()
@@ -118,6 +125,7 @@ export function SendInputStep({
     onRouteValidated,
     onRequestMintSelection,
     getDisplayName,
+    onBitcoinAddress,
   })
 
   // If the advance is rejected upstream (offline/route/validation toast) while
@@ -249,7 +257,10 @@ export function SendInputStep({
                 ref={inputRef}
                 type="text"
                 value={destination}
-                onChange={(e) => updateDestination(e.target.value)}
+                onChange={(e) => {
+                  onDestinationEdit?.()
+                  updateDestination(e.target.value)
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault()
@@ -286,6 +297,28 @@ export function SendInputStep({
         <div className="h-5 flex items-center mt-1.5" data-testid="pre-validation-error-area">
           {preValidationError && <p className="text-label text-accent-danger">{preValidationError}</p>}
         </div>
+
+        {onSwapOut && !hasDestination && (
+          <button
+            type="button"
+            onClick={() => {
+              hapticTap()
+              inputRef.current?.blur()
+              onSwapOut()
+            }}
+            data-testid="send-swap-out-entry"
+            className="w-full mt-2 flex items-center gap-3 rounded-card border border-border/60 bg-background-card px-4 py-3 text-left active:bg-foreground/[0.03] transition-colors"
+          >
+            <span className="w-9 h-9 rounded-full bg-foreground/[0.04] flex items-center justify-center shrink-0">
+              <Bitcoin className="w-5 h-5 text-foreground-muted" />
+            </span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-body font-medium text-foreground truncate">{t('swapOut.entry')}</span>
+              <span className="block text-label text-foreground-muted truncate">{t('swapOut.entryHint')}</span>
+            </span>
+            <ChevronRight className="w-4 h-4 text-foreground-muted shrink-0" />
+          </button>
+        )}
 
         {/* My wallets dropdown — @ search mode */}
         <AnimatePresence initial={false} mode="sync">

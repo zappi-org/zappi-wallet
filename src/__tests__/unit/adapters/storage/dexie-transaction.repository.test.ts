@@ -1,6 +1,7 @@
 import { beforeEach, describe, it, expect } from 'vitest'
 import { sat, toNumber } from '@/core/domain/amount'
 import type { Transaction } from '@/core/domain/transaction'
+import { getTotalCost, getTransactionType } from '@/core/domain/transaction'
 import type { Transaction as LegacyTransaction } from '@/core/types'
 import { DexieTransactionRepository } from '@/adapters/storage/dexie/dexie-transaction.repository'
 import { resetDatabase } from '@/adapters/storage/dexie/schema'
@@ -117,6 +118,125 @@ describe('DexieTransactionRepository fee migration', () => {
       const legacy = domainToSimpleLegacy(domain)
       
       expect(legacy.metadata.fee).toBeUndefined()
+    })
+  })
+
+  describe('swap-out rows', () => {
+    it('keeps the swap-out display type through storage', async () => {
+      const repo = new DexieTransactionRepository()
+
+      await repo.save({
+        id: 'swap-out-tx',
+        direction: 'send',
+        method: 'swap-out',
+        protocol: 'swap-out',
+        amount: sat(99000),
+        accountId: 'https://mint.example.com',
+        status: 'settled',
+        createdAt: 1,
+        completedAt: 2,
+        fee: { quoted: sat(1084), effective: sat(1012) },
+        metadata: { destination: 'bcrt1qdestination', sendAmount: 100000, receiveAmount: 99000 },
+      })
+
+      const stored = await repo.getById('swap-out-tx')
+      expect(stored && getTransactionType(stored)).toBe('swap-out')
+      expect(stored?.completedAt).toBe(2)
+      expect(stored?.metadata).toMatchObject({ destination: 'bcrt1qdestination' })
+    })
+
+    it('applies the effective fee with metadata in the same update', async () => {
+      const repo = new DexieTransactionRepository()
+
+      await repo.save({
+        id: 'swap-out-tx',
+        direction: 'send',
+        method: 'swap-out',
+        protocol: 'swap-out',
+        amount: sat(99000),
+        accountId: 'https://mint.example.com',
+        status: 'pending',
+        createdAt: 1,
+        fee: { quoted: sat(1084) },
+        metadata: { destination: 'bcrt1qdestination', sendAmount: 100000, receiveAmount: 99000 },
+      })
+
+      await repo.update('swap-out-tx', {
+        status: 'settled',
+        completedAt: 5,
+        amount: sat(99000),
+        fee: { quoted: sat(1084), effective: sat(1012) },
+        metadata: {
+          destination: 'bcrt1qdestination',
+          sendAmount: 100000,
+          receiveAmount: 99000,
+          payoutTxId: 'tx-1',
+        },
+      })
+
+      const stored = await repo.getById('swap-out-tx')
+      expect(stored && getTotalCost(stored)).toEqual(sat(100012))
+      expect(stored?.metadata).toMatchObject({
+        destination: 'bcrt1qdestination',
+        payoutTxId: 'tx-1',
+        fee: 1012,
+      })
+    })
+
+    it('rewrites the amount of a pending transaction when it fails', async () => {
+      const repo = new DexieTransactionRepository()
+
+      await repo.save({
+        id: 'swap-out-tx',
+        direction: 'send',
+        method: 'swap-out',
+        protocol: 'swap-out',
+        amount: sat(99000),
+        accountId: 'https://mint.example.com',
+        status: 'pending',
+        createdAt: 1,
+        fee: { quoted: sat(1084) },
+        metadata: { destination: 'bcrt1qdestination', sendAmount: 100000, receiveAmount: 99000 },
+      })
+
+      await repo.update('swap-out-tx', {
+        status: 'failed',
+        completedAt: 5,
+        amount: sat(45000),
+        fee: { quoted: sat(1084), effective: sat(5) },
+        metadata: {
+          destination: 'bcrt1qdestination',
+          sendAmount: 100000,
+          receiveAmount: 99000,
+          failureReason: 'refunded_by_provider',
+        },
+      })
+
+      const stored = await repo.getById('swap-out-tx')
+      expect(stored && getTotalCost(stored)).toEqual(sat(45005))
+      expect(stored?.metadata).toMatchObject({ failureReason: 'refunded_by_provider' })
+    })
+  })
+
+  describe('update intent', () => {
+    it('writes the flat intent field on update', async () => {
+      const repo = new DexieTransactionRepository()
+
+      await repo.save({
+        id: 'receive-tx',
+        direction: 'receive',
+        method: 'cashu:ecash',
+        protocol: 'nut18',
+        amount: sat(1000),
+        accountId: 'https://mint.example.com',
+        status: 'pending',
+        createdAt: 1,
+      })
+
+      await repo.update('receive-tx', { intent: 'request-fulfill' })
+
+      const stored = await repo.getById('receive-tx')
+      expect(stored?.intent).toBe('request-fulfill')
     })
   })
 

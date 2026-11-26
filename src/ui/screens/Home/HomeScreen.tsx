@@ -12,13 +12,17 @@ import { hapticTap } from "@/ui/utils/haptic";
 import { MintCard, resolveMintColor } from "../../components/wallet/MintCard";
 import { HomeRecentCard } from "../../components/wallet/HomeRecentCard";
 import {
+  swapOutToRecentRow,
   pendingItemToRecentRow,
   toRecentRow,
 } from "../../components/wallet/homeRecentRow";
+import { SwapOutProgressModal } from "@/ui/screens/SwapOut/SwapOutProgress";
 import { useWallet, useMintHealth, useMintMetadata } from "@/ui/hooks";
 import { visibleMintUrls } from "@/utils/visible-mint-urls";
 import { useAllPendingItems, type PendingItem } from "@/ui/hooks/usePendingItems";
 import { useAppStore } from "@/store";
+import { selectPendingSwapOuts } from "@/store/selectors";
+import { isSwapOutLoss, withoutPendingPayouts } from "@/ui/utils/swap-out-transaction";
 import { useSatUnit, useFormatFiat } from "@/utils/format";
 import { getMintBalance, isSameMintUrl } from "@/utils/url";
 import type { MintInfo } from "@/core/types";
@@ -137,6 +141,8 @@ export function HomeScreen({
   // list (filteredTransactions excludes it once its pending row has loaded)
   // so it isn't shown twice.
   const { items: pendingItemsRaw } = useAllPendingItems(settings.mints);
+  const swapOuts = useAppStore(selectPendingSwapOuts);
+  const [selectedPayoutId, setSelectedPayoutId] = useState<string | null>(null);
 
   // The sent-token pending item's id equals the tx's id (composition/pending-items.ts) —
   // used below to gate the reclaimable-send exclusion on that row actually being loaded.
@@ -145,16 +151,22 @@ export function HomeScreen({
     [pendingItemsRaw]
   );
 
+  const pendingPayoutIds = useMemo(
+    () => new Set(swapOuts.map((payout) => payout.id)),
+    [swapOuts]
+  );
+
   const filteredTransactions = useMemo(() => {
+    const ledger = withoutPendingPayouts(transactions, pendingPayoutIds);
     const selectedMint = mints[clampedMintIndex];
-    if (!selectedMint) return transactions;
+    if (!selectedMint) return ledger;
     const url = selectedMint.url;
     // Boolean-returning wrapper: isReclaimableSend's `tx is Transaction` type
     // guard would otherwise narrow tx to `never` in the branch below (its
     // input is already typed Transaction, so the false branch collapses).
     const isReclaimable = (tx: Transaction): boolean => isReclaimableSend(tx);
-    return transactions.filter((tx) => {
-      if (tx.status === "failed") return false;
+    return ledger.filter((tx) => {
+      if (tx.status === "failed" && !isSwapOutLoss(tx)) return false;
       // Only hide once its pending row is actually loaded — the pending query
       // is async and independent, so hiding unconditionally would vanish this
       // money from both lists on first paint or if that query comes back empty.
@@ -163,7 +175,7 @@ export function HomeScreen({
       // variant (host case, :443) is still this mint's money and must show.
       return Boolean(tx.accountId) && isSameMintUrl(tx.accountId, url);
     });
-  }, [transactions, mints, clampedMintIndex, pendingItemIds]);
+  }, [transactions, mints, clampedMintIndex, pendingItemIds, pendingPayoutIds]);
 
   const pendingItems = useMemo(() => {
     const selectedMint = mints[clampedMintIndex];
@@ -180,7 +192,21 @@ export function HomeScreen({
 
   // One history area, one row: money still in motion outranks the last settled
   // entry, so a pending item takes the card instead of stacking above it.
+  const activePayout = useMemo(() => {
+    const selectedMint = mints[clampedMintIndex];
+    if (!selectedMint) return swapOuts[0] ?? null;
+    return (
+      swapOuts.find((payout) => isSameMintUrl(payout.mintUrl, selectedMint.url)) ?? null
+    );
+  }, [swapOuts, mints, clampedMintIndex]);
+
   const recent = useMemo(() => {
+    if (activePayout) {
+      return {
+        row: swapOutToRecentRow(activePayout, t),
+        onPress: () => setSelectedPayoutId(activePayout.id),
+      };
+    }
     const pending = pendingItems[0];
     if (pending) {
       return {
@@ -195,7 +221,7 @@ export function HomeScreen({
       };
     }
     return null;
-  }, [pendingItems, recentTransaction, t, onSelectPendingItem, onSelectTransaction]);
+  }, [activePayout, pendingItems, recentTransaction, t, onSelectPendingItem, onSelectTransaction]);
 
   // The drawer owns the open gesture now — no pan recognizer on the screen.
   const [historyExpanded, setHistoryExpanded] = useState(false)
@@ -406,6 +432,11 @@ export function HomeScreen({
             blind={settings.balanceHidden}
           />
         )}
+      />
+
+      <SwapOutProgressModal
+        payoutId={selectedPayoutId}
+        onClose={() => setSelectedPayoutId(null)}
       />
     </motion.div>
   );

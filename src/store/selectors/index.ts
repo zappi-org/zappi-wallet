@@ -1,4 +1,6 @@
 import type { AppState } from '@/store'
+import { isPayoutStageTerminal } from '@/core/domain/swap-out'
+import type { SwapOutView } from '@/core/ports/driving/swap-out.usecase'
 
 // ===== Wallet Selectors =====
 
@@ -6,6 +8,59 @@ export const selectBalance = (state: AppState) => state.balance
 export const selectTotalBalance = (state: AppState) => state.balance.total
 export const selectBalanceByMint = (state: AppState) => state.balance.byMint
 export const selectIsLoadingBalance = (state: AppState) => state.isLoadingBalance
+
+export function spendableByMint(
+  balanceByMint: Record<string, number>,
+  inFlightByMint: Record<string, number>,
+): Record<string, number> {
+  const spendable: Record<string, number> = {}
+  for (const [mintUrl, balance] of Object.entries(balanceByMint)) {
+    spendable[mintUrl] = Math.max(0, balance - (inFlightByMint[mintUrl] ?? 0))
+  }
+  return spendable
+}
+
+export function spendableTotal(
+  balanceByMint: Record<string, number>,
+  inFlightByMint: Record<string, number>,
+): number {
+  return Object.values(spendableByMint(balanceByMint, inFlightByMint)).reduce(
+    (sum, amount) => sum + amount,
+    0,
+  )
+}
+
+export const selectSwapOutInFlight = (state: AppState) =>
+  state.swapOutInFlightByMint
+export const selectSwapOuts = (state: AppState) => state.swapOuts
+
+export function isSwapOutPending(payout: SwapOutView): boolean {
+  return !isPayoutStageTerminal(payout.stage) || payout.hasOpenPayments
+}
+
+const NO_SWAP_OUTS: SwapOutView[] = []
+const pendingSwapOutsMemo: {
+  source: SwapOutView[] | null
+  result: SwapOutView[]
+} = { source: null, result: NO_SWAP_OUTS }
+
+export function selectPendingSwapOuts(state: AppState): SwapOutView[] {
+  const source = state.swapOuts ?? NO_SWAP_OUTS
+  if (source !== pendingSwapOutsMemo.source) {
+    pendingSwapOutsMemo.source = source
+    pendingSwapOutsMemo.result = source
+      .filter(isSwapOutPending)
+      .sort((a, b) => b.createdAt - a.createdAt)
+  }
+  return pendingSwapOutsMemo.result
+}
+
+export const selectSwapOutById = (id: string | null) => (state: AppState) =>
+  id === null
+    ? null
+    : (state.swapOuts ?? NO_SWAP_OUTS).find((payout) => payout.id === id) ?? null
+export const selectSpendableTotalBalance = (state: AppState) =>
+  spendableTotal(state.balance.byMint, state.swapOutInFlightByMint)
 
 // ===== Network Selectors =====
 

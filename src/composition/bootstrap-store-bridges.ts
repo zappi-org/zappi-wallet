@@ -13,12 +13,17 @@ import { useAppStore } from "@/store";
 
 import { connectEventStoreBridge } from "./event-store-bridge";
 import { connectTransferTxBridge } from "./transfer-tx-bridge";
+import {
+  beginSwapOutInFlightWrite,
+  writeSwapOutInFlight,
+} from "./swap-out-inflight";
 
 import type { EventBus } from "@/core/events/event-bus";
 import type { BalanceUseCase } from "@/core/ports/driving/balance.usecase";
 import type { LocalStorageBalanceCache } from "@/adapters/cache/local-storage-balance-cache.adapter";
 import type { DexieTransactionRepository } from "@/adapters/storage/dexie/dexie-transaction.repository";
 import type { ReceiveRequestFacadeService } from "@/core/services/receive-request-facade.service";
+import type { SwapOutUseCase } from "@/core/ports/driving/swap-out.usecase";
 
 export function connectStoreBridges(deps: {
   balanceCache: LocalStorageBalanceCache;
@@ -26,6 +31,7 @@ export function connectStoreBridges(deps: {
   eventBus: EventBus;
   receiveRequest: ReceiveRequestFacadeService;
   txRepo: DexieTransactionRepository;
+  getSwapOut?: () => SwapOutUseCase | null;
 }) {
   const { balanceCache, balance, eventBus, receiveRequest, txRepo } = deps;
 
@@ -61,7 +67,37 @@ export function connectStoreBridges(deps: {
     handleBalance: true,
     balanceRefresh,
     receiveRequest,
+    getSwapOut: deps.getSwapOut,
   });
+
+  const refreshSwapOutInFlight = async () => {
+    const service = deps.getSwapOut?.();
+    if (!service) return;
+    const token = beginSwapOutInFlightWrite();
+    try {
+      const active = await service.listActive();
+      const known = Object.keys(useAppStore.getState().swapOutInFlightByMint);
+      const amounts: Record<string, number> = {};
+      for (const mintUrl of known) amounts[mintUrl] = 0;
+      for (const mintUrl of new Set(active.map((view) => view.mintUrl))) {
+        amounts[mintUrl] = await service.inFlightAmount(mintUrl);
+      }
+      writeSwapOutInFlight(token, amounts);
+    } catch {
+      return;
+    }
+  };
+
+  const seedSwapOuts = async () => {
+    const service = deps.getSwapOut?.();
+    if (!service) return;
+    try {
+      useAppStore.getState().setSwapOuts(await service.listActive());
+    } catch {
+      return;
+    }
+    await refreshSwapOutInFlight();
+  };
 
   // Transfer → Transaction bridge (persists tx history for the TLS path)
   const disconnectTransferBridge = connectTransferTxBridge({
@@ -70,5 +106,11 @@ export function connectStoreBridges(deps: {
     triggerTxRefresh: () => useAppStore.getState().triggerTxRefresh(),
   });
 
-  return { balanceRefresh, disconnectBridge, disconnectTransferBridge };
+  return {
+    balanceRefresh,
+    disconnectBridge,
+    disconnectTransferBridge,
+    seedSwapOuts,
+    refreshSwapOutInFlight,
+  };
 }

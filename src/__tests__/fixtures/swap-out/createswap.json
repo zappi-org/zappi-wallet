@@ -1,0 +1,32 @@
+{
+ "cases": [
+  {
+   "id": "a0555b23337f8b31919dfad7549fd0878bfb9393e2842752f2593f703614c1f0",
+   "invoice": "lnbcrt550u1p4stqxvpp55p24kgen079nryvaltt4f87ss79lhyunu2zzw5hjtylhqds5c8cqsp5w9y2jmlumk873sy4gcvc86epws8q5rlymdcqega7paz7cqgzfw3qdqh2d6kymtpwf5kuefqwdmkzuqcqzynxqzfv9qyysgqrzjq2ra9tzms69kvyk85caamkwxkw9p93qnzl2w7g8n3s5stqr6ufxp7qqqscqqqqgqqyqqqqlgqqqqqqgq2q95yf7utjj9l3zp7e87stfdckrnu3tc4dl6q2jay8wx063a439l73w64h7xv8tw0v929przasg5drj2gscdtrdw863rwrhch6e6kyf4cqe9ecnp",
+   "minerFeeInvoice": "lnbcrt450u1p4stqxvpp5xsx3my72kcdn0xy7a8arsschc6s7cenvkv3m93q9knw3pvaajkgssp57az2jlyvulj8dgcm9rxwakfcwdusj6fcxy98mxrfcvkw0d8pkasqdpg2d6kymtpwf5kuefqwdmkzupqwpex2urp09kk2mn5cqzynxqzfv9qyysgqrzjq2ra9tzms69kvyk85caamkwxkw9p93qnzl2w7g8n3s5stqr6ufxp7qqqscqqqqgqqyqqqqlgqqqqqqgq2qpaccesl8h8w75keqaw73cr047tz9lh47zsdhxrfyy92vpt4p5snp4luux578xt3359w42ru4ux0puprdavrr3kl6tuueyk8xtumkc6cp4u92mn",
+   "lockupAddress": "bcrt1q3jddm4nfvprae22k0dtm070h0nmwvpfrppg3hyws7zmcuzck5g9q7dts6e",
+   "redeemScript": "8201208763a914f32bfcc356e6c2f98f7648beb493fa52c74fae598821037e3d28d29876b921306ee10c913759271ac56acc80f7acc50b9a95ec4edf6419677502d100b1752103103e038674011be55e773d5b6a46d8c139d8d4283dc7a863d3f8c960df54372468ac",
+   "timeoutBlockHeight": 209,
+   "onchainAmount": 77000,
+   "seed": {
+    "preimage": "fbc87c0b594fefc1a27f42e1bf0bdf4f943c6f2d8a0926deaa45f1194142419e",
+    "claimPrivateKey": "1cdc4ba5dbfb815662cf50d489824e1cfc6823c8c577e55308f85817a16e9de0",
+    "invoiceAmount": 100000
+   }
+  },
+  {
+   "id": "46fa951811d99d4003bdbe0068927b671b48601614a468599d21f8ec3e7671e5",
+   "invoice": "lnbcrt650u1p4stq27pp5gmaf2xq3mxw5qqaahcqx3ynmvud5scqkzjjxskvay8uwc0nkw8jssp574wg47yqqch457sqlv35lvc5cxnw0arf47rsyv6qhjpvlqentklqdqh2d6kymtpwf5kuefqwdmkzuqcqzynxqzfv9qyysgqrzjq2ra9tzms69kvyk85caamkwxkw9p93qnzl2w7g8n3s5stqr6ufxp7qqqscqqqqgqqyqqqqlgqqqqqqgq2qwar602zncw52v04x7f8k4f4r6g53xck2v2vfldpf8nwg4fzufyypqussgxysz03jxar8l8yaggxztwww4l6x7vjprcm2kjk7dc6r89qpe5klky",
+   "minerFeeInvoice": "lnbcrt450u1p4stq27pp5js086kunkxah3qnejmdr4rgy4zfwwgzrs56q6tn0f63c9758m38qsp5pm97zhfwg9sjca4lgp5t5uqv9d2krgcsde89jftyc7dqfgnl76psdpg2d6kymtpwf5kuefqwdmkzupqwpex2urp09kk2mn5cqzynxqzfv9qyysgqrzjq2ra9tzms69kvyk85caamkwxkw9p93qnzl2w7g8n3s5stqr6ufxp7qqqscqqqqgqqyqqqqlgqqqqqqgq2qxeuwms4ad00835d4qfsns82evc63gfz6tzjcr3v8fthrvw2a3qq9p42uwrjrg7z9m3ckv8pqahh3thyue9uavh4axkxa8l7jy35ezqgpv4n7yr",
+   "lockupAddress": "bcrt1q433403uat4mm6s8g2c9dg9a9aejjdhh4x2g39tp30djqzaq5ax7ql0psv7",
+   "redeemScript": "8201208763a914e8d09b398067fc7d2f37e2c744d7c1f3af53722188210201d01ae072e4f4d8a1d653ecd4c3dda565756d4c99e8e8d4c6ec5ef877628d09677502d300b1752102f3acefeb0f479421fa27e8923422fea040ce5294919b941af5004a98e519853c68ac",
+   "timeoutBlockHeight": 211,
+   "onchainAmount": 86950,
+   "seed": {
+    "preimage": "2b87a3c00d3fe8055477be389cb8c0e6fed6fdff8a879002be0315e99d32d06d",
+    "claimPrivateKey": "9d849bf2625b655121e8d27f8e4046c853db445d12d369fcaf94da4a1b5b579f",
+    "invoiceAmount": 110000
+   }
+  }
+ ]
+}

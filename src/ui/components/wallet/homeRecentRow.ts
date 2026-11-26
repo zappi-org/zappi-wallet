@@ -3,6 +3,9 @@ import type { Transaction } from '@/core/domain/transaction'
 import { getTransactionType, getTxMeta, getTotalCost } from '@/core/domain/transaction'
 import { toNumber } from '@/core/domain/amount'
 import type { PendingItem } from '@/ui/hooks/usePendingItems'
+import type { SwapOutView } from '@/core/ports/driving/swap-out.usecase'
+import { swapOutStageLabel } from '@/ui/utils/swap-out-labels'
+import { isSwapOutLoss, isSwapOutTransaction, swapOutRowTitle } from '@/ui/utils/swap-out-transaction'
 import { getTypeLabel } from './transactionHelpers'
 
 /** The one-line home row, sourced from either the ledger or a pending item —
@@ -13,9 +16,22 @@ export interface HomeRecentRow {
   amountSats: number
   isReceive: boolean
   state: 'settled' | 'pending' | 'failed'
+  icon?: 'onchain'
+  lost?: boolean
 }
 
 export function toRecentRow(tx: Transaction, t: TFunction): HomeRecentRow {
+  if (isSwapOutTransaction(tx)) {
+    return {
+      title: swapOutRowTitle(tx, t),
+      createdAt: tx.createdAt,
+      amountSats: toNumber(getTotalCost(tx)),
+      isReceive: false,
+      state: tx.status === 'failed' ? 'failed' : tx.status === 'pending' ? 'pending' : 'settled',
+      icon: 'onchain',
+      lost: isSwapOutLoss(tx),
+    }
+  }
   const meta = getTxMeta(tx)
   const typeLabel = getTypeLabel(tx, t)
   const isSwap = getTransactionType(tx) === 'swap'
@@ -44,5 +60,19 @@ export function pendingItemToRecentRow(item: PendingItem, t: TFunction): HomeRec
     amountSats: item.amount,
     isReceive: item.direction === 'receive',
     state: 'pending',
+  }
+}
+
+export function swapOutToRecentRow(
+  payout: SwapOutView,
+  t: TFunction,
+): HomeRecentRow {
+  return {
+    title: `${t('swapOut.pendingTitle')} · ${swapOutStageLabel(payout.stage, t)}`,
+    createdAt: payout.createdAt,
+    amountSats: payout.sendAmount,
+    isReceive: false,
+    state: 'pending',
+    icon: 'onchain',
   }
 }

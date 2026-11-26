@@ -5,6 +5,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const { mockBackend } = vi.hoisted(() => ({
   mockBackend: {
     getBalances: vi.fn().mockResolvedValue({}),
+    heldAmounts: vi.fn().mockResolvedValue({}),
+    checkMeltSettlement: vi.fn().mockResolvedValue({ state: 'pending' }),
     prepareMelt: vi.fn(),
     executeMelt: vi.fn(),
     rollbackMelt: vi.fn(),

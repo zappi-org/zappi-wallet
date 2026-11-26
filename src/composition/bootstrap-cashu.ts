@@ -20,6 +20,7 @@ export function assembleCashuModule(deps: {
   pendingOpRepo: DexiePendingOperationRepository;
   txRepo: DexieTransactionRepository;
   eventBus: EventBus;
+  excludeMeltOperations?: () => Promise<Set<string>>;
 }) {
   const { pendingOpRepo, txRepo, eventBus } = deps;
 
@@ -30,6 +31,7 @@ export function assembleCashuModule(deps: {
     txRepo,
     offlineTokenStore,
     getActiveMintUrls: () => useAppStore.getState().settings.mints,
+    excludeMeltOperations: deps.excludeMeltOperations,
   });
   const cashuModule = new CashuModule(cashuBackend, eventBus);
   const modules: WalletModule[] = [cashuModule];

@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next'
 import { cn } from '@/ui/lib/utils'
 import { ProgressStepper } from '@/ui/components/common/ProgressStepper'
 import { useAppStore } from '@/store'
+import { spendableByMint } from '@/store/selectors'
 import { usePayment, useWallet, useMintMetadata } from '@/ui/hooks'
 import { useSatUnit, useFormatSats, useFormatFiat } from '@/utils/format'
 import { MintCard, resolveMintColor } from '@/ui/components/wallet/MintCard'
@@ -37,6 +38,11 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
   const mintUrls = useAppStore((s) => s.settings.mints)
   const mintColors = useAppStore((s) => s.settings.mintColors)
   const balance = useAppStore((s) => s.balance)
+  const swapOutInFlight = useAppStore((s) => s.swapOutInFlightByMint ?? {})
+  const spendable = useMemo(
+    () => spendableByMint(balance.byMint, swapOutInFlight),
+    [balance.byMint, swapOutInFlight],
+  )
   const { getDisplayName, getIconUrl } = useMintMetadata(mintUrls)
   const { mintSwap, isProcessingPayment } = usePayment()
   const { loadBalance } = useWallet()
@@ -54,9 +60,10 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
   const [toMintUrl, setToMintUrl] = useState<string>(resolvedInitialTo)
   const [isMintSelectorOpen, setIsMintSelectorOpen] = useState<'from' | 'to' | null>(null)
 
-  const getMintBalance = useCallback((url: string) =>
-    getMintBalanceUtil(url, balance.byMint)
-  , [balance.byMint])
+  const getMintBalance = useCallback(
+    (url: string) => getMintBalanceUtil(url, spendable),
+    [spendable],
+  )
 
   const currentBalance = fromMintUrl ? getMintBalance(fromMintUrl) : 0
   const numericAmount = parseInt(amount) || 0

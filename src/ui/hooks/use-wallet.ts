@@ -2,7 +2,7 @@ import { useCallback, useContext } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import {
-  selectTotalBalance,
+  selectSpendableTotalBalance,
   selectIsLoadingBalance,
 } from '@/store/selectors'
 import { ServiceContext } from '@/ui/hooks/service-context-value'
@@ -20,7 +20,7 @@ export function useWallet() {
 
   // Store state - use primitive selectors to avoid infinite loops
   const balance = useAppStore((state) => state.balance)
-  const totalBalance = useAppStore(selectTotalBalance)
+  const totalBalance = useAppStore(selectSpendableTotalBalance)
   const isLoadingBalance = useAppStore(selectIsLoadingBalance)
   // Store actions
   const setBalance = useAppStore((state) => state.setBalance)

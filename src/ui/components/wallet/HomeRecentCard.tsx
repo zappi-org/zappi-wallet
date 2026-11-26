@@ -1,7 +1,7 @@
 import { memo } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
-import { ArrowDownLeft, ArrowUpRight, ChevronUp } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, Bitcoin, ChevronUp } from 'lucide-react'
 import { motion } from 'motion/react'
 import { useFormatSats } from '@/utils/format'
 import type { HomeRecentRow } from './homeRecentRow'
@@ -47,7 +47,9 @@ export const HomeRecentCard = memo(function HomeRecentCard({
   const amountSats = row?.amountSats ?? 0
 
   const amountPrefix = isReceive ? '' : '-'
-  const amountColor = isFailed
+  const amountColor = row?.lost
+    ? 'text-foreground'
+    : isFailed
     ? 'line-through text-foreground-muted'
     : isPending
       ? cn(isReceive ? 'text-[#648B59]' : 'text-foreground', 'opacity-60')
@@ -93,7 +95,9 @@ export const HomeRecentCard = memo(function HomeRecentCard({
           }}
         >
           <div className="w-[30px] h-[30px] rounded-[12px] flex items-center justify-center shrink-0 bg-background">
-            {isReceive ? (
+            {row.icon === 'onchain' ? (
+              <Bitcoin className="w-4 h-4 text-foreground" strokeWidth={2.5} data-testid="home-recent-onchain-icon" />
+            ) : isReceive ? (
               <ArrowDownLeft className="w-4 h-4 text-[#648B59]" strokeWidth={2.5} />
             ) : (
               <ArrowUpRight className="w-4 h-4 text-foreground" strokeWidth={2.5} />

@@ -25,6 +25,7 @@ export function routeValidatedInput(data: ValidatedData): InputRouteTarget {
     case 'lnurl-pay':
     case 'cashu-request':
     case 'my-wallet':
+    case 'bitcoin-address':
       return { screen: 'send', validatedData: data }
     case 'cashu-token':
       return { screen: 'receive-redeem', token: data }

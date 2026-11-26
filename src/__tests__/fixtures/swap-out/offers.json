@@ -1,0 +1,28 @@
+{
+ "offers": [
+  {
+   "pubkey": "384597357456610f25a308eb1247692d261825542d444d08dc64eb0d8630aff8",
+   "pow_nonce": "0xb76f1769840b17e6364eca49a7c5ce911d1e3933f8d908d6ff8062bd020798bb",
+   "percentage_fee": 0.49,
+   "mining_fee": 150,
+   "min_amount": 20000,
+   "max_forward_amount": 4500000,
+   "max_reverse_amount": 7000000,
+   "relays": "wss://relay.getalby.com/v1,wss://nos.lol,wss://relay.damus.io,wss://brb.io,wss://relay.primal.net,wss://ftp.halifax.rwth-aachen.de/nostr,wss://eu.purplerelay.com,wss://nostr.einundzwanzig.space,wss://nostr.mom",
+   "age": 180,
+   "pow_bits": 53
+  },
+  {
+   "pubkey": "f9562f7fe82b8d936349c17b52c7fb575fb8f65fbf34245fd1a13aecd48e39ef",
+   "pow_nonce": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaae874a520536400",
+   "percentage_fee": 0.3,
+   "mining_fee": 150,
+   "min_amount": 20000,
+   "max_forward_amount": 10000000,
+   "max_reverse_amount": 6800000,
+   "relays": "wss://relay.getalby.com/v1,wss://nos.lol,wss://relay.damus.io,wss://brb.io,wss://relay.primal.net,wss://ftp.halifax.rwth-aachen.de/nostr,wss://eu.purplerelay.com,wss://nostr.einundzwanzig.space,wss://nostr.mom",
+   "age": 146,
+   "pow_bits": 50
+  }
+ ]
+}

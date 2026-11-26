@@ -27,6 +27,7 @@ export interface CreateCashuBackendDeps {
   txRepo: TransactionRepository
   offlineTokenStore: OfflineTokenStore
   getActiveMintUrls?: () => string[]
+  excludeMeltOperations?: () => Promise<Set<string>>
 }
 
 export function createCashuBackend(deps: CreateCashuBackendDeps): CashuModuleBackend {
@@ -50,7 +51,11 @@ export function createCashuBackend(deps: CreateCashuBackendDeps): CashuModuleBac
     checkMintQuote: backend.checkMintQuote,
     async recoverPendingMelts() {
       const meltOps = await backend.getMeltRecoveryOps()
-      return recoverPendingMelts({ pendingOpRepo: deps.pendingOpRepo, meltOps })
+      return recoverPendingMelts({
+        pendingOpRepo: deps.pendingOpRepo,
+        meltOps,
+        excludeMeltOperations: deps.excludeMeltOperations,
+      })
     },
     // EcashBackend
     prepareSend: backend.prepareSend,
@@ -98,5 +103,7 @@ export function createCashuBackend(deps: CreateCashuBackendDeps): CashuModuleBac
     abandonMintQuote,
     // Module-level
     getBalances: backend.getBalances,
+    heldAmounts: backend.heldAmounts,
+    checkMeltSettlement: backend.checkMeltSettlement,
   }
 }

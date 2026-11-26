@@ -1,0 +1,8 @@
+{
+ "a_sk": "1111111111111111111111111111111111111111111111111111111111111111",
+ "a_pub": "4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa",
+ "b_sk": "2222222222222222222222222222222222222222222222222222222222222222",
+ "b_pub": "466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27",
+ "plaintext": "{\"type\":\"reversesubmarine\",\"pairId\":\"BTC/BTC\",\"invoiceAmount\":100000,\"preimageHash\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"claimPublicKey\":\"4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"}",
+ "ciphertext_py": "bDGSyS4AyhN9GnVec2SjOhe5ILMArdYb3yPTn5AKeqbr8WKcRf7TH/eDorTaHBHRFncAmXf5wiAAEsrrTpALPvUigXgH0WmKXAtkWyTE3ksxBNTU85pE58HnMju+ltzftB3OHDI1TI+0ycqZvvqhMtvEA2i6P6sB/xwzScCqEPchYIVy/up3wg4+q1BLvUa+4nhJtr/xvkDKatLpxdrxOA45/+Y98zdOlvbH+R6ymsmoS71SfeQ3JDEIh0xwMHgOF+ZBr17gJOaUVbrWdCWyDYYIcrVVCcia64qtuW59hRwYBpKG3oKQXXERtp3DOjNu?iv=xqmtkQftU0IZ2EPuebctSw=="
+}

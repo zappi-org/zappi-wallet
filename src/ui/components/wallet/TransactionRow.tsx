@@ -17,6 +17,7 @@ import { useFormatSats, useFormatFiat, formatTransactionFiat, getLocaleCode } fr
 import { formatMintHost } from '@/utils/url'
 import { formatMD } from '@/ui/utils/dateFilter'
 import { cn } from '@/ui/lib/utils'
+import { getSwapOutDetails, isSwapOutLoss, shortenAddress } from '@/ui/utils/swap-out-transaction'
 import { getTitle, getTypeLabel, isReclaimRow } from './transactionHelpers'
 
 // ─── Component ───
@@ -65,7 +66,10 @@ export const TransactionRow = memo(function TransactionRow({
 
   // Subtitle: "10:35 · Lightning" or swap flow
   let subtitle: string
-  if (isSwap && swapRoute) {
+  const swapOutDestination = txType === 'swap-out' ? getSwapOutDetails(tx).destination : null
+  if (swapOutDestination) {
+    subtitle = `${timeStr} · ${shortenAddress(swapOutDestination)}`
+  } else if (isSwap && swapRoute) {
     subtitle = `${timeStr} · ${typeLabel}`
   } else if (txType === 'lightning' && tx.direction === 'send' && meta.destination) {
     const destStr = meta.destination.includes('@') ? meta.destination : `${meta.destination.slice(0, 20)}...`
@@ -84,7 +88,8 @@ export const TransactionRow = memo(function TransactionRow({
   // A reclaim moved nothing in or out — the money simply came back, so it gets
   // no sign at all ('-' would read as spent, '+' as earned) and a neutral tone.
   const amountPrefix = isReclaim ? '' : isReceive ? '+' : '-'
-  const amountColor = isFailed ? 'line-through text-foreground-muted'
+  const amountColor = isSwapOutLoss(tx) ? 'text-foreground'
+    : isFailed ? 'line-through text-foreground-muted'
     : isReclaim ? 'text-foreground-muted'
     : isPending ? cn(isReceive ? 'text-primary' : 'text-foreground', 'opacity-60')
     : isReceive ? 'text-primary' : 'text-foreground'

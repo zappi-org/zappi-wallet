@@ -10,6 +10,10 @@ import type {
   ParsedCashuRequest,
 } from '@/core/domain/input-types'
 import { isNostrDirectAddress } from '@/core/domain/nostr-address'
+import {
+  bitcoinUriLightningInvoice,
+  parseBitcoinPaymentInput,
+} from '@/core/domain/bitcoin-address'
 
 export class InputParserService implements InputParserUseCase {
   constructor(
@@ -94,6 +98,17 @@ export class InputParserService implements InputParserUseCase {
       return { type: 'nostr-direct', address: trimmed }
     }
 
+    if (!bitcoinUriLightningInvoice(trimmed)) {
+      const bitcoin = parseBitcoinPaymentInput(trimmed)
+      if (bitcoin) {
+        return {
+          type: 'bitcoin-address',
+          address: bitcoin.address,
+          amountSats: bitcoin.amountSats,
+        }
+      }
+    }
+
     // Email address
     if (this.codec.isLightningAddress(trimmed)) {
       return { type: 'email-address', address: trimmed }
@@ -115,6 +130,12 @@ export class InputParserService implements InputParserUseCase {
 
   async validateAsync(input: InputType): Promise<ValidatedData> {
     switch (input.type) {
+      case 'bitcoin-address':
+        return {
+          type: 'bitcoin-address',
+          address: input.address,
+          amountSats: input.amountSats,
+        }
       case 'bolt11':
         // Expiry is computed at detection but must be enforced here: an expired
         // invoice that validates as payable dies silently later (balance gate

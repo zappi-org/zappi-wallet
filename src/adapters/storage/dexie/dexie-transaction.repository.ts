@@ -14,6 +14,7 @@ const TYPE_TO_METHOD: Record<string, string> = {
   'ecash-token': 'cashu:ecash',
   nutzap: 'cashu:ecash',
   swap: 'cashu:lightning',
+  'swap-out': 'swap-out',
 }
 
 const TYPE_TO_PROTOCOL: Record<string, string> = {
@@ -22,6 +23,7 @@ const TYPE_TO_PROTOCOL: Record<string, string> = {
   'ecash-token': 'cashu-token',
   nutzap: 'cashu-token',
   swap: 'bolt11',
+  'swap-out': 'swap-out',
 }
 
 // intent가 있는 type들
@@ -34,6 +36,7 @@ const TYPE_TO_INTENT: Record<string, TransactionIntent | undefined> = {
 // protocol을 primary key로 사용하여 method 값의 불일치 문제 방지
 function methodToLegacyType(protocol: string, intent?: TransactionIntent): string {
   if (intent === 'swap') return 'swap'
+  if (protocol === 'swap-out') return 'swap-out'
   if (intent === 'nutzap') return 'nutzap'
   if (protocol === 'cashu-token') return 'ecash-token'
   if (protocol === 'nut18') return 'ecash'
@@ -255,33 +258,32 @@ export class DexieTransactionRepository implements TransactionRepository {
       }
     }
     if (patch.completedAt !== undefined) legacyPatch.completedAt = patch.completedAt
+    if (patch.amount !== undefined) legacyPatch.amount = toNumber(patch.amount)
     if (patch.memo !== undefined) legacyPatch.memo = patch.memo
-    if (patch.fee !== undefined) {
-      const feeNumber = patch.fee
-        ? toNumber(patch.fee.effective ?? patch.fee.quoted)
-        : undefined
+    if (patch.metadata !== undefined || patch.fee !== undefined || patch.intent !== undefined) {
       const existingTx = await getExisting()
-      if (!legacyPatch.metadata) legacyPatch.metadata = { ...(existingTx?.metadata ?? {}) }
-      if (feeNumber != null) {
-        (legacyPatch.metadata as Record<string, unknown>).fee = feeNumber
+      const merged: Record<string, unknown> = {
+        ...(existingTx?.metadata ?? {}),
+        ...patch.metadata,
       }
-    }
-    if (patch.metadata !== undefined) {
-      const existingTx = await getExisting()
-      legacyPatch.metadata = { ...(existingTx?.metadata ?? {}), ...patch.metadata }
-      // metadata → flat 필드 동기화 (toLegacy와 동일한 매핑)
-      const meta = legacyPatch.metadata as Record<string, unknown>
-      if (meta.token !== undefined) legacyPatch.token = meta.token as string | undefined
-      if (meta.operationId !== undefined) legacyPatch.operationId = meta.operationId as string | undefined
-      if (meta.bolt11 !== undefined) legacyPatch.bolt11 = meta.bolt11 as string | undefined
-      if (meta.preimage !== undefined) legacyPatch.preimage = meta.preimage as string | undefined
-      if (meta.tokenState !== undefined) (legacyPatch as Record<string, unknown>).tokenState = meta.tokenState
-    }
-    if (patch.intent !== undefined) {
-      legacyPatch.intent = patch.intent
-      const existingTx = await getExisting()
-      if (!legacyPatch.metadata) legacyPatch.metadata = { ...(existingTx?.metadata ?? {}) }
-      ;(legacyPatch.metadata as Record<string, unknown>).intent = patch.intent
+      if (patch.intent !== undefined) {
+        merged.intent = patch.intent
+        legacyPatch.intent = patch.intent
+      }
+      if (patch.fee !== undefined) {
+        const feeNumber = patch.fee
+          ? toNumber(patch.fee.effective ?? patch.fee.quoted)
+          : undefined
+        if (feeNumber != null) merged.fee = feeNumber
+      }
+      legacyPatch.metadata = merged
+      if (patch.metadata !== undefined) {
+        if (merged.token !== undefined) legacyPatch.token = merged.token as string | undefined
+        if (merged.operationId !== undefined) legacyPatch.operationId = merged.operationId as string | undefined
+        if (merged.bolt11 !== undefined) legacyPatch.bolt11 = merged.bolt11 as string | undefined
+        if (merged.preimage !== undefined) legacyPatch.preimage = merged.preimage as string | undefined
+        if (merged.tokenState !== undefined) (legacyPatch as Record<string, unknown>).tokenState = merged.tokenState
+      }
     }
 
     await this.table.update(id, legacyPatch)

@@ -41,6 +41,10 @@ vi.mock('motion/react', () => ({
   },
 }))
 
+vi.mock('@/ui/screens/SwapOut/SwapOutFlow', () => ({
+  SwapOutFlow: () => null,
+}))
+
 vi.mock('@/ui/screens/Send/steps/SendInputStep', () => ({
   SendInputStep: (props: SendInputStepProps) => {
     capturedInput = props

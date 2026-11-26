@@ -12,7 +12,7 @@ import type { ProofStateResult } from '@/core/ports/driven/send-token-operator.p
 import { getEncodedToken, normalizeMintUrl } from '@cashu/coco-core';
 import { getTokenMetadata } from '@cashu/cashu-ts';
 import { classifyCashuError, isInsufficientFundsMessage } from './classify-error';
-import { getCocoManager, getPendingMintQuotes } from './coco-sdk';
+import { getCocoManager, getPendingMintQuotes, getProofsByOperationId } from './coco-sdk';
 import { cocoLogger as logger } from './logger';
 
 // ─── Types ───
@@ -499,6 +499,15 @@ export async function refreshMelt(operationId: string): Promise<{ state: string 
   return { state: refreshed.state };
 }
 
+export async function checkMeltSettlement(operationId: string): Promise<{ state: string }> {
+  const manager = await getCocoManager();
+  const operation = await manager.ops.melt.get(operationId);
+  if (!operation) return { state: 'unknown' };
+  if (operation.state !== 'pending') return { state: operation.state };
+  const refreshed = await manager.ops.melt.refresh(operationId);
+  return { state: refreshed.state };
+}
+
 export async function rollbackMelt(operationId: string, reason?: string): Promise<void> {
   const manager = await getCocoManager();
   const op = await manager.ops.melt.get(operationId);
@@ -507,6 +516,33 @@ export async function rollbackMelt(operationId: string, reason?: string): Promis
   } else {
     await manager.ops.melt.reclaim(operationId, reason);
   }
+}
+
+export async function heldAmounts(
+  mintUrl: string,
+  operationIds: string[],
+): Promise<Record<string, number>> {
+  const normalizedMintUrl = normalizeMintUrl(mintUrl);
+  const seen = new Set<string>();
+  const amounts: Record<string, number> = {};
+  for (const operationId of new Set(operationIds)) {
+    let total = 0;
+    const proofs = await getProofsByOperationId(normalizedMintUrl, operationId);
+    for (const proof of proofs) {
+      if (normalizeMintUrl(proof.mintUrl) !== normalizedMintUrl) continue;
+      if (seen.has(proof.secret)) continue;
+      const used = proof.usedByOperationId === operationId
+        && (proof.state === 'ready' || proof.state === 'inflight');
+      const sent = proof.createdByOperationId === operationId
+        && proof.state === 'inflight'
+        && !proof.usedByOperationId;
+      if (!used && !sent) continue;
+      seen.add(proof.secret);
+      total += proof.amount;
+    }
+    amounts[operationId] = total;
+  }
+  return amounts;
 }
 
 // ─── Token Inspection (lock + proof integrity) ───

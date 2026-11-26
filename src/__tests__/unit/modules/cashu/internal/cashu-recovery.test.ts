@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { sat } from '@/core/domain/amount'
 import type { Transaction } from '@/core/domain/transaction'
 import {
+  recoverPendingMelts,
   recoverPendingQuotes,
   recoverPendingSendTokens,
   reconcileCashu,
@@ -472,5 +473,50 @@ describe('reconcileCashu (zero-network contract)', () => {
 
     expect(report).toEqual({ settled: 1, reclaimed: 1, failed: 0, cleaned: 3 })
     expect(pendingOpRepo.deleteExpired).toHaveBeenCalled()
+  })
+})
+
+describe('recoverPendingMelts payout exclusion', () => {
+  it('skips melt operations owned by the payout service', async () => {
+    const pendingOpRepo = createPendingOpRepoMock()
+    const meltOps = {
+      listInFlight: vi
+        .fn()
+        .mockResolvedValue([{ id: 'payout-op' }, { id: 'other-op' }]),
+      refresh: vi.fn().mockResolvedValue({ state: 'finalized' }),
+      reclaim: vi.fn(),
+    }
+    const excludeMeltOperations = vi.fn().mockResolvedValue(new Set(['payout-op']))
+
+    const result = await recoverPendingMelts({
+      pendingOpRepo,
+      meltOps,
+      excludeMeltOperations,
+    })
+
+    expect(excludeMeltOperations).toHaveBeenCalledTimes(1)
+    expect(meltOps.refresh).toHaveBeenCalledTimes(1)
+    expect(meltOps.refresh).toHaveBeenCalledWith('other-op')
+    expect(result.recovered).toBe(1)
+  })
+
+  it('skips melt recovery when the exclusion callback fails', async () => {
+    const pendingOpRepo = createPendingOpRepoMock()
+    const meltOps = {
+      listInFlight: vi.fn().mockResolvedValue([{ id: 'op-1' }]),
+      refresh: vi.fn().mockResolvedValue({ state: 'finalized' }),
+      reclaim: vi.fn(),
+    }
+    const excludeMeltOperations = vi.fn().mockRejectedValue(new Error('store down'))
+
+    const result = await recoverPendingMelts({
+      pendingOpRepo,
+      meltOps,
+      excludeMeltOperations,
+    })
+
+    expect(meltOps.refresh).not.toHaveBeenCalled()
+    expect(pendingOpRepo.deleteExpired).toHaveBeenCalled()
+    expect(result).toEqual({ recovered: 0, failed: 0 })
   })
 })

@@ -241,6 +241,7 @@ export function assembleFacadeServices(deps: {
   const support = createSupportService({ bip39Seed });
 
   return {
+    routePaymentOperator,
     crypto,
     inputParser,
     routing,

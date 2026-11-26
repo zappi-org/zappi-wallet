@@ -42,6 +42,8 @@ function createMockBackend(): CashuModuleBackend {
       'https://mint-a.test': 5000,
       'https://mint-b.test': 3000,
     }),
+    heldAmounts: vi.fn().mockResolvedValue({}),
+    checkMeltSettlement: vi.fn().mockResolvedValue({ state: 'pending' }),
   }
 }
 

@@ -38,6 +38,10 @@ describe('getTransactionType', () => {
     expect(getTransactionType(makeTx({ intent: 'swap' }))).toBe('swap')
   })
 
+  it('returns swap-out for a swap-out method', () => {
+    expect(getTransactionType(makeTx({ method: 'swap-out', protocol: 'swap-out' }))).toBe('swap-out')
+  })
+
   it('returns lightning as fallback', () => {
     expect(getTransactionType(makeTx({ method: 'unknown', protocol: 'unknown' }))).toBe('lightning')
   })

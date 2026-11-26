@@ -2,7 +2,7 @@ import { AppLifecycleWatcher } from '@/composition/app-lifecycle.watcher'
 import { createBootstrap, type BootstrapResult, type RouteContext, type RouteExecutionResult, type RouteSelection } from '@/composition/bootstrap'
 import { resolveIncomingReview } from '@/composition/incoming-review'
 import { createPreUnlockServices } from '@/composition/pre-unlock'
-import { wipeAccountData } from '@/composition/logout'
+import { bindWipeAccount } from '@/composition/logout'
 import { LIMITS } from '@/core/constants'
 import { sat, toNumber } from '@/core/domain/amount'
 import { resolveSendRoute, resolveDirectPaymentOrLookupFailure, SEND_ROUTE_ERROR_I18N } from '@/core/domain/send-route-resolution'
@@ -651,8 +651,8 @@ export default function MainApp() {
   // swap + composition wiring). wipeAccount bundles the composition wipe wiring
   // (wipeAccountData + registry + removePasskey) and injects it, so the hook
   // depends only on core ports.
-  const wipeAccount = useCallback(
-    () => wipeAccountData({ security: preUnlock.security, registry: serviceRegistry, removePasskey }),
+  const wipeAccount = useMemo(
+    () => bindWipeAccount({ security: preUnlock.security, registry: serviceRegistry, removePasskey }),
     [preUnlock.security, serviceRegistry],
   )
   const {
