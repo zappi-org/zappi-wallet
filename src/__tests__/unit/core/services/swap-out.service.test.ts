@@ -16,6 +16,7 @@ import type {
   SwapOutStartResult,
 } from '@/core/ports/driven/swap-out-provider.port'
 import type {
+  SwapOutPayment,
   SwapOutRecord,
   SwapOutStore,
   SwapOutUpdate,
@@ -26,6 +27,9 @@ import type {
 } from '@/core/ports/driven/route-payment-operator.port'
 import { SwapOutService } from '@/core/services/swap-out.service'
 import { isPayoutStageTerminal } from '@/core/domain/swap-out'
+import { sat } from '@/core/domain/amount'
+import { getTotalCost } from '@/core/domain/transaction'
+import type { Transaction } from '@/core/domain/transaction'
 import { InsufficientBalanceError } from '@/core/errors/payment.errors'
 
 const NOW = 1_700_000_000_000
@@ -209,6 +213,46 @@ class FakeStore implements SwapOutStore {
   }
 }
 
+class FakeTxRepo {
+  rows = new Map<string, Transaction>()
+  saves = 0
+  updates = 0
+  fail = false
+
+  private guard(): void {
+    if (this.fail) throw new Error('transaction store down')
+  }
+
+  async save(tx: Transaction): Promise<void> {
+    this.guard()
+    this.saves += 1
+    this.rows.set(tx.id, tx)
+  }
+
+  async getById(id: string): Promise<Transaction | null> {
+    this.guard()
+    return this.rows.get(id) ?? null
+  }
+
+  async update(id: string, patch: Partial<Transaction>): Promise<void> {
+    this.guard()
+    this.updates += 1
+    const row = this.rows.get(id)
+    if (!row) return
+    const defined = Object.fromEntries(
+      Object.entries(patch).filter(([, value]) => value !== undefined),
+    ) as Partial<Transaction>
+    const metadata =
+      patch.metadata === undefined ? row.metadata : { ...row.metadata, ...patch.metadata }
+    const next: Transaction = {
+      ...row,
+      ...defined,
+      ...(metadata === undefined ? {} : { metadata }),
+    }
+    this.rows.set(id, next)
+  }
+}
+
 interface ProviderControl {
   offers?: SwapOutOffer[]
   listOffersError?: unknown
@@ -387,11 +431,13 @@ function setup(
   }
   const clock = { now: NOW }
   let counter = 0
+  const txRepo = new FakeTxRepo()
   const service = new SwapOutService({
     provider: providerKit.provider,
     store,
     payments: paymentKit.payments,
     eventBus,
+    txRepo,
     enabled: () => options.enabled ?? true,
     now: () => clock.now,
     newId: () => `id-${++counter}`,
@@ -408,6 +454,7 @@ function setup(
     timeline,
     events,
     clock,
+    txRepo,
   }
 }
 
@@ -1235,5 +1282,306 @@ describe('swap-out service views', () => {
     )
     expect((await service.get('open'))?.hasOpenPayments).toBe(true)
     expect((await service.get('settled'))?.hasOpenPayments).toBe(false)
+  })
+})
+
+describe('swap-out service transaction history', () => {
+  const paidPayments: SwapOutPayment[] = [
+    { request: 'fee', amount: 45000, operationId: 'op-fee', feeReserve: 42, status: 'paid', feePaid: 5, settledAt: NOW },
+    { request: 'main', amount: 55000, operationId: 'op-main', feeReserve: 42, status: 'paid', feePaid: 7, settledAt: NOW },
+  ]
+
+  it('records the transaction when the payout dispatches', async () => {
+    const { service, txRepo, pending, events } = setup()
+    const started = await quoteAndStart(service)
+    expect(started.ok).toBe(true)
+    expect(txRepo.rows.get('id-2')).toMatchObject({
+      id: 'id-2',
+      direction: 'send',
+      method: 'swap-out',
+      protocol: 'swap-out',
+      accountId: MINT,
+      status: 'pending',
+      createdAt: NOW,
+    })
+    expect(txRepo.rows.get('id-2')?.amount).toEqual(sat(99000))
+    expect(txRepo.rows.get('id-2')?.fee).toEqual({ quoted: sat(1084) })
+    expect(getTotalCost(txRepo.rows.get('id-2')!)).toEqual(sat(100084))
+    expect(txRepo.rows.get('id-2')?.metadata).toEqual({
+      sendAmount: 100000,
+      receiveAmount: 99000,
+      destination: 'bcrt1qdestination',
+      identifier: 'npub1fake',
+      offerId: OFFER_ID,
+    })
+    expect(txRepo.saves).toBe(1)
+    expect(events.filter((event) => event.type === 'transactions:changed')).toHaveLength(1)
+    pending[0].resolve({ secret: 'aa' })
+    pending[1].resolve({ secret: 'bb' })
+    await flush()
+  })
+
+  it('settles the transaction with the fees actually paid', async () => {
+    const { service, store, txRepo } = setup()
+    store.seed(
+      makeRecord({
+        stage: 'completed',
+        phase: 'settled',
+        dispatchedAt: NOW,
+        payoutTxId: 'tx-1',
+        updatedAt: NOW,
+        payments: paidPayments,
+      }),
+    )
+    await service.resumeAll()
+    const tx = txRepo.rows.get('payout-1')
+    expect(tx?.status).toBe('settled')
+    expect(tx?.amount).toEqual(sat(99000))
+    expect(tx?.fee).toEqual({ quoted: sat(1084), effective: sat(1012) })
+    expect(tx && getTotalCost(tx)).toEqual(sat(100012))
+    expect(tx?.completedAt).toBe(NOW)
+    expect(tx?.metadata?.payoutTxId).toBe('tx-1')
+    expect(tx?.metadata?.sendAmount).toBe(100000)
+  })
+
+  it('fails the transaction with the cost actually spent when the payout is refunded', async () => {
+    const { service, store, txRepo } = setup()
+    store.seed(
+      makeRecord({
+        stage: 'refunded',
+        phase: 'failed',
+        dispatchedAt: NOW,
+        failureReason: 'refunded_by_provider',
+        updatedAt: NOW,
+        payments: [paidPayments[0], { ...paidPayments[1], status: 'rolled_back', feePaid: null, settledAt: null }],
+      }),
+    )
+    await service.resumeAll()
+    const tx = txRepo.rows.get('payout-1')
+    expect(tx?.status).toBe('failed')
+    expect(tx?.amount).toEqual(sat(45000))
+    expect(tx?.fee).toEqual({ quoted: sat(1084), effective: sat(5) })
+    expect(tx && getTotalCost(tx)).toEqual(sat(45005))
+    expect(tx?.metadata?.failureReason).toBe('refunded_by_provider')
+  })
+
+  it('records nothing for a payout that never dispatched', async () => {
+    const { service, store, txRepo } = setup({ prepareFailIndex: 1 })
+    const started = await quoteAndStart(service)
+    expect(started.ok).toBe(false)
+    expect(store.records.get('id-2')?.stage).toBe('aborted')
+    expect(txRepo.saves).toBe(0)
+
+    const interrupted = setup()
+    interrupted.store.seed(
+      makeRecord({
+        stage: 'quoted',
+        phase: 'preparing',
+        payments: makeRecord().payments.map((payment) => ({
+          ...payment,
+          status: 'prepared' as const,
+        })),
+      }),
+    )
+    await interrupted.service.resumeAll()
+    expect(interrupted.store.records.get('payout-1')?.stage).toBe('aborted')
+    expect(interrupted.txRepo.rows.size).toBe(0)
+  })
+
+  it('keeps a single transaction across repeated resumes', async () => {
+    const { service, store, txRepo } = setup()
+    store.seed(
+      makeRecord({
+        stage: 'completed',
+        phase: 'settled',
+        dispatchedAt: NOW,
+        updatedAt: NOW,
+        payments: paidPayments,
+      }),
+    )
+    await service.resumeAll()
+    await service.resumeAll()
+    expect(txRepo.rows.size).toBe(1)
+    expect(txRepo.saves).toBe(1)
+    expect(txRepo.updates).toBe(0)
+  })
+
+  it('keeps the payout running when the transaction store fails', async () => {
+    const { service, store, txRepo, pending, control } = setup()
+    txRepo.fail = true
+    const started = await quoteAndStart(service)
+    expect(started.ok).toBe(true)
+    expect(store.records.get('id-2')?.stage).toBe('paying')
+    expect(txRepo.rows.size).toBe(0)
+
+    txRepo.fail = false
+    control.resume = { progress: { stage: 'completed' } }
+    await service.resumeAll()
+    expect(txRepo.rows.get('id-2')?.status).toBe('settled')
+    pending[0].resolve({ secret: 'aa' })
+    pending[1].resolve({ secret: 'bb' })
+    await flush()
+  })
+
+  it('repairs a transaction left pending by an earlier session', async () => {
+    const { service, store, txRepo } = setup()
+    txRepo.rows.set('payout-1', {
+      id: 'payout-1',
+      direction: 'send',
+      method: 'swap-out',
+      protocol: 'swap-out',
+      amount: sat(100000),
+      accountId: MINT,
+      status: 'pending',
+      createdAt: 100,
+    })
+    store.seed(
+      makeRecord({
+        stage: 'completed',
+        phase: 'settled',
+        dispatchedAt: NOW,
+        updatedAt: NOW,
+        payments: paidPayments,
+      }),
+    )
+    await service.resumeAll()
+    expect(txRepo.rows.get('payout-1')?.status).toBe('settled')
+    expect(txRepo.updates).toBe(1)
+  })
+})
+
+describe('swap-out service transaction repair', () => {
+  const paidPayments: SwapOutPayment[] = [
+    { request: 'fee', amount: 45000, operationId: 'op-fee', feeReserve: 42, status: 'paid', feePaid: 5, settledAt: NOW },
+    { request: 'main', amount: 55000, operationId: 'op-main', feeReserve: 42, status: 'paid', feePaid: 7, settledAt: NOW },
+  ]
+
+  it('records a terminal payout that predates the dispatch marker', async () => {
+    const { service, store, txRepo } = setup()
+    store.seed(
+      makeRecord({
+        stage: 'completed',
+        phase: 'settled',
+        updatedAt: NOW,
+        payments: paidPayments,
+      }),
+    )
+    await service.resumeAll()
+    const tx = txRepo.rows.get('payout-1')
+    expect(tx?.status).toBe('settled')
+    expect(tx && getTotalCost(tx)).toEqual(sat(100012))
+  })
+
+  it('records an aborted payout only when a payment had been paid', async () => {
+    const { service, store, txRepo } = setup()
+    store.seed(
+      makeRecord({
+        stage: 'aborted',
+        phase: 'failed',
+        failureReason: 'prepare_failed',
+        updatedAt: NOW,
+        payments: makeRecord().payments.map((payment) => ({
+          ...payment,
+          status: 'rolled_back' as const,
+        })),
+      }),
+    )
+    await service.resumeAll()
+    expect(txRepo.rows.size).toBe(0)
+  })
+
+  it('retries the repair pass when a transaction write failed', async () => {
+    const { service, store, txRepo } = setup()
+    store.seed(
+      makeRecord({
+        stage: 'completed',
+        phase: 'settled',
+        dispatchedAt: NOW,
+        updatedAt: NOW,
+        payments: paidPayments,
+      }),
+    )
+    txRepo.fail = true
+    await service.resumeAll()
+    expect(txRepo.rows.size).toBe(0)
+
+    txRepo.fail = false
+    await service.resumeAll()
+    expect(txRepo.rows.get('payout-1')?.status).toBe('settled')
+  })
+
+  it('keeps the first completion time while refining the settled fee', async () => {
+    const { service, store, txRepo } = setup({ refreshStates: ['finalized'] })
+    txRepo.rows.set('payout-1', {
+      id: 'payout-1',
+      direction: 'send',
+      method: 'swap-out',
+      protocol: 'swap-out',
+      amount: sat(99000),
+      accountId: MINT,
+      status: 'settled',
+      createdAt: 100,
+      completedAt: 111,
+      fee: { quoted: sat(1084), effective: sat(1000) },
+      metadata: { destination: 'bcrt1qdestination', sendAmount: 100000, receiveAmount: 99000 },
+    })
+    store.seed(
+      makeRecord({
+        stage: 'completed',
+        phase: 'settled',
+        dispatchedAt: NOW,
+        updatedAt: NOW,
+        payments: [paidPayments[0], { ...paidPayments[1], status: 'dispatched', feePaid: null, settledAt: null }],
+      }),
+    )
+    await service.resumeAll()
+    const tx = txRepo.rows.get('payout-1')
+    expect(tx?.completedAt).toBe(111)
+    expect(tx && getTotalCost(tx)).toEqual(sat(100005))
+  })
+
+  it('never moves a terminal transaction back to pending', async () => {
+    const { service, store, txRepo } = setup()
+    txRepo.rows.set('payout-1', {
+      id: 'payout-1',
+      direction: 'send',
+      method: 'swap-out',
+      protocol: 'swap-out',
+      amount: sat(99000),
+      accountId: MINT,
+      status: 'settled',
+      createdAt: 100,
+      completedAt: 111,
+      fee: { quoted: sat(1084), effective: sat(1012) },
+      metadata: { destination: 'bcrt1qdestination', sendAmount: 100000, receiveAmount: 99000 },
+    })
+    store.seed(
+      makeRecord({
+        stage: 'funded',
+        phase: 'in_transit',
+        dispatchedAt: NOW,
+        updatedAt: NOW,
+        payments: paidPayments,
+      }),
+    )
+    await service.resumeAll()
+    expect(txRepo.rows.get('payout-1')?.status).toBe('settled')
+    expect(txRepo.updates).toBe(0)
+  })
+
+  it('writes the transaction before announcing the terminal payout', async () => {
+    const { service, control, events, pending } = setup()
+    await quoteAndStart(service)
+    control.resume = { progress: { stage: 'completed' } }
+    await service.resumeAll()
+    const changed = events.findIndex((event) => event.type === 'transactions:changed')
+    const settled = events.findIndex(
+      (event) => event.type === 'swap-out:updated' && event.payload.stage === 'completed',
+    )
+    expect(changed).toBeGreaterThan(-1)
+    expect(settled).toBeGreaterThan(changed)
+    pending[0].resolve({ secret: 'aa' })
+    pending[1].resolve({ secret: 'bb' })
+    await flush()
   })
 })

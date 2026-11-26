@@ -794,6 +794,21 @@ export default {
       nearDeadline: '送金の期限が近すぎるため、安全に送れません。',
       unknown: 'この送金で問題が発生しました。',
     },
+    record: {
+      typeLabel: 'オンチェーン',
+      sent: 'ビットコインアドレスに送金済み',
+      sending: 'ビットコインアドレスに送金中',
+      failed: 'ビットコイン送金に失敗',
+      receivedOnchain: 'オンチェーン受取額',
+      providerFees: 'プロバイダー手数料',
+      paymentFee: '支払い手数料',
+      paymentFeeEstimated: '支払い手数料(見積もり)',
+      totalCost: '合計費用',
+      amountSpent: '使われた金額',
+      payoutTxId: 'オンチェーン取引ID',
+      lossNote: '送金に失敗しました。使われたのは{{amount}}のみで、残りはウォレットに残っています。',
+      nothingLost: '送金に失敗しました。使われた金額はなく、資金はウォレットに残っています。',
+    },
   },
 
   // Errors

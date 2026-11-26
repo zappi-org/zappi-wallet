@@ -22,6 +22,7 @@ import { visibleMintUrls } from "@/utils/visible-mint-urls";
 import { useAllPendingItems, type PendingItem } from "@/ui/hooks/usePendingItems";
 import { useAppStore } from "@/store";
 import { selectPendingSwapOuts } from "@/store/selectors";
+import { isSwapOutLoss, withoutPendingPayouts } from "@/ui/utils/swap-out-transaction";
 import { useSatUnit, useFormatFiat } from "@/utils/format";
 import { getMintBalance, isSameMintUrl } from "@/utils/url";
 import type { MintInfo } from "@/core/types";
@@ -150,16 +151,22 @@ export function HomeScreen({
     [pendingItemsRaw]
   );
 
+  const pendingPayoutIds = useMemo(
+    () => new Set(swapOuts.map((payout) => payout.id)),
+    [swapOuts]
+  );
+
   const filteredTransactions = useMemo(() => {
+    const ledger = withoutPendingPayouts(transactions, pendingPayoutIds);
     const selectedMint = mints[clampedMintIndex];
-    if (!selectedMint) return transactions;
+    if (!selectedMint) return ledger;
     const url = selectedMint.url;
     // Boolean-returning wrapper: isReclaimableSend's `tx is Transaction` type
     // guard would otherwise narrow tx to `never` in the branch below (its
     // input is already typed Transaction, so the false branch collapses).
     const isReclaimable = (tx: Transaction): boolean => isReclaimableSend(tx);
-    return transactions.filter((tx) => {
-      if (tx.status === "failed") return false;
+    return ledger.filter((tx) => {
+      if (tx.status === "failed" && !isSwapOutLoss(tx)) return false;
       // Only hide once its pending row is actually loaded — the pending query
       // is async and independent, so hiding unconditionally would vanish this
       // money from both lists on first paint or if that query comes back empty.
@@ -168,7 +175,7 @@ export function HomeScreen({
       // variant (host case, :443) is still this mint's money and must show.
       return Boolean(tx.accountId) && isSameMintUrl(tx.accountId, url);
     });
-  }, [transactions, mints, clampedMintIndex, pendingItemIds]);
+  }, [transactions, mints, clampedMintIndex, pendingItemIds, pendingPayoutIds]);
 
   const pendingItems = useMemo(() => {
     const selectedMint = mints[clampedMintIndex];

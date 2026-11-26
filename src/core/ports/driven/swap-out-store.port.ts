@@ -37,6 +37,7 @@ export interface SwapOutRecord {
   payoutTxId: string | null
   failureReason: string | null
   publishedAt: number | null
+  dispatchedAt?: number | null
   deadline: SwapOutDeadline
   createdAt: number
   updatedAt: number

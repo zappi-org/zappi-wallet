@@ -798,6 +798,21 @@ export default {
       nearDeadline: '출금 기한이 너무 가까워 안전하게 보낼 수 없어요.',
       unknown: '이 출금에 문제가 생겼어요.',
     },
+    record: {
+      typeLabel: '온체인',
+      sent: '비트코인 주소로 보냄',
+      sending: '비트코인 주소로 보내는 중',
+      failed: '비트코인 전송 실패',
+      receivedOnchain: '온체인 수령액',
+      providerFees: '제공자 수수료',
+      paymentFee: '결제 수수료',
+      paymentFeeEstimated: '결제 수수료 (예상)',
+      totalCost: '총 비용',
+      amountSpent: '사용된 금액',
+      payoutTxId: '온체인 거래 ID',
+      lossNote: '전송에 실패했어요. {{amount}}만 사용되었고 나머지는 지갑에 그대로 있어요.',
+      nothingLost: '전송에 실패했어요. 사용된 금액은 없고 자금은 지갑에 그대로 있어요.',
+    },
   },
 
   // Errors

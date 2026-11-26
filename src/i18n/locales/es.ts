@@ -796,6 +796,21 @@ export default {
       nearDeadline: 'Queda muy poco para el plazo del retiro como para enviar con seguridad.',
       unknown: 'Algo salió mal con este retiro.',
     },
+    record: {
+      typeLabel: 'En cadena',
+      sent: 'Enviado a dirección de Bitcoin',
+      sending: 'Enviando a dirección de Bitcoin',
+      failed: 'Envío de Bitcoin fallido',
+      receivedOnchain: 'Recibido en cadena',
+      providerFees: 'Comisiones del proveedor',
+      paymentFee: 'Comisión de pago',
+      paymentFeeEstimated: 'Comisión de pago (estimada)',
+      totalCost: 'Costo total',
+      amountSpent: 'Monto gastado',
+      payoutTxId: 'ID de transacción en cadena',
+      lossNote: 'Este envío falló. Solo se gastaron {{amount}}; el resto sigue en tu billetera.',
+      nothingLost: 'Este envío falló. No se gastó nada; tus fondos siguen en tu billetera.',
+    },
   },
 
   // Errors

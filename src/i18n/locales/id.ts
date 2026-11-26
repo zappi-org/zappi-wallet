@@ -796,6 +796,21 @@ export default {
       nearDeadline: 'Terlalu dekat dengan batas waktu penarikan untuk dikirim dengan aman.',
       unknown: 'Terjadi masalah pada penarikan ini.',
     },
+    record: {
+      typeLabel: 'On-chain',
+      sent: 'Terkirim ke alamat Bitcoin',
+      sending: 'Mengirim ke alamat Bitcoin',
+      failed: 'Pengiriman Bitcoin gagal',
+      receivedOnchain: 'Diterima on-chain',
+      providerFees: 'Biaya penyedia',
+      paymentFee: 'Biaya pembayaran',
+      paymentFeeEstimated: 'Biaya pembayaran (perkiraan)',
+      totalCost: 'Total biaya',
+      amountSpent: 'Jumlah terpakai',
+      payoutTxId: 'ID transaksi on-chain',
+      lossNote: 'Pengiriman ini gagal. Hanya {{amount}} yang terpakai; sisanya tetap di dompetmu.',
+      nothingLost: 'Pengiriman ini gagal. Tidak ada yang terpakai; dana tetap di dompetmu.',
+    },
   },
 
   // Errors

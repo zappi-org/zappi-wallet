@@ -19,6 +19,7 @@ import type {
 } from '@/core/ports/driven/swap-out-provider.port'
 import type { SwapOutStore } from '@/core/ports/driven/swap-out-store.port'
 import type { RoutePaymentOperator } from '@/core/ports/driven/route-payment-operator.port'
+import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
 import type { SwapOutStage } from '@/core/domain/swap-out'
 import type { JsonValue } from '@/core/domain/json'
 import type { SwapOutProgress, SwapOutAdvance } from '@/core/ports/driven/swap-out-provider.port'
@@ -100,11 +101,12 @@ export interface CreateSwapOutDeps {
     | 'heldAmounts'
   >
   eventBus: EventBus
+  txRepo: Pick<TransactionRepository, 'save' | 'getById' | 'update'>
   store?: WipeableSwapOutStore
 }
 
 export function createSwapOut(deps: CreateSwapOutDeps): SwapOutBundle {
-  const { config, routePaymentOperator, eventBus } = deps
+  const { config, routePaymentOperator, eventBus, txRepo } = deps
   const store = deps.store ?? new DexieSwapOutStore()
   let relayClient: PayoutRelayClient | null = null
 
@@ -127,6 +129,7 @@ export function createSwapOut(deps: CreateSwapOutDeps): SwapOutBundle {
     provider: new LazyPayoutProvider(buildProvider),
     store,
     payments: routePaymentOperator,
+    txRepo,
     eventBus,
     enabled: () => config.enabled,
     now: () => Date.now(),

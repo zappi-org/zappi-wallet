@@ -1,6 +1,7 @@
 import type { TFunction } from 'i18next'
 import type { Transaction } from '@/core/domain/transaction'
 import { getTransactionType, getTxMeta, isReclaimableSend, isReclaimed } from '@/core/domain/transaction'
+import { isSwapOutTransaction, swapOutActionLabel } from '@/ui/utils/swap-out-transaction'
 
 /**
  * Send ids whose reclaim was booked on a companion receive row (legacy token
@@ -38,6 +39,7 @@ export function isReclaimRow(tx: Transaction, hasCompanionReceive = false): bool
 // failed keeps the act label — strikethrough+red dot already carry failure.
 function resolveActionLabel(tx: Transaction, t: TFunction, hasCompanionReceive: boolean): string {
   if (isReclaimRow(tx, hasCompanionReceive)) return t('history.reclaimed')
+  if (isSwapOutTransaction(tx)) return swapOutActionLabel(tx, t)
   const isReceive = tx.direction === 'receive'
   if (tx.status === 'pending') {
     if (!isReceive && isReclaimableSend(tx)) return t('send.receipt.pendingTitle')
@@ -56,6 +58,7 @@ export function getTitle(tx: Transaction, t: TFunction, hasCompanionReceive = fa
 export function getTypeLabel(tx: Transaction, t: TFunction): string {
   const txType = getTransactionType(tx)
   if (txType === 'swap') return t('history.swap')
+  if (txType === 'swap-out') return t('swapOut.record.typeLabel')
   if (txType === 'lightning') return t('history.lightning')
   if (txType === 'nutzap') return t('history.nutzap')
   return t('history.ecash')

@@ -17,6 +17,7 @@ import { getLocaleCode, useFormatSats } from '@/utils/format'
 import type { PendingItem } from '@/core/ports/driving/pending-items.usecase'
 import { isSendToken, type TokenDetails } from '@/ui/types/pending-item-details'
 import { useAllPendingItems } from '@/ui/hooks/usePendingItems'
+import { isListedInHistory } from '@/ui/utils/swap-out-transaction'
 import { useCopyFeedback } from '@/ui/hooks/use-copy-feedback'
 import { useReclaimFees } from '@/ui/hooks/useReclaimFees'
 import { useTokenReclaim } from '@/ui/hooks/use-token-reclaim'
@@ -411,7 +412,7 @@ export function HistoryScreen({
 
   const filteredTransactions = useMemo(() => {
     let filtered = transactions
-      .filter((tx) => tx.status === 'settled')
+      .filter(isListedInHistory)
       .sort((a, b) => b.createdAt - a.createdAt)
 
     if (selectedMintUrls.size > 0) {

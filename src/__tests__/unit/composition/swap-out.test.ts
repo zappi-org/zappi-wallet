@@ -4,6 +4,7 @@ import { SwapOutUnavailableError } from '@/core/errors/swap-out'
 import { createSwapOut } from '@/composition/swap-out'
 import type { SwapOutConfig } from '@/composition/swap-out-config'
 import type { RoutePaymentOperator } from '@/core/ports/driven/route-payment-operator.port'
+import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
 
 function disabledConfig(patch: Partial<SwapOutConfig> = {}): SwapOutConfig {
   return {
@@ -37,11 +38,18 @@ const payments = {
 >
 
 describe('createSwapOut', () => {
+  const txRepo = {
+    save: vi.fn(),
+    getById: vi.fn().mockResolvedValue(null),
+    update: vi.fn(),
+  } as unknown as Pick<TransactionRepository, 'save' | 'getById' | 'update'>
+
   it('returns a disabled service that never reaches the provider', async () => {
     const bundle = createSwapOut({
       config: disabledConfig(),
       routePaymentOperator: payments,
       eventBus: createEventBus(),
+      txRepo,
     })
     try {
       expect(bundle.service.isEnabled()).toBe(false)

@@ -41,6 +41,15 @@ import { ReclaimSheet } from '@/ui/screens/Token/components/ReclaimSheet'
 import type { PendingTokenView } from '@/ui/screens/Token/types'
 import { EasterEggScreen } from '@/ui/screens/Token/EasterEggScreen'
 import { TokenSpentByRecipientError } from '@/core/errors/reclaim'
+import { ProviderMark } from '@/ui/components/payment/ProviderMark'
+import { shortenIdentifier } from '@/ui/screens/SwapOut/payout-form'
+import { swapOutFailureLabel } from '@/ui/utils/swap-out-labels'
+import {
+  getSwapOutDetails,
+  shortenAddress,
+  swapOutActionLabel,
+  swapOutFeeBreakdown,
+} from '@/ui/utils/swap-out-transaction'
 
 export interface TransactionDetailScreenProps {
   transaction: Transaction
@@ -84,6 +93,10 @@ export default function TransactionDetailScreen({
   const isLightning = txType === 'lightning'
   const isEcashToken = txType === 'ecash-token'
   const isEcash = txType === 'ecash' || isEcashToken
+  const isSwapOut = txType === 'swap-out'
+  const swapOut = useMemo(() => (isSwapOut ? getSwapOutDetails(tx) : null), [isSwapOut, tx])
+  const swapOutFees = useMemo(() => (isSwapOut ? swapOutFeeBreakdown(tx) : null), [isSwapOut, tx])
+  const isSwapOutFailed = isSwapOut && tx.status === 'failed'
   const metadata = tx.metadata as Record<string, unknown> | undefined
 
   // The exact gate the old screen used — failed/deleted/spent sends must never
@@ -223,6 +236,49 @@ export default function TransactionDetailScreen({
 
   const receiptRows = useMemo<PaymentReceiptRow[]>(() => {
     const rows: PaymentReceiptRow[] = []
+    if (swapOut && swapOutFees) {
+      if (swapOut.destination) {
+        rows.push({ label: t('swapOut.destination'), value: shortenAddress(swapOut.destination) })
+      }
+      rows.push({ label: t('txDetail.type'), value: typeLabel })
+      rows.push({ label: t('send.confirm.sourceMint'), value: getDisplayName(tx.accountId), valueNode: mintNode(tx.accountId) })
+      if (swapOut.identifier) {
+        rows.push({
+          label: t('swapOut.providers.provider'),
+          value: shortenIdentifier(swapOut.identifier),
+          valueNode: (
+            <span className="inline-flex min-w-0 items-center gap-1.5 align-middle">
+              <ProviderMark identifier={swapOut.identifier} width={20} />
+              <span className="truncate font-mono">{shortenIdentifier(swapOut.identifier)}</span>
+            </span>
+          ),
+        })
+      }
+      if (isSwapOutFailed) {
+        if (swapOutFees.paymentFee) {
+          rows.push({ label: t('swapOut.record.paymentFee'), value: formatSats(swapOutFees.paymentFee) })
+        }
+        rows.push({ label: t('swapOut.record.amountSpent'), value: formatSats(swapOutFees.totalCost), strong: true })
+        if (swapOut.failureReason) {
+          rows.push({ label: t('txDetail.failureReason'), value: swapOutFailureLabel(swapOut.failureReason, t) })
+        }
+      } else {
+        rows.push({ label: t('swapOut.record.receivedOnchain'), value: formatSats(swapOut.receiveAmount ?? amountSats) })
+        if (swapOutFees.providerFees !== null) {
+          rows.push({ label: t('swapOut.record.providerFees'), value: formatSats(swapOutFees.providerFees) })
+        }
+        if (swapOutFees.paymentFee !== null) {
+          rows.push({
+            label: t(swapOutFees.estimated ? 'swapOut.record.paymentFeeEstimated' : 'swapOut.record.paymentFee'),
+            value: formatSats(swapOutFees.paymentFee),
+          })
+        } else {
+          rows.push({ label: t('txDetail.fee'), value: formatSats(swapOutFees.totalFee) })
+        }
+        rows.push({ label: t('swapOut.record.totalCost'), value: formatSats(swapOutFees.totalCost), strong: true })
+      }
+      return rows
+    }
     if (isReceive) {
       rows.push({
         label: t('receive.receipt.method'),
@@ -287,13 +343,15 @@ export default function TransactionDetailScreen({
     // No time row — the state bar carries per-state times and the bottom
     // line carries the date, so a row here would be the third clock.
     return rows
-  }, [tx, meta, metadata, isSwap, isLightning, isReceive, isBearerCreate, amountSats, typeLabel, sourceLabel, kioskOrder, feeSats, displayFee, mintNode, getDisplayName, formatSats, t])
+  }, [tx, meta, metadata, isSwap, isLightning, isReceive, isBearerCreate, amountSats, typeLabel, sourceLabel, kioskOrder, feeSats, displayFee, mintNode, getDisplayName, formatSats, t, swapOut, swapOutFees, isSwapOutFailed])
 
   const receiptStatus = tx.status === 'settled' ? 'done' : 'pending'
   // A reclaim's receive TX is money coming back, not new money in — its own
   // title/doneRight say so instead of reading as a normal receive.
   // Pending receipts must not claim completion — only settled gets the plain "receipt" title.
-  const receiptTitle = meta.reclaimedFrom
+  const receiptTitle = isSwapOut
+    ? swapOutActionLabel(tx, t)
+    : meta.reclaimedFrom
     ? t('receive.receipt.reclaimTitle')
     : tx.status === 'pending'
       ? (isReceive ? t('receive.receipt.pendingTitle') : t('send.receipt.pendingTitle'))
@@ -316,7 +374,7 @@ export default function TransactionDetailScreen({
       ? t('send.receipt.settling')
       : t('history.pendingStatus')
   // Flow receipts print the amount unsigned — direction reads from the title.
-  const amountLine = formatSats(amountSats)
+  const amountLine = formatSats(isSwapOutFailed && swapOutFees ? swapOutFees.totalCost : amountSats)
 
   // Long, copyable values live below the paper, folded by default.
   const detailEntries = useMemo(() => {
@@ -325,13 +383,19 @@ export default function TransactionDetailScreen({
     ]
     // No destination entry here — the paper's 받는이 row owns that value, and
     // the full invoice below already carries the copyable payment target.
+    if (swapOut?.destination) {
+      entries.push({ key: 'swapOutDestination', label: t('swapOut.destination'), value: swapOut.destination })
+    }
+    if (swapOut?.payoutTxId) {
+      entries.push({ key: 'swapOutPayoutTxId', label: t('swapOut.record.payoutTxId'), value: swapOut.payoutTxId })
+    }
     if (meta.preimage) entries.push({ key: 'preimage', label: t('txDetail.preimage'), value: meta.preimage })
     if (meta.bolt11) entries.push({ key: 'bolt11', label: t('txDetail.bolt11'), value: meta.bolt11 })
     if (typeof metadata?.quoteId === 'string') {
       entries.push({ key: 'quoteId', label: t('txDetail.quoteId'), value: metadata.quoteId })
     }
     return entries
-  }, [tx.id, meta, metadata, t])
+  }, [tx.id, meta, metadata, t, swapOut])
 
   return (
     <div className="w-full h-full flex flex-col bg-background pt-safe">
@@ -455,6 +519,13 @@ export default function TransactionDetailScreen({
         </div>
 
         <div className="px-5 flex flex-col gap-3">
+          {isSwapOutFailed && swapOutFees && (
+            <p className="text-caption text-foreground-muted text-center leading-relaxed" data-testid="swap-out-loss-note">
+              {swapOutFees.totalCost > 0
+                ? t('swapOut.record.lossNote', { amount: formatSats(swapOutFees.totalCost) })
+                : t('swapOut.record.nothingLost')}
+            </p>
+          )}
 
           {/* ── Bearer-token actions — a spent token's QR is inert, and
               re-copy stays useful ── */}

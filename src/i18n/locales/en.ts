@@ -792,6 +792,21 @@ export default {
       nearDeadline: 'Too close to the payout deadline to send safely.',
       unknown: 'Something went wrong with this payout.',
     },
+    record: {
+      typeLabel: 'On-chain',
+      sent: 'Sent to bitcoin address',
+      sending: 'Sending to bitcoin address',
+      failed: 'Bitcoin send failed',
+      receivedOnchain: 'Received on-chain',
+      providerFees: 'Provider fees',
+      paymentFee: 'Payment fee',
+      paymentFeeEstimated: 'Payment fee (estimated)',
+      totalCost: 'Total cost',
+      amountSpent: 'Amount spent',
+      payoutTxId: 'On-chain transaction ID',
+      lossNote: 'This send failed. Only {{amount}} was spent; the rest stayed in your wallet.',
+      nothingLost: 'This send failed. Nothing was spent; your funds stayed in your wallet.',
+    },
   },
 
   // Errors

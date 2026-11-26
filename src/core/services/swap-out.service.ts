@@ -1,9 +1,12 @@
 import {
   advancePayoutStage,
+  isPayoutStageTerminal,
   type SwapOutStage,
 } from '@/core/domain/swap-out'
 import type { PendingTransfer, TransferPhase } from '@/core/domain/pending-transfer'
 import { Err, Ok, type Result } from '@/core/domain/result'
+import { sat } from '@/core/domain/amount'
+import type { Transaction, TransactionStatus } from '@/core/domain/transaction'
 import { BaseError, UnknownError } from '@/core/errors/base'
 import {
   SwapOutAmountOutOfRangeError,
@@ -28,6 +31,7 @@ import type {
   ExecutedRouteMelt,
   RoutePaymentOperator,
 } from '@/core/ports/driven/route-payment-operator.port'
+import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
 import type {
   SwapOutQuoteView,
   SwapOutUseCase,
@@ -54,6 +58,7 @@ export interface SwapOutServiceDeps {
     | 'checkMeltSettlement'
     | 'heldAmounts'
   >
+  txRepo: Pick<TransactionRepository, 'save' | 'getById' | 'update'>
   eventBus: EventBus
   enabled: () => boolean
   now: () => number
@@ -72,6 +77,7 @@ export class SwapOutService implements SwapOutUseCase {
   private readonly provider: SwapOutProvider
   private readonly store: SwapOutStore
   private readonly payments: SwapOutServiceDeps['payments']
+  private readonly txRepo: SwapOutServiceDeps['txRepo']
   private readonly eventBus: EventBus
   private readonly enabled: () => boolean
   private readonly now: () => number
@@ -83,11 +89,13 @@ export class SwapOutService implements SwapOutUseCase {
   private readonly starting = new Set<string>()
   private readonly pendingExecutions = new Set<string>()
   private resumePromise: Promise<void> | null = null
+  private repairedTransactions = false
 
   constructor(deps: SwapOutServiceDeps) {
     this.provider = deps.provider
     this.store = deps.store
     this.payments = deps.payments
+    this.txRepo = deps.txRepo
     this.eventBus = deps.eventBus
     this.enabled = deps.enabled
     this.now = deps.now
@@ -307,6 +315,7 @@ export class SwapOutService implements SwapOutUseCase {
             })),
             stage: 'paying',
             phase: this.phaseFor(current, 'paying'),
+            dispatchedAt: this.now(),
           }
         : null,
     )
@@ -415,6 +424,17 @@ export class SwapOutService implements SwapOutUseCase {
       }
     }
     await this.settleOpenPayments(settle)
+    await this.repairTransactions()
+  }
+
+  private async repairTransactions(): Promise<void> {
+    if (this.repairedTransactions) return
+    let repaired = true
+    for (const record of await this.store.list()) {
+      if (!isPayoutStageTerminal(record.stage)) continue
+      if (!(await this.syncTransaction(record))) repaired = false
+    }
+    this.repairedTransactions = repaired
   }
 
   private async resumeRecord(record: SwapOutRecord): Promise<void> {
@@ -758,6 +778,7 @@ export class SwapOutService implements SwapOutUseCase {
       updatedAt,
       version: expectedVersion + 1,
     }
+    await this.syncTransaction(next)
     this.emit(next)
     return next
   }
@@ -784,11 +805,113 @@ export class SwapOutService implements SwapOutUseCase {
         updatedAt,
         version: record.version + 1,
       }
+      await this.syncTransaction(next)
       this.emit(next)
       return next
     }
     this.logger?.warn(`payout update gave up: ${id}`)
     return null
+  }
+
+  private async syncTransaction(record: SwapOutRecord): Promise<boolean> {
+    if (!this.reachedDispatch(record)) return true
+    try {
+      const existing = await this.txRepo.getById(record.id)
+      const transaction = this.transactionFor(record, existing)
+      if (this.isRecorded(existing, transaction)) return true
+      if (existing === null) {
+        await this.txRepo.save(transaction)
+      } else {
+        await this.txRepo.update(record.id, transaction)
+      }
+      this.eventBus.emit({
+        type: 'transactions:changed',
+        payload: { reason: 'swap-out', txId: record.id },
+      })
+      return true
+    } catch (error) {
+      this.logger?.warn(
+        `payout transaction record failed: ${record.id} ${error instanceof Error ? error.message : ''}`,
+      )
+      return false
+    }
+  }
+
+  private reachedDispatch(record: SwapOutRecord): boolean {
+    if (record.dispatchedAt != null) return true
+    if (RESUMABLE_STAGES.includes(record.stage)) return true
+    if (record.stage === 'completed' || record.stage === 'refunded') return true
+    return record.payments.some((payment) => payment.status === 'paid')
+  }
+
+  private isRecorded(existing: Transaction | null, next: Transaction): boolean {
+    if (existing === null) return false
+    if (next.status === 'pending') return true
+    return (
+      existing.status === next.status &&
+      existing.amount.value === next.amount.value &&
+      existing.completedAt === next.completedAt &&
+      (existing.fee?.effective ?? existing.fee?.quoted)?.value ===
+        (next.fee?.effective ?? next.fee?.quoted)?.value &&
+      existing.metadata?.payoutTxId === next.metadata?.payoutTxId
+    )
+  }
+
+  private transactionFor(
+    record: SwapOutRecord,
+    existing: Transaction | null,
+  ): Transaction {
+    const paid = record.payments.filter((payment) => payment.status === 'paid')
+    const fixedFee = record.sendAmount - record.receiveAmount
+    const quoted =
+      fixedFee +
+      record.payments.reduce((sum, payment) => sum + payment.feeReserve, 0)
+    const status: TransactionStatus =
+      record.stage === 'completed'
+        ? 'settled'
+        : isPayoutStageTerminal(record.stage)
+          ? 'failed'
+          : 'pending'
+    const paidFees = paid.reduce((sum, payment) => sum + (payment.feePaid ?? 0), 0)
+    const amount =
+      status === 'failed'
+        ? paid.reduce((sum, payment) => sum + payment.amount, 0)
+        : record.receiveAmount
+    const effective = record.stage === 'completed' ? fixedFee + paidFees : paidFees
+    const metadata: Record<string, unknown> = {
+      sendAmount: record.sendAmount,
+      receiveAmount: record.receiveAmount,
+      destination: record.destination,
+      identifier: record.identifier,
+      offerId: record.offerId,
+    }
+    if (record.payoutTxId !== null) metadata.payoutTxId = record.payoutTxId
+    if (record.failureReason !== null) metadata.failureReason = record.failureReason
+    const transaction: Transaction = {
+      id: record.id,
+      direction: 'send',
+      method: 'swap-out',
+      protocol: 'swap-out',
+      amount: sat(amount),
+      accountId: record.mintUrl,
+      status,
+      createdAt: record.createdAt,
+      fee:
+        status === 'pending'
+          ? { quoted: sat(quoted) }
+          : { quoted: sat(quoted), effective: sat(effective) },
+      metadata,
+    }
+    return status === 'pending'
+      ? transaction
+      : { ...transaction, completedAt: this.completedAt(record, existing) }
+  }
+
+  private completedAt(record: SwapOutRecord, existing: Transaction | null): number {
+    if (existing !== null && existing.status !== 'pending' && existing.completedAt !== undefined) {
+      return existing.completedAt
+    }
+    return record.updatedAt
   }
 
   private pruneQuotes(): void {

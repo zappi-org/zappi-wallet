@@ -336,6 +336,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     config: swapOutConfig,
     routePaymentOperator,
     eventBus,
+    txRepo,
   });
   swapOutWatcher = new SwapOutWatcher({
     service: swapOut.service,
