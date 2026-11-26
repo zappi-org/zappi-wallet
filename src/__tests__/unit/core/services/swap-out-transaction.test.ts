@@ -255,6 +255,30 @@ describe('isRecorded', () => {
     expect(isRecorded(makeExisting(), next)).toBe(true)
   })
 
+  it('is true when a settled record has only a quoted fee equal to the next effective fee', () => {
+    const record = makeRecord({
+      stage: 'completed',
+      payments: TWO_PAYMENTS,
+      payoutTxId: 'txid-1',
+    })
+    const next = transactionFor(record, makeExisting())
+    const existing = makeExisting({ fee: { quoted: sat(1085) } })
+    expect(existing.fee?.quoted?.value).toBe(next.fee?.effective?.value)
+    expect(isRecorded(existing, next)).toBe(true)
+  })
+
+  it('is false when a settled record has only a quoted fee that differs from the next effective fee', () => {
+    const record = makeRecord({
+      stage: 'completed',
+      payments: TWO_PAYMENTS,
+      payoutTxId: 'txid-1',
+    })
+    const next = transactionFor(record, makeExisting())
+    const existing = makeExisting({ fee: { quoted: sat(1084) } })
+    expect(existing.fee?.quoted?.value).not.toBe(next.fee?.effective?.value)
+    expect(isRecorded(existing, next)).toBe(false)
+  })
+
   it.each([
     { label: 'status', patch: { status: 'failed' as const } },
     { label: 'amount', patch: { amount: sat(1) } },
